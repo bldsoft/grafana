@@ -25,7 +25,7 @@ const MAX_DEPTH = 2;
 export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
   const { chrome } = useGrafana();
   const state = chrome.useState();
-  const menuIsDocked = state.megaMenuDocked;
+  const menuIsOpen = state.megaMenuOpen
   const location = useLocation();
   const FeatureHighlightWrapper = link.highlightText ? FeatureHighlight : React.Fragment;
   const hasActiveChild = hasChildMatch(link, activeItem);
@@ -37,14 +37,14 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
   const showExpandButton = level < MAX_DEPTH && Boolean(linkHasChildren(link) || link.emptyMessage);
   const item = useRef<HTMLLIElement>(null);
 
-  const styles = useStyles2(getStyles);
+  const styles = useStyles2(getStyles, state.megaMenuOpen);
 
   // expand parent sections if child is active
   useEffect(() => {
     if (hasActiveChild) {
       setSectionExpanded(true);
     }
-  }, [hasActiveChild, location, menuIsDocked, setSectionExpanded]);
+  }, [hasActiveChild, location, menuIsOpen, setSectionExpanded]);
 
   // scroll active element into center if it's offscreen
   useEffect(() => {
@@ -72,29 +72,22 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
   }
 
   return (
-    <li ref={item} className={styles.listItem}>
+    <li ref={item} className={cx(styles.listItem, {
+      [styles.jcC]: !state.megaMenuOpen
+    })}>
       <div
         className={cx(styles.menuItem, {
           [styles.menuItemWithIcon]: Boolean(level === 0 && iconElement),
+          [styles.containerActive]: isActive,
+          [styles.collapsedMenu]: !state.megaMenuOpen,
         })}
       >
         {level !== 0 && <Indent level={level === MAX_DEPTH ? level - 1 : level} spacing={3} />}
         {level === MAX_DEPTH && <div className={styles.itemConnector} />}
-        <div className={styles.collapseButtonWrapper}>
-          {showExpandButton && (
-            <IconButton
-              aria-label={`${sectionExpanded ? 'Collapse' : 'Expand'} section ${link.text}`}
-              className={styles.collapseButton}
-              onClick={() => setSectionExpanded(!sectionExpanded)}
-              name={sectionExpanded ? 'angle-down' : 'angle-right'}
-              size="md"
-              variant="secondary"
-            />
-          )}
-        </div>
         <div className={styles.collapsibleSectionWrapper}>
           <MegaMenuItemText
             isActive={isActive}
+            megaMenuClose={!state.megaMenuOpen}
             onClick={() => {
               link.onClick?.();
               onClick?.();
@@ -113,6 +106,20 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
             </div>
           </MegaMenuItemText>
         </div>
+        {state.megaMenuOpen && (
+          <div className={styles.collapseButtonWrapper}>
+            {showExpandButton && (
+              <IconButton
+                aria-label={`${sectionExpanded ? 'Collapse' : 'Expand'} section ${link.text}`}
+                className={styles.collapseButton}
+                onClick={() => setSectionExpanded(!sectionExpanded)}
+                name="angle-down"
+                size="md"
+                variant="secondary"
+              />
+            )}
+          </div>
+        )}
       </div>
       {showExpandButton && sectionExpanded && (
         <ul className={styles.children}>
@@ -139,7 +146,7 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
   );
 }
 
-const getStyles = (theme: GrafanaTheme2) => ({
+const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
   icon: css({
     width: theme.spacing(3),
   }),
@@ -151,6 +158,10 @@ const getStyles = (theme: GrafanaTheme2) => ({
     flex: 1,
     maxWidth: '100%',
   }),
+  jcC: css({
+    display: 'flex',
+    justifyContent: 'center',
+  }),
   menuItem: css({
     display: 'flex',
     alignItems: 'center',
@@ -158,6 +169,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     height: theme.spacing(4),
     paddingLeft: theme.spacing(0.5),
     position: 'relative',
+    width: '100%',
   }),
   menuItemWithIcon: css({
     paddingLeft: theme.spacing(0),
@@ -184,6 +196,18 @@ const getStyles = (theme: GrafanaTheme2) => ({
   collapseButton: css({
     margin: 0,
   }),
+  containerActive: css({
+    backgroundColor: theme.colors.menu.active,
+    borderTopRightRadius: 10,
+    borderTopLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    borderBottomLeftRadius: 10,
+    position: 'relative',
+  }),
+  collapsedMenu: css({
+    height: 86,
+    width: 86
+  }),
   collapsibleSectionWrapper: css({
     alignItems: 'center',
     display: 'flex',
@@ -193,13 +217,14 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   labelWrapper: css({
     display: 'flex',
+    flexDirection: megaMenuOpen ? 'row' : 'column',
     alignItems: 'center',
     gap: theme.spacing(2),
     minWidth: 0,
-    paddingLeft: theme.spacing(1),
+    paddingLeft: megaMenuOpen ? theme.spacing(1) : 0,
   }),
   labelWrapperWithIcon: css({
-    paddingLeft: theme.spacing(0.5),
+    paddingLeft: megaMenuOpen ? theme.spacing(0.5) : 0,
   }),
   hasActiveChild: css({
     color: theme.colors.text.primary,

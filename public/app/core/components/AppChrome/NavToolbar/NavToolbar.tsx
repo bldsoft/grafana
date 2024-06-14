@@ -3,8 +3,7 @@ import React from 'react';
 
 import { GrafanaTheme2, NavModelItem } from '@grafana/data';
 import { Components } from '@grafana/e2e-selectors';
-import { Icon, IconButton, ToolbarButton, useStyles2 } from '@grafana/ui';
-import { useGrafana } from 'app/core/context/GrafanaContext';
+import { Icon, ToolbarButton, useStyles2 } from '@grafana/ui';
 import { t } from 'app/core/internationalization';
 import { HOME_NAV_ID } from 'app/core/reducers/navModel';
 import { useSelector } from 'app/types';
@@ -19,7 +18,6 @@ export const TOGGLE_BUTTON_ID = 'mega-menu-toggle';
 
 export interface Props {
   onToggleSearchBar(): void;
-  onToggleMegaMenu(): void;
   onToggleKioskMode(): void;
   searchBarHidden?: boolean;
   sectionNav: NavModelItem;
@@ -28,37 +26,19 @@ export interface Props {
 }
 
 export function NavToolbar({
-  actions,
-  searchBarHidden,
-  sectionNav,
-  pageNav,
-  onToggleMegaMenu,
-  onToggleSearchBar,
-  onToggleKioskMode,
-}: Props) {
-  const { chrome } = useGrafana();
-  const state = chrome.useState();
+                             actions,
+                             searchBarHidden,
+                             sectionNav,
+                             pageNav,
+                             onToggleSearchBar,
+                             onToggleKioskMode,
+                           }: Props) {
   const homeNav = useSelector((state) => state.navIndex)[HOME_NAV_ID];
   const styles = useStyles2(getStyles);
   const breadcrumbs = buildBreadcrumbs(sectionNav, pageNav, homeNav);
 
   return (
     <div data-testid={Components.NavToolbar.container} className={styles.pageToolbar}>
-      <div className={styles.menuButton}>
-        <IconButton
-          id={TOGGLE_BUTTON_ID}
-          name="bars"
-          tooltip={
-            state.megaMenuOpen
-              ? t('navigation.toolbar.close-menu', 'Close menu')
-              : t('navigation.toolbar.open-menu', 'Open menu')
-          }
-          tooltipPlacement="bottom"
-          size="xl"
-          onClick={onToggleMegaMenu}
-          data-testid={Components.NavBar.Toggle.button}
-        />
-      </div>
       <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />
       <div className={styles.actions}>
         {actions}

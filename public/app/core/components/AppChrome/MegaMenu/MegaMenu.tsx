@@ -5,7 +5,7 @@ import { useLocation } from 'react-router-dom';
 
 import { GrafanaTheme2 } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
-import { CustomScrollbar, Icon, IconButton, useStyles2, Stack } from '@grafana/ui';
+import { CustomScrollbar, IconButton, useStyles2, Stack } from '@grafana/ui';
 import { useGrafana } from 'app/core/context/GrafanaContext';
 import { t } from 'app/core/internationalization';
 import { useSelector } from 'app/types';
@@ -13,7 +13,7 @@ import { useSelector } from 'app/types';
 import { MegaMenuItem } from './MegaMenuItem';
 import { enrichWithInteractionTracking, getActiveItem } from './utils';
 
-export const MENU_WIDTH = '300px';
+export const MENU_WIDTH = '240px';
 
 export interface Props extends DOMAttributes {
   onClose: () => void;
@@ -22,10 +22,10 @@ export interface Props extends DOMAttributes {
 export const MegaMenu = React.memo(
   forwardRef<HTMLDivElement, Props>(({ onClose, ...restProps }, ref) => {
     const navTree = useSelector((state) => state.navBarTree);
-    const styles = useStyles2(getStyles);
     const location = useLocation();
     const { chrome } = useGrafana();
     const state = chrome.useState();
+    const styles = useStyles2(getStyles, state.megaMenuOpen);
 
     // Remove profile + help from tree
     const navItems = navTree
@@ -34,56 +34,37 @@ export const MegaMenu = React.memo(
 
     const activeItem = getActiveItem(navItems, state.sectionNav.node, location.pathname);
 
-    const handleDockedMenu = () => {
-      chrome.setMegaMenuDocked(!state.megaMenuDocked);
-      if (state.megaMenuDocked) {
-        chrome.setMegaMenuOpen(false);
-      }
-
-      // refocus on undock/menu open button when changing state
-      setTimeout(() => {
-        document.getElementById(state.megaMenuDocked ? 'mega-menu-toggle' : 'dock-menu-button')?.focus();
-      });
+    const handleOpenMenu = () => {
+      chrome.setMegaMenuOpen(!state.megaMenuOpen);
     };
 
     return (
       <div data-testid={selectors.components.NavMenu.Menu} ref={ref} {...restProps}>
-        <div className={styles.mobileHeader}>
-          <Icon name="bars" size="xl" />
-          <IconButton
-            tooltip={t('navigation.megamenu.close', 'Close menu')}
-            name="times"
-            onClick={onClose}
-            size="xl"
-            variant="secondary"
-          />
-        </div>
         <nav className={styles.content}>
           <CustomScrollbar showScrollIndicators hideHorizontalTrack>
             <ul className={styles.itemList} aria-label={t('navigation.megamenu.list-label', 'Navigation')}>
               {navItems.map((link, index) => (
-                <Stack key={link.text} direction={index === 0 ? 'row-reverse' : 'row'} alignItems="center">
-                  {index === 0 && (
-                    <IconButton
-                      id="dock-menu-button"
-                      className={styles.dockMenuButton}
-                      tooltip={
-                        state.megaMenuDocked
-                          ? t('navigation.megamenu.undock', 'Undock menu')
-                          : t('navigation.megamenu.dock', 'Dock menu')
-                      }
-                      name="web-section-alt"
-                      onClick={handleDockedMenu}
-                      variant="secondary"
-                    />
-                  )}
+                <Stack key={link.text} alignItems="center">
                   <MegaMenuItem
                     link={link}
                     onClick={state.megaMenuDocked ? undefined : onClose}
                     activeItem={activeItem}
                   />
+
                 </Stack>
               ))}
+              <IconButton
+                id="dock-menu-button"
+                className={styles.dockMenuButton}
+                tooltip={
+                  state.megaMenuOpen
+                    ? t('navigation.megamenu.close', 'Open menu')
+                    : t('navigation.megamenu.open', 'Close menu')
+                }
+                name={state.megaMenuOpen ? 'angle-left' : 'angle-right'}
+                onClick={handleOpenMenu}
+                variant="secondary"
+              />
             </ul>
           </CustomScrollbar>
         </nav>
@@ -94,7 +75,7 @@ export const MegaMenu = React.memo(
 
 MegaMenu.displayName = 'MegaMenu';
 
-const getStyles = (theme: GrafanaTheme2) => ({
+const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
   content: css({
     display: 'flex',
     flexDirection: 'column',
@@ -118,15 +99,11 @@ const getStyles = (theme: GrafanaTheme2) => ({
     flexDirection: 'column',
     listStyleType: 'none',
     padding: theme.spacing(1, 1, 2, 1),
-    [theme.breakpoints.up('md')]: {
-      width: MENU_WIDTH,
-    },
+    width: megaMenuOpen ? 240 : 120
   }),
   dockMenuButton: css({
-    display: 'none',
-
-    [theme.breakpoints.up('xl')]: {
-      display: 'inline-flex',
-    },
+    display: 'inline-flex',
+    width: 'fit-content',
+    alignSelf: 'end'
   }),
 });

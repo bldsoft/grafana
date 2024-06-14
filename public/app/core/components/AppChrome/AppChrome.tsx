@@ -16,8 +16,8 @@ import { DOCKED_LOCAL_STORAGE_KEY, DOCKED_MENU_OPEN_LOCAL_STORAGE_KEY } from './
 import { MegaMenu } from './MegaMenu/MegaMenu';
 import { NavToolbar } from './NavToolbar/NavToolbar';
 import { ReturnToPrevious } from './ReturnToPrevious/ReturnToPrevious';
-import { TopSearchBar } from './TopBar/TopSearchBar';
-import { TOP_BAR_LEVEL_HEIGHT } from './types';
+// import { TopSearchBar } from './TopBar/TopSearchBar';
+// import { TOP_BAR_LEVEL_HEIGHT } from './types'
 
 export interface Props extends PropsWithChildren<{}> {}
 
@@ -26,7 +26,7 @@ export function AppChrome({ children }: Props) {
   const state = chrome.useState();
   const searchBarHidden = state.searchBarHidden || state.kioskMode === KioskMode.TV;
   const theme = useTheme2();
-  const styles = useStyles2(getStyles);
+  const styles = useStyles2(getStyles, state.megaMenuOpen);
 
   const dockedMenuBreakpoint = theme.breakpoints.values.xl;
   const dockedMenuLocalStorageState = store.getBool(DOCKED_LOCAL_STORAGE_KEY, true);
@@ -44,13 +44,8 @@ export function AppChrome({ children }: Props) {
 
   const contentClass = cx({
     [styles.content]: true,
-    [styles.contentNoSearchBar]: searchBarHidden,
     [styles.contentChromeless]: state.chromeless,
   });
-
-  const handleMegaMenu = () => {
-    chrome.setMegaMenuOpen(!state.megaMenuOpen);
-  };
 
   const { pathname, search } = locationService.getLocation();
   const url = pathname + search;
@@ -81,29 +76,27 @@ export function AppChrome({ children }: Props) {
         'main-view--chrome-hidden': state.chromeless,
       })}
     >
-      {!state.chromeless && (
-        <>
-          <LinkButton className={styles.skipLink} href="#pageContent">
-            Skip to main content
-          </LinkButton>
-          <header className={cx(styles.topNav)}>
-            {!searchBarHidden && <TopSearchBar />}
-            <NavToolbar
-              searchBarHidden={searchBarHidden}
-              sectionNav={state.sectionNav.node}
-              pageNav={state.pageNav}
-              actions={state.actions}
-              onToggleSearchBar={chrome.onToggleSearchBar}
-              onToggleMegaMenu={handleMegaMenu}
-              onToggleKioskMode={chrome.onToggleKioskMode}
-            />
-          </header>
-        </>
-      )}
+
       <div className={contentClass}>
+        <MegaMenu className={styles.dockedMegaMenu} onClose={() => chrome.setMegaMenuOpen(false)} />
         <div className={styles.panes}>
-          {!state.chromeless && state.megaMenuDocked && state.megaMenuOpen && (
-            <MegaMenu className={styles.dockedMegaMenu} onClose={() => chrome.setMegaMenuOpen(false)} />
+          {!state.chromeless && (
+            <>
+              <LinkButton className={styles.skipLink} href="#pageContent">
+                Skip to main content
+              </LinkButton>
+              <header className={cx(styles.topNav)}>
+                {/*{!searchBarHidden && <TopSearchBar />}*/}
+                <NavToolbar
+                  searchBarHidden={searchBarHidden}
+                  sectionNav={state.sectionNav.node}
+                  pageNav={state.pageNav}
+                  actions={state.actions}
+                  onToggleSearchBar={chrome.onToggleSearchBar}
+                  onToggleKioskMode={chrome.onToggleKioskMode}
+                />
+              </header>
+            </>
           )}
           <main className={styles.pageContainer} id="pageContent">
             {children}
@@ -119,17 +112,13 @@ export function AppChrome({ children }: Props) {
   );
 }
 
-const getStyles = (theme: GrafanaTheme2) => {
+const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
   return {
     content: css({
       display: 'flex',
-      flexDirection: 'column',
-      paddingTop: TOP_BAR_LEVEL_HEIGHT * 2,
+      flexDirection: 'row',
       flexGrow: 1,
       height: '100%',
-    }),
-    contentNoSearchBar: css({
-      paddingTop: TOP_BAR_LEVEL_HEIGHT,
     }),
     contentChromeless: css({
       paddingTop: 0,
@@ -137,25 +126,19 @@ const getStyles = (theme: GrafanaTheme2) => {
     dockedMegaMenu: css({
       background: theme.colors.background.primary,
       borderRight: `1px solid ${theme.colors.border.weak}`,
-      display: 'none',
-      zIndex: theme.zIndex.navbarFixed,
-
-      [theme.breakpoints.up('xl')]: {
-        display: 'block',
-      },
+      display: 'block',
+      width: megaMenuOpen ? 240 : 120,
     }),
     topNav: css({
       display: 'flex',
-      position: 'fixed',
-      zIndex: theme.zIndex.navbarFixed,
-      left: 0,
+      left: megaMenuOpen ? 240 : 120,
       right: 0,
       background: theme.colors.background.primary,
       flexDirection: 'column',
     }),
     panes: css({
       label: 'page-panes',
-      display: 'flex',
+      display: 'inline-grid',
       height: '100%',
       width: '100%',
       flexGrow: 1,
@@ -167,8 +150,6 @@ const getStyles = (theme: GrafanaTheme2) => {
     }),
     pageContainer: css({
       label: 'page-container',
-      display: 'flex',
-      flexDirection: 'column',
       flexGrow: 1,
       minHeight: 0,
       minWidth: 0,

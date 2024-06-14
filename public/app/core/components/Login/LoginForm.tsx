@@ -75,13 +75,14 @@ export const LoginForm = ({ children, onSubmit, isLoggingIn, passwordHint, login
 export const getStyles = (theme: GrafanaTheme2) => {
   return {
     wrapper: css({
-      width: '100%',
+      width: '90%',
       paddingBottom: theme.spacing(2),
     }),
 
     submitButton: css({
       justifyContent: 'center',
       width: '100%',
+      backgroundColor: '#3CB043',
     }),
   };
 };

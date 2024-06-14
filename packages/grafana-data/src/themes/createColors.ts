@@ -36,6 +36,10 @@ export interface ThemeColorsBase<TColor> {
     secondary: string;
   };
 
+  menu: {
+    active: string;
+  };
+
   border: {
     weak: string;
     medium: string;
@@ -145,6 +149,10 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     secondary: palette.gray15,
   };
 
+  menu = {
+    active: palette['accent-accent-1'],
+  };
+
   action = {
     hover: `rgba(${this.whiteBase}, 0.16)`,
     selected: `rgba(${this.whiteBase}, 0.12)`,
@@ -225,6 +233,10 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     canvas: palette.gray90,
     primary: palette.white,
     secondary: palette.gray100,
+  };
+
+  menu = {
+    active: palette['accent-accent-1'],
   };
 
   action = {

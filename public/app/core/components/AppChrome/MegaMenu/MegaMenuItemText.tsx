@@ -11,11 +11,12 @@ export interface Props {
   onClick?: () => void;
   target?: HTMLAnchorElement['target'];
   url: string;
+  megaMenuClose?: boolean;
 }
 
-export function MegaMenuItemText({ children, isActive, onClick, target, url }: Props) {
+export function MegaMenuItemText({ children, isActive, onClick, target, url, megaMenuClose }: Props) {
   const theme = useTheme2();
-  const styles = getStyles(theme, isActive);
+  const styles = getStyles(theme, isActive, megaMenuClose);
   const LinkComponent = !target && url.startsWith('/') ? Link : 'a';
 
   const linkContent = (
@@ -32,9 +33,7 @@ export function MegaMenuItemText({ children, isActive, onClick, target, url }: P
   return (
     <LinkComponent
       data-testid={selectors.components.NavMenu.item}
-      className={cx(styles.container, {
-        [styles.containerActive]: isActive,
-      })}
+      className={cx(styles.container)}
       href={url}
       target={target}
       onClick={onClick}
@@ -47,7 +46,7 @@ export function MegaMenuItemText({ children, isActive, onClick, target, url }: P
 
 MegaMenuItemText.displayName = 'MegaMenuItemText';
 
-const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive']) => ({
+const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuClose: Props['megaMenuClose']) => ({
   container: css({
     alignItems: 'center',
     color: isActive ? theme.colors.text.primary : theme.colors.text.secondary,
@@ -67,28 +66,12 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive']) => ({
       transition: 'none',
     },
   }),
-  containerActive: css({
-    backgroundColor: theme.colors.background.secondary,
-    borderTopRightRadius: theme.shape.radius.default,
-    borderBottomRightRadius: theme.shape.radius.default,
-    position: 'relative',
-
-    '&::before': {
-      backgroundImage: theme.colors.gradients.brandVertical,
-      borderRadius: theme.shape.radius.default,
-      content: '" "',
-      display: 'block',
-      height: '100%',
-      position: 'absolute',
-      transform: 'translateX(-50%)',
-      width: theme.spacing(0.5),
-    },
-  }),
   linkContent: css({
     alignItems: 'center',
     display: 'flex',
     gap: '0.5rem',
     height: '100%',
     width: '100%',
+    justifyContent: megaMenuClose ? 'center' : 'unset'
   }),
 });

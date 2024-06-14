@@ -1245,6 +1245,7 @@
     },
     "megamenu": {
       "close": "Close menu",
+      "open": "Open menu",
       "dock": "Dock menu",
       "list-label": "Navigation",
       "undock": "Undock menu"
