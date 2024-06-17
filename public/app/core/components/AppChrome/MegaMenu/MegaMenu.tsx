@@ -3,7 +3,7 @@ import { DOMAttributes } from '@react-types/shared';
 import React, { forwardRef } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import { GrafanaTheme2 } from '@grafana/data';
+import { GrafanaTheme2, locationUtil, textUtil } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
 import { CustomScrollbar, IconButton, useStyles2, Stack } from '@grafana/ui';
 import { useGrafana } from 'app/core/context/GrafanaContext';
@@ -11,7 +11,9 @@ import { t } from 'app/core/internationalization';
 import { useSelector } from 'app/types';
 
 import { MegaMenuItem } from './MegaMenuItem';
+import { Branding } from '../../Branding/Branding';
 import { enrichWithInteractionTracking, getActiveItem } from './utils';
+import { config } from '@grafana/runtime'
 
 export const MENU_WIDTH = '240px';
 
@@ -38,35 +40,42 @@ export const MegaMenu = React.memo(
       chrome.setMegaMenuOpen(!state.megaMenuOpen);
     };
 
+    let homeUrl = config.appSubUrl || '/';
+    if (!config.bootData.user.isSignedIn && !config.anonymousEnabled) {
+      homeUrl = textUtil.sanitizeUrl(locationUtil.getUrlForPartial(location, { forceLogin: 'true' }));
+    }
+
     return (
       <div data-testid={selectors.components.NavMenu.Menu} ref={ref} {...restProps}>
         <nav className={styles.content}>
           <CustomScrollbar showScrollIndicators hideHorizontalTrack>
+             <a className={styles.logo} href={homeUrl} title="Go to home">
+               <Branding.MenuLogo className={styles.img} menuOpen={state.megaMenuOpen}/>
+             </a>
             <ul className={styles.itemList} aria-label={t('navigation.megamenu.list-label', 'Navigation')}>
-              {navItems.map((link, index) => (
+              {navItems.map((link) => (
                 <Stack key={link.text} alignItems="center">
                   <MegaMenuItem
                     link={link}
                     onClick={state.megaMenuDocked ? undefined : onClose}
                     activeItem={activeItem}
                   />
-
                 </Stack>
               ))}
-              <IconButton
-                id="dock-menu-button"
-                className={styles.dockMenuButton}
-                tooltip={
-                  state.megaMenuOpen
-                    ? t('navigation.megamenu.close', 'Open menu')
-                    : t('navigation.megamenu.open', 'Close menu')
-                }
-                name={state.megaMenuOpen ? 'angle-left' : 'angle-right'}
-                onClick={handleOpenMenu}
-                variant="secondary"
-              />
             </ul>
           </CustomScrollbar>
+          <IconButton
+            id="dock-menu-button"
+            className={styles.dockMenuButton}
+            tooltip={
+              state.megaMenuOpen
+                ? t('navigation.megamenu.close', 'Open menu')
+                : t('navigation.megamenu.open', 'Close menu')
+            }
+            name={state.megaMenuOpen ? 'angle-left' : 'angle-right'}
+            onClick={handleOpenMenu}
+            variant="secondary"
+          />
         </nav>
       </div>
     );
@@ -79,7 +88,7 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
   content: css({
     display: 'flex',
     flexDirection: 'column',
-    height: '100%',
+    height: '99%',
     minHeight: 0,
     position: 'relative',
   }),
@@ -105,5 +114,15 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     display: 'inline-flex',
     width: 'fit-content',
     alignSelf: 'end'
+  }),
+  img: css({
+    height: megaMenuOpen ? 42 : 22,
+    width: megaMenuOpen ? 184 : 22
+  }),
+  logo: css({
+    marginTop: 30,
+    marginBottom: 22,
+    display: 'flex',
+    justifyContent: 'center'
   }),
 });

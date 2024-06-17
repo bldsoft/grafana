@@ -7,6 +7,7 @@ import { useTheme2 } from '@grafana/ui';
 export interface BrandComponentProps {
   className?: string;
   children?: JSX.Element | JSX.Element[];
+  menuOpen?: boolean;
 }
 
 export const LoginLogo: FC<BrandComponentProps & { logo?: string }> = ({ className, logo }) => {
@@ -42,8 +43,8 @@ const LoginBackground: FC<BrandComponentProps> = ({ className, children }) => {
   return <div className={cx(background, className)}>{children}</div>;
 };
 
-const MenuLogo: FC<BrandComponentProps> = ({ className }) => {
-  return <img className={className} src="public/img/analytix_icon.svg" alt="Analytix" />;
+const MenuLogo: FC<BrandComponentProps> = ({ className, menuOpen }) => {
+  return <img className={className} src={`public/img/analytix${menuOpen ? '' : '_min'}_icon.svg`} alt="Analytix" />;
 };
 
 const LoginBoxBackground = () => {
