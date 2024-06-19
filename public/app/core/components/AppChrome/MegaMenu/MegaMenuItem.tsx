@@ -78,7 +78,7 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
       <div
         className={cx(styles.menuItem, {
           [styles.menuItemWithIcon]: Boolean(level === 0 && iconElement),
-          [styles.containerActive]: isActive,
+          [styles.containerActive]: isActive || (!state.megaMenuOpen && hasActiveChild),
           [styles.collapsedMenu]: !state.megaMenuOpen,
         })}
       >
@@ -88,6 +88,8 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
           <MegaMenuItemText
             isActive={isActive}
             megaMenuClose={!state.megaMenuOpen}
+            activeItem={activeItem}
+            link={link}
             onClick={() => {
               link.onClick?.();
               onClick?.();
@@ -99,6 +101,7 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
               className={cx(styles.labelWrapper, {
                 [styles.hasActiveChild]: hasActiveChild,
                 [styles.labelWrapperWithIcon]: Boolean(level === 0 && iconElement),
+                [styles.jcC]: !state.megaMenuOpen
               })}
             >
               {level === 0 && iconElement && <FeatureHighlightWrapper>{iconElement}</FeatureHighlightWrapper>}
@@ -121,7 +124,7 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
           </div>
         )}
       </div>
-      {showExpandButton && sectionExpanded && (
+      {state.megaMenuOpen && showExpandButton && sectionExpanded && (
         <ul className={styles.children}>
           {linkHasChildren(link) ? (
             link.children
@@ -148,11 +151,11 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
 
 const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
   icon: css({
-    width: theme.spacing(3),
+    width: 21,
   }),
   img: css({
-    height: theme.spacing(2),
-    width: theme.spacing(2),
+    height: 21,
+    width: 21,
   }),
   listItem: css({
     flex: 1,
@@ -206,7 +209,8 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
   }),
   collapsedMenu: css({
     height: 86,
-    width: 86
+    width: 86,
+    padding: '18px 10px'
   }),
   collapsibleSectionWrapper: css({
     alignItems: 'center',

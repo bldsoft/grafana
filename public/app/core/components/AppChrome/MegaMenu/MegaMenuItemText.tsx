@@ -1,23 +1,37 @@
 import { css, cx } from '@emotion/css';
-import React from 'react';
+import React from 'react'
 
-import { GrafanaTheme2 } from '@grafana/data';
+import { GrafanaTheme2, NavModelItem } from '@grafana/data'
 import { selectors } from '@grafana/e2e-selectors';
 import { Icon, Link, useTheme2 } from '@grafana/ui';
+import { useGrafana } from '../../../context/GrafanaContext'
+import Popup from 'reactjs-popup'
 
 export interface Props {
   children: React.ReactNode;
+  activeItem?: NavModelItem;
   isActive?: boolean;
   onClick?: () => void;
   target?: HTMLAnchorElement['target'];
   url: string;
   megaMenuClose?: boolean;
+  link?: any
 }
 
-export function MegaMenuItemText({ children, isActive, onClick, target, url, megaMenuClose }: Props) {
+export function MegaMenuItemText({ children, isActive, activeItem, onClick, target, url, megaMenuClose, link }: Props) {
   const theme = useTheme2();
   const styles = getStyles(theme, isActive, megaMenuClose);
   const LinkComponent = !target && url.startsWith('/') ? Link : 'a';
+  const { chrome } = useGrafana();
+  const state = chrome.useState();
+
+  if (!state.megaMenuOpen) {
+
+  }
+  let links = [link]
+  if (link.children) {
+    links = links.concat(link.children.filter((c: any) => !c.hideFromTabs))
+  }
 
   const linkContent = (
     <div className={styles.linkContent}>
@@ -31,16 +45,49 @@ export function MegaMenuItemText({ children, isActive, onClick, target, url, meg
   );
 
   return (
-    <LinkComponent
-      data-testid={selectors.components.NavMenu.item}
-      className={cx(styles.container)}
-      href={url}
-      target={target}
-      onClick={onClick}
-      {...(isActive && { 'aria-current': 'page' })}
-    >
-      {linkContent}
-    </LinkComponent>
+    <>
+      {state.megaMenuOpen && <LinkComponent
+        data-testid={selectors.components.NavMenu.item}
+        className={cx(styles.container)}
+        href={url}
+        target={target}
+        onClick={onClick}
+        {...(isActive && { 'aria-current': 'page' })}
+      >
+        {linkContent}
+      </LinkComponent>}
+      {!state.megaMenuOpen && <div
+        data-testid={selectors.components.NavMenu.item}
+        className={cx(styles.container)}
+        {...(isActive && { 'aria-current': 'page' })}
+      >
+        <Popup
+          trigger={linkContent}
+          position="right top"
+          on="click"
+          closeOnDocumentClick
+          mouseLeaveDelay={0}
+          mouseEnterDelay={0}
+          contentStyle={{ padding: '0 0 0 24px', border: 'none' }}
+          arrow={false}
+        >
+          <div className={cx(styles.menu)}>
+            {links.map(link =>
+              <LinkComponent
+                key={link.id}
+                className={cx(styles.menuItem, {
+                  [styles.activeMenuItem]: link === activeItem
+                })}
+                href={link.url}
+                target={link.target}
+              >
+                {link.text}
+              </LinkComponent>)}
+          </div>
+        </Popup>
+      </div>
+      }
+    </>
   );
 }
 
@@ -53,16 +100,14 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuCl
     height: '100%',
     position: 'relative',
     width: '100%',
+    cursor: 'pointer',
 
     '&:hover, &:focus-visible': {
       color: theme.colors.text.primary,
-      textDecoration: 'underline',
     },
 
     '&:focus-visible': {
       boxShadow: 'none',
-      outline: `2px solid ${theme.colors.primary.main}`,
-      outlineOffset: '-2px',
       transition: 'none',
     },
   }),
@@ -72,6 +117,26 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuCl
     gap: '0.5rem',
     height: '100%',
     width: '100%',
-    justifyContent: megaMenuClose ? 'center' : 'unset'
+    justifyContent: megaMenuClose ? 'center' : 'unset',
   }),
+  activeMenuItem: css({
+    backgroundColor: `${theme.colors.menu.active} !important`,
+  }),
+  menu: css({
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: '#262626',
+    padding: 8,
+    color: '#CCCCCC',
+    fontSize: 16,
+    borderRadius: 8
+  }),
+  menuItem: css({
+    padding: '10px 12px',
+    borderRadius: 8,
+    '&:hover': {
+      color: '#FFFFFF',
+      backgroundColor: '#4D4D4D',
+    },
+  })
 });
