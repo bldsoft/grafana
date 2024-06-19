@@ -25,6 +25,8 @@ export function MegaMenuItemText({ children, isActive, activeItem, onClick, targ
   const { chrome } = useGrafana();
   const state = chrome.useState();
 
+  console.log(link)
+
   if (!state.megaMenuOpen) {
 
   }
@@ -46,7 +48,7 @@ export function MegaMenuItemText({ children, isActive, activeItem, onClick, targ
 
   return (
     <>
-      {state.megaMenuOpen && <LinkComponent
+      {(state.megaMenuOpen || !link.children) && <LinkComponent
         data-testid={selectors.components.NavMenu.item}
         className={cx(styles.container)}
         href={url}
@@ -56,7 +58,7 @@ export function MegaMenuItemText({ children, isActive, activeItem, onClick, targ
       >
         {linkContent}
       </LinkComponent>}
-      {!state.megaMenuOpen && <div
+      {!state.megaMenuOpen && link.children && <div
         data-testid={selectors.components.NavMenu.item}
         className={cx(styles.container)}
         {...(isActive && { 'aria-current': 'page' })}
@@ -64,11 +66,11 @@ export function MegaMenuItemText({ children, isActive, activeItem, onClick, targ
         <Popup
           trigger={linkContent}
           position="right top"
-          on="click"
+          on="hover"
           closeOnDocumentClick
           mouseLeaveDelay={0}
           mouseEnterDelay={0}
-          contentStyle={{ padding: '0 0 0 24px', border: 'none' }}
+          contentStyle={{ padding: '0 0 0 34px', border: 'none', marginTop: '-18px' }}
           arrow={false}
         >
           <div className={cx(styles.menu)}>
@@ -96,15 +98,11 @@ MegaMenuItemText.displayName = 'MegaMenuItemText';
 const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuClose: Props['megaMenuClose']) => ({
   container: css({
     alignItems: 'center',
-    color: isActive ? theme.colors.text.primary : theme.colors.text.secondary,
+    color: theme.colors.menu.fontColor,
     height: '100%',
     position: 'relative',
     width: '100%',
     cursor: 'pointer',
-
-    '&:hover, &:focus-visible': {
-      color: theme.colors.text.primary,
-    },
 
     '&:focus-visible': {
       boxShadow: 'none',
@@ -120,7 +118,10 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuCl
     justifyContent: megaMenuClose ? 'center' : 'unset',
   }),
   activeMenuItem: css({
-    backgroundColor: `${theme.colors.menu.active} !important`,
+    backgroundColor: theme.colors.menu.active,
+    '&:hover': {
+      backgroundColor: theme.colors.menu.selectedHovered,
+    },
   }),
   menu: css({
     display: 'flex',
@@ -134,9 +135,15 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuCl
   menuItem: css({
     padding: '10px 12px',
     borderRadius: 8,
+    margin: '3px 0',
+
     '&:hover': {
-      color: '#FFFFFF',
-      backgroundColor: '#4D4D4D',
+      backgroundColor: theme.colors.menu.hovered,
+    },
+
+    '&:focus-visible': {
+      border: 'none',
+      outline: 'none',
     },
   })
 });

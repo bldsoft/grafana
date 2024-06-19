@@ -95,9 +95,10 @@ const getTextStyles = (
       fontWeight: customWeight(weight, theme),
     },
     truncate && {
+      width: '100%',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
-      whiteSpace: 'nowrap',
+      whiteSpace: 'nowrap'
     },
     italic && {
       fontStyle: 'italic',

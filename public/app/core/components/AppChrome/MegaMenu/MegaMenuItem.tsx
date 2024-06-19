@@ -105,7 +105,7 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
               })}
             >
               {level === 0 && iconElement && <FeatureHighlightWrapper>{iconElement}</FeatureHighlightWrapper>}
-              <Text truncate>{link.text}</Text>
+              <Text truncate color={'primary'} textAlignment={state.megaMenuOpen ? 'left' : 'center'}>{link.text}</Text>
             </div>
           </MegaMenuItemText>
         </div>
@@ -173,6 +173,12 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     paddingLeft: theme.spacing(0.5),
     position: 'relative',
     width: '100%',
+    borderRadius: 10,
+    margin: '3px 0',
+
+    '&:hover': {
+      backgroundColor: theme.colors.menu.hovered
+    }
   }),
   menuItemWithIcon: css({
     paddingLeft: theme.spacing(0),
@@ -201,16 +207,16 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
   }),
   containerActive: css({
     backgroundColor: theme.colors.menu.active,
-    borderTopRightRadius: 10,
-    borderTopLeftRadius: 10,
-    borderBottomRightRadius: 10,
-    borderBottomLeftRadius: 10,
-    position: 'relative',
+
+    '&:hover': {
+      background: theme.colors.menu.selectedHovered,
+    },
   }),
   collapsedMenu: css({
     height: 86,
     width: 86,
-    padding: '18px 10px'
+    padding: '18px 10px',
+    position: 'relative',
   }),
   collapsibleSectionWrapper: css({
     alignItems: 'center',
@@ -224,7 +230,7 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     flexDirection: megaMenuOpen ? 'row' : 'column',
     alignItems: 'center',
     gap: theme.spacing(2),
-    minWidth: 0,
+    width: '100%',
     paddingLeft: megaMenuOpen ? theme.spacing(1) : 0,
   }),
   labelWrapperWithIcon: css({

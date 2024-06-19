@@ -102,7 +102,7 @@ $page-bg: #111217;
 $dashboard-bg: #111217;
 
 $text-color-strong: #FFFFFF;
-$text-color: rgb(204, 204, 220);
+$text-color: #FFFFFF;
 $text-color-semi-weak: rgba(204, 204, 220, 0.65);
 $text-color-weak: rgba(204, 204, 220, 0.65);
 $text-color-faint: rgba(204, 204, 220, 0.6);
@@ -118,14 +118,14 @@ $brand-gradient-vertical: linear-gradient(0.01deg, #F55F3E 0.01%, #FF8833 99.99%
 
 // Links
 // -------------------------
-$link-color: rgb(204, 204, 220);
+$link-color: #FFFFFF;
 $link-color-disabled: rgba(204, 204, 220, 0.6);
 $link-hover-color: #FFFFFF;
 $external-link-color: #6E9FFF;
 
 // Typography
 // -------------------------
-$headings-color: rgb(204, 204, 220);
+$headings-color: #FFFFFF;
 $abbr-border-color: $gray-2 !default;
 $text-muted: $text-color-weak;
 
@@ -215,7 +215,7 @@ $btn-active-box-shadow: 0px 0px 4px rgba(255, 120, 10, 0.5);
 $input-bg: #111217;
 $input-bg-disabled: rgba(204, 204, 220, 0.04);
 
-$input-color: rgb(204, 204, 220);
+$input-color: #FFFFFF;
 $input-border-color: rgba(204, 204, 220, 0.20);
 $input-box-shadow: none;
 $input-border-focus: #6E9FFF;
@@ -262,7 +262,7 @@ $side-menu-border: none;
 $side-menu-item-hover-bg: #22252b;
 $side-menu-shadow: 0 0 30px #111;
 $side-menu-icon-color: #9fa7b3;
-$side-menu-header-color: rgb(204, 204, 220);
+$side-menu-header-color: #FFFFFF;
 
 // Menu dropdowns
 // -------------------------
@@ -293,13 +293,13 @@ $tooltipExternalLinkColor: $external-link-color;
 $graph-tooltip-bg: $dark-1;
 
 $tooltipBackground: #22252b;
-$tooltipColor: rgb(204, 204, 220);
+$tooltipColor: #FFFFFF;
 $tooltipArrowColor: #22252b;
 $tooltipBackgroundError: #D10E5C;
 $tooltipShadow: 0px 4px 8px rgba(1, 4, 9, 0.75);
 
 $popover-bg: #181b1f;
-$popover-color: rgb(204, 204, 220);
+$popover-color: #FFFFFF;
 $popover-border-color: rgba(204, 204, 220, 0.12);
 $popover-header-bg: #22252b;
 $popover-shadow: 0px 8px 24px rgb(1, 4, 9);
@@ -344,7 +344,7 @@ $diff-group-bg: #22252b;
 $diff-arrow-color: $white;
 
 $diff-json-bg: #22252b;
-$diff-json-fg: rgb(204, 204, 220);
+$diff-json-fg: #FFFFFF;
 
 $diff-json-added: $blue-shade;
 $diff-json-deleted: $red-shade;

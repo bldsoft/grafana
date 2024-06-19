@@ -12,8 +12,7 @@ import React, {
 import { GrafanaTheme2, LinkTarget } from '@grafana/data';
 
 import { useStyles2 } from '../../themes';
-import { getFocusStyles } from '../../themes/mixins';
-import { IconName } from '../../types/icon';
+import { IconName } from '@grafana/data';
 import { Icon } from '../Icon/Icon';
 import { Stack } from '../Layout/Stack/Stack';
 
@@ -228,14 +227,6 @@ const getStyles = (theme: GrafanaTheme2) => {
       border: 'none',
       width: '100%',
       position: 'relative',
-
-      '&:hover, &:focus-visible': {
-        background: theme.colors.action.hover,
-        color: theme.colors.text.primary,
-        textDecoration: 'none',
-      },
-
-      '&:focus-visible': getFocusStyles(theme),
     }),
     active: css({
       background: theme.colors.action.hover,
@@ -294,6 +285,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       marginLeft: theme.spacing(3),
     }),
     ellipsis: css({
+      width: '100%',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',

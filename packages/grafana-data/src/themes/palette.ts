@@ -42,5 +42,9 @@ export const palette = {
   orangeLightMain: '#FF9900',
   orangeLightText: '#B5510D',
 
-  'accent-accent-1': '#3CB043',
+  'accent_accent-1': '#3CB043',
+  'accent_accent-1-pressed': '#34983A',
+  'accent_accent-1-hovered': '#41BE48',
+
+  'text-icon_const-primary': '#FFFFFF',
 };

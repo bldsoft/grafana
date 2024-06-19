@@ -1,8 +1,8 @@
-import { merge } from 'lodash';
+import { merge } from 'lodash'
 
-import { alpha, darken, emphasize, getContrastRatio, lighten } from './colorManipulator';
-import { palette } from './palette';
-import { DeepPartial, ThemeRichColor } from './types';
+import { alpha, darken, emphasize, getContrastRatio, lighten } from './colorManipulator'
+import { palette } from './palette'
+import { DeepPartial, ThemeRichColor } from './types'
 
 /** @internal */
 export type ThemeColorsMode = 'light' | 'dark';
@@ -38,6 +38,10 @@ export interface ThemeColorsBase<TColor> {
 
   menu: {
     active: string;
+    hovered: string;
+    pressed: string;
+    fontColor: string;
+    selectedHovered: string;
   };
 
   border: {
@@ -104,7 +108,7 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   };
 
   text = {
-    primary: `rgb(${this.whiteBase})`,
+    primary: palette['text-icon_const-primary'],
     secondary: `rgba(${this.whiteBase}, 0.65)`,
     disabled: `rgba(${this.whiteBase}, 0.6)`,
     link: palette.blueDarkText,
@@ -150,7 +154,11 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   };
 
   menu = {
-    active: palette['accent-accent-1'],
+    active: palette['accent_accent-1'],
+    hovered: palette['accent_accent-1'],
+    selectedHovered: palette['accent_accent-1-hovered'],
+    pressed: palette['accent_accent-1-pressed'],
+    fontColor: palette['text-icon_const-primary']
   };
 
   action = {
@@ -186,7 +194,7 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   };
 
   text = {
-    primary: `rgba(${this.blackBase}, 1)`,
+    primary: palette['text-icon_const-primary'],
     secondary: `rgba(${this.blackBase}, 0.75)`,
     disabled: `rgba(${this.blackBase}, 0.64)`,
     link: this.primary.text,
@@ -236,7 +244,11 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   };
 
   menu = {
-    active: palette['accent-accent-1'],
+    active: palette['accent_accent-1'],
+    hovered: palette['accent_accent-1'],
+    selectedHovered: palette['accent_accent-1-hovered'],
+    pressed: palette['accent_accent-1-pressed'],
+    fontColor: palette['text-icon_const-primary'],
   };
 
   action = {
@@ -278,12 +290,10 @@ export function createColors(colors: ThemeColorsInput): ThemeColors {
   } = colors;
 
   function getContrastText(background: string, threshold: number = contrastThreshold) {
-    const contrastText =
-      getContrastRatio(dark.text.maxContrast, background, base.background.primary) >= threshold
-        ? dark.text.maxContrast
-        : light.text.maxContrast;
     // todo, need color framework
-    return contrastText;
+    return getContrastRatio(dark.text.maxContrast, background, base.background.primary) >= threshold
+      ? dark.text.maxContrast
+      : light.text.maxContrast;
   }
 
   const getRichColor = ({ color, name }: GetRichColorProps): ThemeRichColor => {
