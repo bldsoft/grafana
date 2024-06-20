@@ -25,11 +25,6 @@ export function MegaMenuItemText({ children, isActive, activeItem, onClick, targ
   const { chrome } = useGrafana();
   const state = chrome.useState();
 
-  console.log(link)
-
-  if (!state.megaMenuOpen) {
-
-  }
   let links = [link]
   if (link.children) {
     links = links.concat(link.children.filter((c: any) => !c.hideFromTabs))
@@ -98,7 +93,7 @@ MegaMenuItemText.displayName = 'MegaMenuItemText';
 const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuClose: Props['megaMenuClose']) => ({
   container: css({
     alignItems: 'center',
-    color: theme.colors.menu.fontColor,
+    color: 'inherit',
     height: '100%',
     position: 'relative',
     width: '100%',

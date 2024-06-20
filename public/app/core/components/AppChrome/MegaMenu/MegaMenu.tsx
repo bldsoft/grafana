@@ -5,15 +5,16 @@ import { useLocation } from 'react-router-dom';
 
 import { GrafanaTheme2, locationUtil, textUtil } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
+import { config } from '@grafana/runtime'
 import { CustomScrollbar, IconButton, useStyles2, Stack } from '@grafana/ui';
 import { useGrafana } from 'app/core/context/GrafanaContext';
 import { t } from 'app/core/internationalization';
 import { useSelector } from 'app/types';
 
-import { MegaMenuItem } from './MegaMenuItem';
 import { Branding } from '../../Branding/Branding';
+
+import { MegaMenuItem } from './MegaMenuItem';
 import { enrichWithInteractionTracking, getActiveItem } from './utils';
-import { config } from '@grafana/runtime'
 
 export const MENU_WIDTH = '240px';
 
@@ -116,8 +117,8 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     alignSelf: 'end'
   }),
   img: css({
-    height: megaMenuOpen ? 42 : 22,
-    width: megaMenuOpen ? 184 : 22
+    height: megaMenuOpen ? 42 : 23,
+    width: megaMenuOpen ? 184 : 25
   }),
   logo: css({
     marginTop: 30,

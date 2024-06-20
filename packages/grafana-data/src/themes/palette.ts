@@ -47,4 +47,6 @@ export const palette = {
   'accent_accent-1-hovered': '#41BE48',
 
   'text-icon_const-primary': '#FFFFFF',
+  'text-icon_const-quaternary': '#CCCCCC',
+  'text-icon_secondary': '#E6E6E6',
 };

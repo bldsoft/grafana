@@ -105,7 +105,7 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
               })}
             >
               {level === 0 && iconElement && <FeatureHighlightWrapper>{iconElement}</FeatureHighlightWrapper>}
-              <Text truncate color={'primary'} textAlignment={state.megaMenuOpen ? 'left' : 'center'}>{link.text}</Text>
+              <Text truncate textAlignment={state.megaMenuOpen ? 'left' : 'center'}>{link.text}</Text>
             </div>
           </MegaMenuItemText>
         </div>
@@ -152,6 +152,7 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
 const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
   icon: css({
     width: 21,
+    color: 'inherit'
   }),
   img: css({
     height: 21,
@@ -175,9 +176,11 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     width: '100%',
     borderRadius: 10,
     margin: '3px 0',
+    color: theme.colors.menu.fontColor,
 
     '&:hover': {
-      backgroundColor: theme.colors.menu.hovered
+      backgroundColor: theme.colors.menu.hovered,
+      color: theme.colors.menu.fontColorHovered
     }
   }),
   menuItemWithIcon: css({
@@ -204,8 +207,10 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
   }),
   collapseButton: css({
     margin: 0,
+    color: 'inherit'
   }),
   containerActive: css({
+    color: theme.colors.menu.fontColorHovered,
     backgroundColor: theme.colors.menu.active,
 
     '&:hover': {

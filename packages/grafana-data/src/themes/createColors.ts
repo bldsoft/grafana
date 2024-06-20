@@ -23,6 +23,7 @@ export interface ThemeColorsBase<TColor> {
     secondary: string;
     disabled: string;
     link: string;
+    quaternary: string;
     /** Used for auto white or dark text on colored backgrounds */
     maxContrast: string;
   };
@@ -42,6 +43,7 @@ export interface ThemeColorsBase<TColor> {
     pressed: string;
     fontColor: string;
     selectedHovered: string;
+    fontColorHovered: string;
   };
 
   border: {
@@ -109,7 +111,8 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
 
   text = {
     primary: palette['text-icon_const-primary'],
-    secondary: `rgba(${this.whiteBase}, 0.65)`,
+    secondary: palette['text-icon_secondary'],
+    quaternary: palette['text-icon_const-quaternary'],
     disabled: `rgba(${this.whiteBase}, 0.6)`,
     link: palette.blueDarkText,
     maxContrast: palette.white,
@@ -158,7 +161,8 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     hovered: palette['accent_accent-1'],
     selectedHovered: palette['accent_accent-1-hovered'],
     pressed: palette['accent_accent-1-pressed'],
-    fontColor: palette['text-icon_const-primary']
+    fontColor: palette['text-icon_const-quaternary'],
+    fontColorHovered: palette['text-icon_const-primary'],
   };
 
   action = {
@@ -195,7 +199,8 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
 
   text = {
     primary: palette['text-icon_const-primary'],
-    secondary: `rgba(${this.blackBase}, 0.75)`,
+    secondary: palette['text-icon_secondary'],
+    quaternary: palette['text-icon_const-quaternary'],
     disabled: `rgba(${this.blackBase}, 0.64)`,
     link: this.primary.text,
     maxContrast: palette.black,
@@ -248,7 +253,8 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     hovered: palette['accent_accent-1'],
     selectedHovered: palette['accent_accent-1-hovered'],
     pressed: palette['accent_accent-1-pressed'],
-    fontColor: palette['text-icon_const-primary'],
+    fontColor: palette['text-icon_const-quaternary'],
+    fontColorHovered: palette['text-icon_const-primary'],
   };
 
   action = {
