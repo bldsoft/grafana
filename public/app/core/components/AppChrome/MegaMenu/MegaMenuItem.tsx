@@ -116,7 +116,7 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
                 aria-label={`${sectionExpanded ? 'Collapse' : 'Expand'} section ${link.text}`}
                 className={styles.collapseButton}
                 onClick={() => setSectionExpanded(!sectionExpanded)}
-                name="angle-down"
+                name={sectionExpanded ? 'angle-up' : 'angle-down'}
                 size="md"
                 variant="secondary"
               />
