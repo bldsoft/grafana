@@ -38,20 +38,20 @@ export function getFontStyles(theme: GrafanaTheme2) {
     it may take less space than multiple static weights.
     */
       '@font-face': {
-        fontFamily: 'Inter',
+        fontFamily: 'Product Sans',
         fontStyle: 'normal',
         fontWeight: 400,
         fontDisplay: 'swap',
-        src: "url('./public/fonts/inter/Inter-Regular.woff2') format('woff2')",
+        src: "url('./public/fonts/productSans/pxifypQkot1TnFhsFMOfGShVEu_vWEpkr1ap.woff2') format('woff2')",
       },
     },
     {
       '@font-face': {
-        fontFamily: 'Inter',
+        fontFamily: 'Product Sans',
         fontStyle: 'normal',
         fontWeight: 500,
         fontDisplay: 'swap',
-        src: "url('./public/fonts/inter/Inter-Medium.woff2') format('woff2')",
+        src: "url('./public/fonts/productSans/pxifypQkot1TnFhsFMOfGShVEu_vWEpkr1ap.woff2') format('woff2')",
       },
     },
   ]);

@@ -1,13 +1,11 @@
-import { css } from '@emotion/css';
+import { css, cx } from '@emotion/css';
 import React, { useMemo, useState } from 'react';
 
 import { GrafanaTheme2 } from '@grafana/data';
+import { selectors } from '@grafana/e2e-selectors'
 import { reportInteraction } from '@grafana/runtime';
-import { Menu, Dropdown, useStyles2, useTheme2, ToolbarButton } from '@grafana/ui';
-import { useMediaQueryChange } from 'app/core/hooks/useMediaQueryChange';
+import { Menu, Dropdown, useStyles2, Button, Icon } from '@grafana/ui'
 import { useSelector } from 'app/types';
-
-import { NavToolbarSeparator } from '../NavToolbar/NavToolbarSeparator';
 
 import { findCreateActions } from './utils';
 
@@ -15,24 +13,15 @@ export interface Props {}
 
 export const QuickAdd = ({}: Props) => {
   const styles = useStyles2(getStyles);
-  const theme = useTheme2();
+  // const theme = useTheme2();
   const navBarTree = useSelector((state) => state.navBarTree);
-  const breakpoint = theme.breakpoints.values.sm;
 
   const [isOpen, setIsOpen] = useState(false);
-  const [isSmallScreen, setIsSmallScreen] = useState(!window.matchMedia(`(min-width: ${breakpoint}px)`).matches);
   const createActions = useMemo(() => findCreateActions(navBarTree), [navBarTree]);
-
-  useMediaQueryChange({
-    breakpoint,
-    onChange: (e) => {
-      setIsSmallScreen(!e.matches);
-    },
-  });
 
   const MenuActions = () => {
     return (
-      <Menu>
+      <Menu className={cx(styles.menu)}>
         {createActions.map((createAction, index) => (
           <Menu.Item
             key={index}
@@ -48,19 +37,27 @@ export const QuickAdd = ({}: Props) => {
   return createActions.length > 0 ? (
     <>
       <Dropdown overlay={MenuActions} placement="bottom-end" onVisibleChange={setIsOpen}>
-        <ToolbarButton
-          iconOnly
-          icon={isSmallScreen ? 'plus-circle' : 'plus'}
-          isOpen={isSmallScreen ? undefined : isOpen}
-          aria-label="New"
-        />
+        <Button
+          type="button"
+          data-testid={selectors.pages.Login.submit}
+          className={cx(styles.addButton, {
+            [styles.addButtonActive]: isOpen
+          })}
+        >
+          <Icon name="plus" size="lg" /> Add
+        </Button>
       </Dropdown>
-      <NavToolbarSeparator className={styles.separator} />
     </>
   ) : null;
 };
 
 const getStyles = (theme: GrafanaTheme2) => ({
+  menu: css({
+    padding: '6px 8px',
+    backgroundColor: theme.colors.background.surfacePrimary,
+    borderRadius: 10,
+    color: theme.colors.text.secondary
+  }),
   buttonContent: css({
     alignItems: 'center',
     display: 'flex',
@@ -70,9 +67,21 @@ const getStyles = (theme: GrafanaTheme2) => ({
       display: 'none',
     },
   }),
-  separator: css({
-    [theme.breakpoints.down('sm')]: {
-      display: 'none',
-    },
+  addButton: css({
+    backgroundColor: theme.colors.background.surfacePrimary,
+    color: theme.colors.text.secondary,
+    height: 44,
+    width: 89,
+    borderRadius: '10px',
+    padding: '10px 16px',
+    justifyContent: 'center',
+    '&:hover': {
+      backgroundColor: theme.colors.background.buttonHovered,
+      color: theme.colors.menu.fontColorHovered,
+    }
+  }),
+  addButtonActive: css({
+    backgroundColor: theme.colors.background.buttonHovered,
+    color: theme.colors.menu.fontColorHovered,
   }),
 });

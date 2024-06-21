@@ -9,10 +9,9 @@ import React, {
   AriaRole,
 } from 'react';
 
-import { GrafanaTheme2, LinkTarget } from '@grafana/data';
+import { GrafanaTheme2, LinkTarget, IconName } from '@grafana/data';
 
 import { useStyles2 } from '../../themes';
-import { IconName } from '@grafana/data';
 import { Icon } from '../Icon/Icon';
 import { Stack } from '../Layout/Stack/Stack';
 
@@ -217,7 +216,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       background: 'none',
       cursor: 'pointer',
       whiteSpace: 'nowrap',
-      color: theme.colors.text.primary,
+      color: theme.colors.text.secondary,
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'stretch',
@@ -227,6 +226,10 @@ const getStyles = (theme: GrafanaTheme2) => {
       border: 'none',
       width: '100%',
       position: 'relative',
+      '&:hover': {
+        backgroundColor: theme.colors.background.surfaceSecondary,
+        borderRadius: 8
+      }
     }),
     active: css({
       background: theme.colors.action.hover,

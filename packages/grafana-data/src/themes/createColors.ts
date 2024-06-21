@@ -21,9 +21,10 @@ export interface ThemeColorsBase<TColor> {
   text: {
     primary: string;
     secondary: string;
+    tertiary: string;
+    quaternary: string;
     disabled: string;
     link: string;
-    quaternary: string;
     /** Used for auto white or dark text on colored backgrounds */
     maxContrast: string;
   };
@@ -35,6 +36,9 @@ export interface ThemeColorsBase<TColor> {
     primary: string;
     /** Cards and elements that need to stand out on the primary background */
     secondary: string;
+    surfacePrimary: string;
+    buttonHovered: string;
+    surfaceSecondary: string;
   };
 
   menu: {
@@ -112,6 +116,7 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   text = {
     primary: palette['text-icon_const-primary'],
     secondary: palette['text-icon_secondary'],
+    tertiary: palette['text-icon_tertiary'],
     quaternary: palette['text-icon_const-quaternary'],
     disabled: `rgba(${this.whiteBase}, 0.6)`,
     link: palette.blueDarkText,
@@ -154,6 +159,9 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     canvas: palette.gray05,
     primary: palette.gray10,
     secondary: palette.gray15,
+    surfacePrimary: palette['surface_primary'],
+    buttonHovered: palette['accent_accent-2'],
+    surfaceSecondary: palette['surface_secondary']
   };
 
   menu = {
@@ -200,6 +208,7 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   text = {
     primary: palette['text-icon_const-primary'],
     secondary: palette['text-icon_secondary'],
+    tertiary: palette['text-icon_tertiary'],
     quaternary: palette['text-icon_const-quaternary'],
     disabled: `rgba(${this.blackBase}, 0.64)`,
     link: this.primary.text,
@@ -246,6 +255,9 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     canvas: palette.gray90,
     primary: palette.white,
     secondary: palette.gray100,
+    surfacePrimary: palette['surface_primary'],
+    buttonHovered: palette['accent_accent-2'],
+    surfaceSecondary: palette['surface_secondary']
   };
 
   menu = {
