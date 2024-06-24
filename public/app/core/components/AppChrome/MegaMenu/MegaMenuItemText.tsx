@@ -1,11 +1,12 @@
 import { css, cx } from '@emotion/css';
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 
 import { GrafanaTheme2, NavModelItem } from '@grafana/data'
 import { selectors } from '@grafana/e2e-selectors';
-import { Icon, Link, useTheme2 } from '@grafana/ui';
+import { Icon, IconButton, Link, useTheme2 } from '@grafana/ui'
 import { useGrafana } from '../../../context/GrafanaContext'
 import Popup from 'reactjs-popup'
+import { hasChildMatch } from './utils'
 
 export interface Props {
   children: React.ReactNode;
@@ -25,7 +26,7 @@ export function MegaMenuItemText({ children, isActive, activeItem, onClick, targ
   const { chrome } = useGrafana();
   const state = chrome.useState();
 
-  let links = [link]
+  let links = [ { ...link, parent: true }]
   if (link.children) {
     links = links.concat(link.children.filter((c: any) => !c.hideFromTabs))
   }
@@ -40,6 +41,26 @@ export function MegaMenuItemText({ children, isActive, activeItem, onClick, targ
       }
     </div>
   );
+
+  const [sectionExpanded, setSectionExpanded] = useState({});
+
+  const sectionExpand = (link: any) => {
+    link.sectionExpanded = !link.sectionExpanded
+    window.localStorage.setItem(`grafana.navigation.expanded[${link.text}]`, link.sectionExpanded)
+    setSectionExpanded({ ...link })
+  }
+  useEffect(() => {
+    links.forEach((link) => {
+      link.hasActiveChild = hasChildMatch(link, activeItem)
+    })
+  }, [sectionExpanded]);
+
+  useEffect(() => {
+    links.forEach((link) => {
+      link.sectionExpanded = link.hasActiveChild = hasChildMatch(link, activeItem) || (window.localStorage.getItem(`grafana.navigation.expanded[${link.text}]`) === 'true');
+    })
+  },[])
+
 
   return (
     <>
@@ -69,17 +90,43 @@ export function MegaMenuItemText({ children, isActive, activeItem, onClick, targ
           arrow={false}
         >
           <div className={cx(styles.menu)}>
-            {links.map(link =>
-              <LinkComponent
-                key={link.id}
-                className={cx(styles.menuItem, {
-                  [styles.activeMenuItem]: link === activeItem
-                })}
-                href={link.url}
-                target={link.target}
-              >
-                {link.text}
-              </LinkComponent>)}
+            {links.map(link => <div key={link.id}>
+              <div className={cx(styles.jcSB, styles.menuItem, {
+                [styles.activeMenuItem]: link.id === activeItem?.id || (!link.parent && link.hasActiveChild)
+              })}>
+                <LinkComponent
+                  href={link.url}
+                  target={link.target}
+                >
+                  {link.text}
+                </LinkComponent>
+                {!link.parent && link.children &&
+                  <div className={styles.collapseButtonWrapper}>
+                    <IconButton
+                      aria-label={`${link.sectionExpanded ? 'Collapse' : 'Expand'} section ${link.text}`}
+                      className={styles.collapseButton}
+                      onClick={() => sectionExpand(link)}
+                      name={link.sectionExpanded ? 'angle-up' : 'angle-down'}
+                      size="md"
+                      variant="secondary"
+                    />
+                  </div>}
+              </div>
+              {!link.parent && link.sectionExpanded && <div className={styles.subMenu}>
+                {link.children.map((ch: any) =>
+                  <LinkComponent
+                    key={ch.id}
+                    className={cx(styles.menuItem, {
+                      [styles.activeMenuItem]: ch.id === activeItem?.id,
+                    })}
+                    href={ch.url}
+                    target={ch.target}
+                  >
+                    {ch.text}
+                  </LinkComponent>
+                )}
+              </div>}
+            </div>)}
           </div>
         </Popup>
       </div>
@@ -127,8 +174,22 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuCl
     fontSize: 16,
     borderRadius: 8
   }),
+  subMenu: css({
+    display: 'flex',
+    flexDirection: 'column',
+    backgroundColor: '#262626',
+    padding: '0 8px',
+    color: '#CCCCCC',
+    fontSize: 16,
+    borderRadius: 8
+  }),
+  jcSB: css({
+    display: 'flex',
+    justifyContent: 'space-between',
+  }),
   menuItem: css({
     padding: '10px 12px',
+    width: '100%',
     borderRadius: 8,
     margin: '3px 0',
 
@@ -140,5 +201,33 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuCl
       border: 'none',
       outline: 'none',
     },
-  })
+  }),
+  collapseButtonWrapper: css({
+    display: 'flex',
+    justifyContent: 'center',
+    width: theme.spacing(3),
+    flexShrink: 0,
+  }),
+  collapsibleSectionWrapper: css({
+    alignItems: 'center',
+    display: 'flex',
+    flex: 1,
+    height: '100%',
+    minWidth: 0,
+  }),
+  labelWrapper: css({
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.spacing(2),
+    width: '100%',
+    paddingLeft: theme.spacing(1),
+  }),
+  hasActiveChild: css({
+    color: theme.colors.text.primary,
+  }),
+  collapseButton: css({
+    margin: 0,
+    color: 'inherit'
+  }),
 });
