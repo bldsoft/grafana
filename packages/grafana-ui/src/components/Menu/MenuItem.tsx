@@ -226,6 +226,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       border: 'none',
       width: '100%',
       position: 'relative',
+      marginTop: 5,
       '&:hover': {
         backgroundColor: theme.colors.background.surfaceSecondary,
         borderRadius: 8

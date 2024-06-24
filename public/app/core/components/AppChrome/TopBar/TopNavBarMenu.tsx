@@ -30,6 +30,7 @@ export function TopNavBarMenu({ node: nodePlain }: TopNavBarMenuProps) {
           {node.subTitle && <div className={styles.subTitle}>{node.subTitle}</div>}
         </div>
       }
+      className={styles.menu}
     >
       {node.children?.map((item) => {
         return item.url ? (
@@ -49,6 +50,12 @@ const getStyles = (theme: GrafanaTheme2) => {
       fontWeight: theme.typography.h5.fontWeight,
       padding: theme.spacing(0.5, 1),
       whiteSpace: 'nowrap',
+    }),
+    menu: css({
+      padding: '6px 8px',
+      backgroundColor: theme.colors.background.surfacePrimary,
+      borderRadius: 10,
+      color: theme.colors.text.secondary
     }),
     subTitle: css({
       color: theme.colors.text.secondary,
