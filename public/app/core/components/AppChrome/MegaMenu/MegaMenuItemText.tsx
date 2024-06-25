@@ -30,6 +30,10 @@ export function MegaMenuItemText({ children, isActive, activeItem, onClick, targ
   if (link.children) {
     links = links.concat(link.children.filter((c: any) => !c.hideFromTabs))
   }
+  links.forEach((link) => {
+    link.sectionExpanded = window.localStorage.getItem(`grafana.navigation.expanded[${link.text}]`) === 'true'
+    link.hasActiveChild = hasChildMatch(link, activeItem)
+  })
 
   const linkContent = (
     <div className={styles.linkContent}>

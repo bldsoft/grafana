@@ -2,12 +2,15 @@ import { css } from '@emotion/css';
 import { cloneDeep } from 'lodash';
 import React from 'react';
 
-import { GrafanaTheme2, NavModelItem } from '@grafana/data'
+import { GrafanaTheme2, NavModelItem } from '@grafana/data';
 import { Dropdown, ToolbarButton, useStyles2 } from '@grafana/ui';
 import { config } from 'app/core/config';
 import { contextSrv } from 'app/core/core';
 import { useSelector } from 'app/types';
 
+import { HOME_NAV_ID } from '../../../reducers/navModel';
+import { Breadcrumbs } from '../../Breadcrumbs/Breadcrumbs';
+import { buildBreadcrumbs } from '../../Breadcrumbs/utils';
 import { enrichHelpItem } from '../MegaMenu/utils';
 import { NewsContainer } from '../News/NewsContainer';
 import { QuickAdd } from '../QuickAdd/QuickAdd';
@@ -15,10 +18,8 @@ import { TOP_BAR_LEVEL_HEIGHT } from '../types';
 
 import { SignInLink } from './SignInLink';
 import { TopNavBarMenu } from './TopNavBarMenu';
+import { TopSearchBarCommandPaletteTrigger } from './TopSearchBarCommandPaletteTrigger';
 import { TopSearchBarSection } from './TopSearchBarSection';
-import { Breadcrumbs } from '../../Breadcrumbs/Breadcrumbs'
-import { buildBreadcrumbs } from '../../Breadcrumbs/utils'
-import { HOME_NAV_ID } from '../../../reducers/navModel'
 
 interface Props {
   sectionNav: NavModelItem;
@@ -45,6 +46,7 @@ export const TopSearchBar = React.memo(function TopSearchBar({
     <div className={styles.layout}>
       <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />
       <TopSearchBarSection align="right">
+        <TopSearchBarCommandPaletteTrigger />
         <QuickAdd />
         {enrichedHelpNode && (
           <Dropdown overlay={() => <TopNavBarMenu node={enrichedHelpNode} />} placement="bottom-end">
@@ -102,3 +104,4 @@ const getStyles = (theme: GrafanaTheme2) => ({
     },
   }),
 });
+
