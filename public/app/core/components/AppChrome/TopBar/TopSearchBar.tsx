@@ -41,6 +41,8 @@ export const TopSearchBar = React.memo(function TopSearchBar({
   const homeNav = useSelector((state) => state.navIndex)[HOME_NAV_ID];
   const breadcrumbs = buildBreadcrumbs(sectionNav, pageNav, homeNav);
 
+  console.log(contextSrv.user.gravatarUrl)
+
 
   return (
     <div className={styles.layout}>
@@ -59,7 +61,7 @@ export const TopSearchBar = React.memo(function TopSearchBar({
           <Dropdown overlay={() => <TopNavBarMenu node={profileNode} />} placement="bottom-end">
             <ToolbarButton
               className={styles.profileButton}
-              imgSrc={contextSrv.user.gravatarUrl}
+              imgSrc='public/img/avatar.png'
               imgAlt="User avatar"
               aria-label="Profile"
             />

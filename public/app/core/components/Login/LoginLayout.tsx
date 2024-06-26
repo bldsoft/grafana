@@ -25,7 +25,6 @@ export const LoginLayout = ({ children, branding, isChangingPassword }: React.Pr
   const loginStyles = useStyles2(getLoginStyles);
   const [startAnim, setStartAnim] = useState(false);
   const subTitle = branding?.loginSubtitle ?? Branding.GetLoginSubTitle();
-  const loginTitle = branding?.loginTitle ?? Branding.LoginTitle;
   const loginBoxBackground = branding?.loginBoxBackground || Branding.LoginBoxBackground();
   const loginLogo = branding?.loginLogo;
 
@@ -44,7 +43,6 @@ export const LoginLayout = ({ children, branding, isChangingPassword }: React.Pr
                 <h1 className={loginStyles.mainTitle}>Update your password</h1>
               ) : (
                 <>
-                  <h1 className={loginStyles.mainTitle}>{loginTitle}</h1>
                   {subTitle && <h3 className={loginStyles.subTitle}>{subTitle}</h3>}
                 </>
               )}

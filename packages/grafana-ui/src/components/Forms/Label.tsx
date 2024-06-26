@@ -42,7 +42,7 @@ export const getLabelStyles = (theme: GrafanaTheme2) => ({
     fontSize: theme.typography.size.sm,
     fontWeight: theme.typography.fontWeightMedium,
     lineHeight: 1.25,
-    marginBottom: theme.spacing(0.5),
+    marginBottom: theme.spacing(1),
     color: theme.colors.text.primary,
     maxWidth: '480px',
   }),

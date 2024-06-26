@@ -33,7 +33,7 @@ export const LoginForm = ({ children, onSubmit, isLoggingIn, passwordHint, login
     <div className={styles.wrapper}>
       <form onSubmit={handleSubmit(onSubmit)}>
         <Field
-          label={t('login.form.username-label', 'Email or username')}
+          label={t('login.form.username-label', 'Email or Username')}
           invalid={!!errors.user}
           error={errors.user?.message}
         >
@@ -42,7 +42,7 @@ export const LoginForm = ({ children, onSubmit, isLoggingIn, passwordHint, login
             id={usernameId}
             autoFocus
             autoCapitalize="none"
-            placeholder={loginHint || t('login.form.username-placeholder', 'email or username')}
+            placeholder={loginHint || t('login.form.username-placeholder', 'Email or Username')}
             data-testid={selectors.pages.Login.username}
           />
         </Field>
@@ -78,11 +78,18 @@ export const getStyles = (theme: GrafanaTheme2) => {
       width: '90%',
       paddingBottom: theme.spacing(2),
     }),
-
     submitButton: css({
+      color: theme.colors.text.primary,
       justifyContent: 'center',
+      borderRadius: 10,
+      height: 44,
+      marginTop: 24,
       width: '100%',
-      backgroundColor: '#3CB043',
+      backgroundColor: theme.colors.menu.active,
+
+      "&:hover": {
+        color: theme.colors.text.primary
+      }
     }),
   };
 };

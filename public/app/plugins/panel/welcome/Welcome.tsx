@@ -9,7 +9,7 @@ export const WelcomeBanner = () => {
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>Welcome to Grafana</h1>
+      <h1 className={styles.title}>Welcome to Analytix</h1>
     </div>
   );
 };

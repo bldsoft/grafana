@@ -44,7 +44,7 @@ export const QuickAdd = ({}: Props) => {
             [styles.addButtonActive]: isOpen
           })}
         >
-          <Icon name="plus" size="lg" /> Add
+          <Icon name="plus" size="lg" className={styles.icon}/> Add
         </Button>
       </Dropdown>
     </>
@@ -56,7 +56,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     padding: '6px 8px',
     backgroundColor: theme.colors.background.surfacePrimary,
     borderRadius: 10,
-    color: theme.colors.text.secondary
+    color: theme.colors.text.secondary,
   }),
   buttonContent: css({
     alignItems: 'center',
@@ -75,6 +75,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     borderRadius: '10px',
     padding: '10px 16px',
     justifyContent: 'center',
+    marginLeft: 24,
     '&:hover': {
       backgroundColor: theme.colors.background.buttonHovered,
       color: theme.colors.menu.fontColorHovered,
@@ -84,4 +85,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     backgroundColor: theme.colors.background.buttonHovered,
     color: theme.colors.menu.fontColorHovered,
   }),
+  icon: css({
+    marginRight: 6
+  })
 });
