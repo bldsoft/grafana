@@ -140,13 +140,12 @@ $input-border: 1px solid $input-border-color;
     background-color: transparent;
     border: 0;
     text-align: right;
-    padding-left: 0px;
+    padding-left: 0;
   }
 
   &--variable {
     color: $variable;
     background: $panel-bg;
-    border: $panel-border;
   }
 
   &--dashlink {

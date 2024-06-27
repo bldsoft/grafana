@@ -6,7 +6,7 @@ import { GrafanaTheme2, ThemeRichColor } from '@grafana/data';
 import { useTheme2 } from '../../themes';
 import { getFocusStyles, getMouseFocusStyles } from '../../themes/mixins';
 import { ComponentSize, IconSize, IconType } from '../../types';
-import { IconName } from '../../types/icon';
+import { IconName } from '@grafana/data';
 import { getPropertiesForButtonSize } from '../Forms/commonStyles';
 import { Icon } from '../Icon/Icon';
 import { PopoverContent, Tooltip, TooltipPlacement } from '../Tooltip';
@@ -320,7 +320,7 @@ function getButtonVariantStyles(theme: GrafanaTheme2, color: ThemeRichColor, fil
 
   return {
     background: color.main,
-    color: color.contrastText,
+    color: theme.colors.text.primary,
     border: `1px solid ${borderColor}`,
     transition: theme.transitions.create(['background-color', 'box-shadow', 'border-color', 'color'], {
       duration: theme.transitions.duration.short,
@@ -328,7 +328,7 @@ function getButtonVariantStyles(theme: GrafanaTheme2, color: ThemeRichColor, fil
 
     '&:hover': {
       background: color.shade,
-      color: color.contrastText,
+      color: theme.colors.text.primary,
       boxShadow: theme.shadows.z1,
       borderColor: hoverBorderColor,
     },

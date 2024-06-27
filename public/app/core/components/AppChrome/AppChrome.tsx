@@ -116,8 +116,7 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
       paddingTop: 0,
     }),
     dockedMegaMenu: css({
-      background: theme.colors.background.primary,
-      borderRight: `1px solid ${theme.colors.border.weak}`,
+      background: theme.colors.background.constPrimary,
       display: 'block',
       width: megaMenuOpen ? 240 : 120,
     }),

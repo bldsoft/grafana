@@ -19,6 +19,7 @@ export interface ThemeColorsBase<TColor> {
   warning: TColor;
 
   text: {
+    accent1: string;
     primary: string;
     secondary: string;
     tertiary: string;
@@ -34,6 +35,7 @@ export interface ThemeColorsBase<TColor> {
     canvas: string;
     /** Primary content pane background (panels etc) */
     primary: string;
+    constPrimary: string;
     /** Cards and elements that need to stand out on the primary background */
     secondary: string;
     surfacePrimary: string;
@@ -83,6 +85,10 @@ export interface ThemeColorsBase<TColor> {
     disabledOpacity: number;
   };
 
+  custom: {
+    accentAccent1: string;
+  }
+
   hoverFactor: number;
   contrastThreshold: number;
   tonalOffset: number;
@@ -114,6 +120,7 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   };
 
   text = {
+    accent1: palette['accent_accent-1'],
     primary: palette['text-icon_const-primary'],
     secondary: palette['text-icon_secondary'],
     tertiary: palette['text-icon_tertiary'],
@@ -142,7 +149,7 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
 
   error = {
     main: palette.redDarkMain,
-    text: palette.redDarkText,
+    text: palette['accent_error'],
   };
 
   success = {
@@ -156,8 +163,9 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   };
 
   background = {
-    canvas: palette.gray05,
-    primary: palette.gray10,
+    canvas: palette['background_secondary'],
+    primary: palette['background_secondary'],
+    constPrimary: palette['background_const-primary'],
     secondary: palette.gray15,
     surfacePrimary: palette['surface_primary'],
     buttonHovered: palette['accent_accent-2'],
@@ -189,6 +197,10 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     brandVertical: 'linear-gradient(0.01deg, #F55F3E 0.01%, #FF8833 99.99%)',
   };
 
+  custom = {
+    accentAccent1: palette['accent_accent-1']
+  };
+
   contrastThreshold = 3;
   hoverFactor = 0.03;
   tonalOffset = 0.15;
@@ -206,6 +218,7 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   };
 
   text = {
+    accent1: palette['accent_accent-1'],
     primary: palette['text-icon_const-primary'],
     secondary: palette['text-icon_secondary'],
     tertiary: palette['text-icon_tertiary'],
@@ -237,7 +250,7 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
 
   error = {
     main: palette.redLightMain,
-    text: palette.redLightText,
+    text: palette['accent_error'],
     border: palette.redLightText,
   };
 
@@ -254,6 +267,7 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   background = {
     canvas: palette.gray90,
     primary: palette.white,
+    constPrimary: palette['background_const-primary'],
     secondary: palette.gray100,
     surfacePrimary: palette['surface_primary'],
     buttonHovered: palette['accent_accent-2'],
@@ -283,6 +297,10 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   gradients = {
     brandHorizontal: 'linear-gradient(90deg, #FF8833 0%, #F53E4C 100%)',
     brandVertical: 'linear-gradient(0.01deg, #F53E4C -31.2%, #FF8833 113.07%)',
+  };
+
+  custom = {
+    accentAccent1: palette['accent_accent-1']
   };
 
   contrastThreshold = 3;

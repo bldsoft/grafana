@@ -6,7 +6,6 @@ import React from 'react';
 import { GrafanaTheme2 } from '@grafana/data';
 import { Alert, Stack, useStyles2 } from '@grafana/ui';
 import { Branding } from 'app/core/components/Branding/Branding';
-import { t } from 'app/core/internationalization';
 
 import { ChangePassword } from '../ForgottenPassword/ChangePassword';
 
@@ -39,7 +38,7 @@ export const LoginPage = () => {
           {!isChangingPassword && (
             <InnerBox>
               {loginErrorMessage && (
-                <Alert className={styles.alert} severity="error" title={t('login.error.title', 'Login failed')}>
+                <Alert className={styles.alert} severity="error" title={''}>
                   {loginErrorMessage}
                 </Alert>
               )}

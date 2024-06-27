@@ -1,7 +1,7 @@
 import { css, cx } from '@emotion/css';
 import React from 'react';
 
-import { GrafanaTheme2, colorManipulator, deprecationWarning } from '@grafana/data';
+import { GrafanaTheme2, deprecationWarning } from '@grafana/data';
 
 import { useStyles2 } from '../../themes';
 import { getFocusStyles, getMouseFocusStyles } from '../../themes/mixins';
@@ -153,14 +153,6 @@ const getStyles = (theme: GrafanaTheme2, size: IconSize, variant: IconButtonVari
       '&:focus, &:focus-visible': getFocusStyles(theme),
 
       '&:focus:not(:focus-visible)': getMouseFocusStyles(theme),
-
-      '&:hover': {
-        '&:before': {
-          backgroundColor:
-            variant === 'secondary' ? theme.colors.action.hover : colorManipulator.alpha(iconColor, 0.12),
-          opacity: 1,
-        },
-      },
     }),
     icon: css({
       verticalAlign: 'baseline',

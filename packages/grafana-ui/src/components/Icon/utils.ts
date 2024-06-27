@@ -34,9 +34,9 @@ export function getSvgSize(size: IconSize) {
     case 'md':
       return 16;
     case 'lg':
-      return 18;
+      return 15;
     case 'xl':
-      return 24;
+      return 21;
     case 'xxl':
       return 36;
     case 'xxxl':

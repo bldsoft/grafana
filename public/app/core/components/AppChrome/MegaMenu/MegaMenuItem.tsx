@@ -60,9 +60,8 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
   }
 
   let iconElement: React.JSX.Element | null = null;
-
   if (link.icon) {
-    iconElement = <Icon className={styles.icon} name={toIconName(link.icon) ?? 'link'} size="lg" />;
+    iconElement = <Icon className={styles.icon} name={toIconName(link.icon) ?? 'link'} size={state.megaMenuOpen ? 'lg' : 'xl'} />;
   } else if (link.img) {
     iconElement = (
       <Stack width={3} justifyContent="center">
@@ -151,12 +150,12 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
 
 const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
   icon: css({
-    width: 21,
+    width: theme.spacing(3),
     color: 'inherit'
   }),
   img: css({
-    height: 21,
-    width: 21,
+    height: theme.spacing(2),
+    width: theme.spacing(2),
   }),
   listItem: css({
     flex: 1,
@@ -234,7 +233,7 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     display: 'flex',
     flexDirection: megaMenuOpen ? 'row' : 'column',
     alignItems: 'center',
-    gap: theme.spacing(2),
+    gap: megaMenuOpen ? theme.spacing(1) : theme.spacing(0.5),
     width: '100%',
     paddingLeft: megaMenuOpen ? theme.spacing(1) : 0,
   }),

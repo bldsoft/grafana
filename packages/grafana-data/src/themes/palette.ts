@@ -46,6 +46,7 @@ export const palette = {
   'accent_accent-1-pressed': '#34983A',
   'accent_accent-1-hovered': '#41BE48',
   'accent_accent-2': '#4D4D4D',
+  'accent_error': '#E5584D',
 
   'text-icon_const-primary': '#FFFFFF',
   'text-icon_const-quaternary': '#CCCCCC',
@@ -53,5 +54,8 @@ export const palette = {
   'text-icon_secondary': '#E6E6E6',
 
   'surface_primary': '#262626',
-  'surface_secondary': '#2E2E2E'
+  'surface_secondary': '#2E2E2E',
+
+  'background_secondary': '#1F1F1F',
+  'background_const-primary': '#262626'
 };

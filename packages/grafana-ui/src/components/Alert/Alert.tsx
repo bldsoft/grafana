@@ -5,8 +5,8 @@ import { GrafanaTheme2 } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
 
 import { useTheme2 } from '../../themes';
-import { IconName } from '../../types/icon';
-import { Button } from '../Button/Button';
+import { IconName } from '@grafana/data';
+import { Button } from '../Button';
 import { Icon } from '../Icon/Icon';
 import { Box } from '../Layout/Box/Box';
 import { Text } from '../Text/Text';
@@ -52,6 +52,7 @@ export const Alert = React.forwardRef<HTMLDivElement, Props>(
     };
     const role = restProps['role'] || rolesBySeverity[severity];
     const ariaLabel = restProps['aria-label'] || title;
+    console.log(title)
 
     return (
       <div ref={ref} className={cx(styles.wrapper, className)} role={role} aria-label={ariaLabel} {...restProps}>
@@ -74,9 +75,9 @@ export const Alert = React.forwardRef<HTMLDivElement, Props>(
           </Box>
 
           <Box paddingY={1} grow={1}>
-            <Text color="primary" weight="medium">
+            {hasTitle && <Text color="primary" weight="medium">
               {title}
-            </Text>
+            </Text>}
             {children && <div className={styles.content}>{children}</div>}
           </Box>
           {/* If onRemove is specified, giving preference to onRemove */}
@@ -111,7 +112,7 @@ Alert.displayName = 'Alert';
 export const getIconFromSeverity = (severity: AlertVariant): IconName => {
   switch (severity) {
     case 'error':
-      return 'exclamation-circle';
+      return 'exclamation-triangle';
     case 'warning':
       return 'exclamation-triangle';
     case 'info':

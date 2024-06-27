@@ -6,7 +6,7 @@ import { selectors } from '@grafana/e2e-selectors';
 
 import { styleMixins, useStyles2 } from '../../themes';
 import { getFocusStyles, getMouseFocusStyles } from '../../themes/mixins';
-import { IconSize } from '../../types/icon';
+import { IconSize } from '../../types';
 import { getPropertiesForVariant } from '../Button';
 import { Icon } from '../Icon/Icon';
 import { Tooltip } from '../Tooltip';
@@ -189,7 +189,6 @@ const getStyles = (theme: GrafanaTheme2) => {
 
       '&:hover': {
         color: theme.colors.text.primary,
-        background: theme.colors.background.secondary,
       },
     }),
     canvas: defaultOld,
