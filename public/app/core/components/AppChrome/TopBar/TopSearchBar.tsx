@@ -41,9 +41,6 @@ export const TopSearchBar = React.memo(function TopSearchBar({
   const homeNav = useSelector((state) => state.navIndex)[HOME_NAV_ID];
   const breadcrumbs = buildBreadcrumbs(sectionNav, pageNav, homeNav);
 
-  console.log(contextSrv.user.gravatarUrl)
-
-
   return (
     <div className={styles.layout}>
       <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />

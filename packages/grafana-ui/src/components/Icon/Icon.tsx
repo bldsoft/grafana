@@ -4,7 +4,7 @@ import SVG from 'react-inlinesvg';
 
 import { GrafanaTheme2, isIconName } from '@grafana/data';
 
-import { useStyles2 } from '../../themes/ThemeContext';
+import { useStyles2 } from '../../themes';
 import { IconName, IconType, IconSize } from '../../types/icon';
 import { spin } from '../../utils/keyframes';
 
@@ -14,6 +14,7 @@ export interface IconProps extends Omit<React.SVGProps<SVGElement>, 'onLoad' | '
   name: IconName;
   size?: IconSize;
   type?: IconType;
+  filled?: boolean;
   /**
    * Give your icon a semantic meaning. The icon will be hidden from screen readers, unless this prop or an aria-label is provided.
    */
@@ -43,7 +44,7 @@ const getIconStyles = (theme: GrafanaTheme2) => {
 };
 
 export const Icon = React.forwardRef<SVGElement, IconProps>(
-  ({ size = 'md', type = 'default', name, className, style, title = '', ...rest }, ref) => {
+  ({ size = 'md', type = 'default', name, filled= false, className, style, title = '', ...rest }, ref) => {
     const styles = useStyles2(getIconStyles);
 
     if (!isIconName(name)) {
@@ -58,7 +59,7 @@ export const Icon = React.forwardRef<SVGElement, IconProps>(
     const svgHgt = svgSize;
     const svgWid = name.startsWith('gf-bar-align') ? 16 : name.startsWith('gf-interp') ? 30 : svgSize;
     const subDir = getIconSubDir(iconName, type);
-    const svgPath = `${iconRoot}${subDir}/${iconName}.svg`;
+    const svgPath = `${iconRoot}${subDir}/${iconName}${filled ? '-filled' : ''}.svg`;
 
     const composedClassName = cx(
       styles.icon,

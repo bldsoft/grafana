@@ -61,7 +61,9 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
 
   let iconElement: React.JSX.Element | null = null;
   if (link.icon) {
-    iconElement = <Icon className={styles.icon} name={toIconName(link.icon) ?? 'link'} size={state.megaMenuOpen ? 'lg' : 'xl'} />;
+    console.log(link.icon)
+    console.log(hasActiveChild || isActive)
+    iconElement = <Icon className={styles.icon} filled={hasActiveChild || isActive} name={toIconName(link.icon) ?? 'link'} size={state.megaMenuOpen ? 'lg' : 'xl'} />;
   } else if (link.img) {
     iconElement = (
       <Stack width={3} justifyContent="center">
