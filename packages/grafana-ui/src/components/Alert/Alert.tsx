@@ -1,11 +1,10 @@
 import { css, cx } from '@emotion/css';
 import React, { AriaRole, HTMLAttributes, ReactNode } from 'react';
 
-import { GrafanaTheme2 } from '@grafana/data';
+import { GrafanaTheme2, IconName } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
 
 import { useTheme2 } from '../../themes';
-import { IconName } from '@grafana/data';
 import { Button } from '../Button';
 import { Icon } from '../Icon/Icon';
 import { Box } from '../Layout/Box/Box';
@@ -59,12 +58,8 @@ export const Alert = React.forwardRef<HTMLDivElement, Props>(
         <Box
           data-testid={selectors.components.Alert.alertV2(severity)}
           display="flex"
-          backgroundColor={severity}
-          borderRadius="default"
           paddingY={1}
           paddingX={2}
-          borderStyle="solid"
-          borderColor={severity}
           alignItems="stretch"
           boxShadow={elevated ? 'z3' : undefined}
         >
@@ -75,7 +70,7 @@ export const Alert = React.forwardRef<HTMLDivElement, Props>(
           </Box>
 
           <Box paddingY={1} grow={1}>
-            {hasTitle && <Text color="primary" weight="medium">
+            {hasTitle && <Text color="secondary" weight="medium">
               {title}
             </Text>}
             {children && <div className={styles.content}>{children}</div>}
@@ -146,7 +141,7 @@ const getStyles = (
         left: 0,
         bottom: 0,
         right: 0,
-        background: theme.colors.background.primary,
+        background: theme.colors.background.constPrimary,
         zIndex: -1,
       },
     }),
@@ -154,7 +149,7 @@ const getStyles = (
       color: color.text,
     }),
     content: css({
-      color: theme.colors.text.primary,
+      color: theme.colors.text.secondary,
       paddingTop: hasTitle ? theme.spacing(0.5) : 0,
       maxHeight: '50vh',
       overflowY: 'auto',

@@ -241,7 +241,7 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     paddingLeft: megaMenuOpen ? theme.spacing(0.5) : 0,
   }),
   hasActiveChild: css({
-    color: theme.colors.text.primary,
+    color: theme.colors.text.active,
   }),
   children: css({
     display: 'flex',

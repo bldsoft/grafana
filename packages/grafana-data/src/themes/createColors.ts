@@ -28,6 +28,7 @@ export interface ThemeColorsBase<TColor> {
     link: string;
     /** Used for auto white or dark text on colored backgrounds */
     maxContrast: string;
+    active: string;
   };
 
   background: {
@@ -121,13 +122,14 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
 
   text = {
     accent1: palette['accent_accent-1'],
-    primary: palette['text-icon_const-primary'],
+    primary: palette['text-icon_secondary'],
     secondary: palette['text-icon_secondary'],
     tertiary: palette['text-icon_tertiary'],
     quaternary: palette['text-icon_const-quaternary'],
     disabled: `rgba(${this.whiteBase}, 0.6)`,
-    link: palette.blueDarkText,
+    link: palette['accent_accent-1'],
     maxContrast: palette.white,
+    active: palette['text-icon_const-primary']
   };
 
   primary = {
@@ -145,7 +147,10 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     border: `rgba(${this.whiteBase}, 0.08)`,
   };
 
-  info = this.primary;
+  info = {
+    main: palette.redDarkMain,
+    text: palette['text-icon_secondary'],
+  };
 
   error = {
     main: palette.redDarkMain,
@@ -219,13 +224,14 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
 
   text = {
     accent1: palette['accent_accent-1'],
-    primary: palette['text-icon_const-primary'],
+    primary: palette['text-icon_secondary'],
     secondary: palette['text-icon_secondary'],
     tertiary: palette['text-icon_tertiary'],
     quaternary: palette['text-icon_const-quaternary'],
     disabled: `rgba(${this.blackBase}, 0.64)`,
     link: this.primary.text,
     maxContrast: palette.black,
+    active: palette['text-icon_const-primary']
   };
 
   border = {

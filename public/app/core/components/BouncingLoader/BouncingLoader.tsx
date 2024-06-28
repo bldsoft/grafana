@@ -17,7 +17,7 @@ export function BouncingLoader() {
       aria-label={t('bouncing-loader.label', 'Loading')}
     >
       <div className={styles.bounce}>
-        <img alt="" src="public/img/grafana_icon.svg" className={styles.logo} />
+        <img alt="" src="public/img/analytix_icon.svg" className={styles.logo} />
       </div>
     </div>
   );
@@ -113,7 +113,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
       animationDuration: '0.9s',
       animationIterationCount: 'infinite',
     },
-    width: '60px',
-    height: '60px',
+    width: '200px',
+    height: '200px',
   }),
 });

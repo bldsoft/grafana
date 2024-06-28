@@ -126,6 +126,7 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
       right: 0,
       background: theme.colors.background.primary,
       flexDirection: 'column',
+      paddingRight: 32
     }),
     panes: css({
       label: 'page-panes',
