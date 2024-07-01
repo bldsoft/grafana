@@ -51,7 +51,6 @@ export const Alert = React.forwardRef<HTMLDivElement, Props>(
     };
     const role = restProps['role'] || rolesBySeverity[severity];
     const ariaLabel = restProps['aria-label'] || title;
-    console.log(title)
 
     return (
       <div ref={ref} className={cx(styles.wrapper, className)} role={role} aria-label={ariaLabel} {...restProps}>

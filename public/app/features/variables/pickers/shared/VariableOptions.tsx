@@ -136,7 +136,7 @@ class VariableOptions extends PureComponent<Props> {
 }
 
 const getStyles = stylesFactory((theme: GrafanaTheme2) => {
-  const checkboxImageUrl = theme.isDark ? 'public/img/checkbox.png' : 'public/img/checkbox_white.png';
+  const checkboxImageUrl = 'public/img/checkbox.png';
 
   return {
     hideVariableOptionIcon: css({

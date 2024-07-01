@@ -1,22 +1,22 @@
 import { css } from '@emotion/css';
-import { cloneDeep } from 'lodash';
+// import { cloneDeep } from 'lodash';
 import React from 'react';
 
 import { GrafanaTheme2, NavModelItem } from '@grafana/data';
 import { Dropdown, ToolbarButton, useStyles2 } from '@grafana/ui';
-import { config } from 'app/core/config';
-import { contextSrv } from 'app/core/core';
+// import { config } from 'app/core/config';
+// import { contextSrv } from 'app/core/core';
 import { useSelector } from 'app/types';
 
 import { HOME_NAV_ID } from '../../../reducers/navModel';
 import { Breadcrumbs } from '../../Breadcrumbs/Breadcrumbs';
 import { buildBreadcrumbs } from '../../Breadcrumbs/utils';
-import { enrichHelpItem } from '../MegaMenu/utils';
-import { NewsContainer } from '../News/NewsContainer';
+// import { enrichHelpItem } from '../MegaMenu/utils';
+// import { NewsContainer } from '../News/NewsContainer';
 import { QuickAdd } from '../QuickAdd/QuickAdd';
 import { TOP_BAR_LEVEL_HEIGHT } from '../types';
 
-import { SignInLink } from './SignInLink';
+// import { SignInLink } from './SignInLink';
 import { TopNavBarMenu } from './TopNavBarMenu';
 import { TopSearchBarCommandPaletteTrigger } from './TopSearchBarCommandPaletteTrigger';
 import { TopSearchBarSection } from './TopSearchBarSection';
@@ -33,8 +33,8 @@ export const TopSearchBar = React.memo(function TopSearchBar({
   const styles = useStyles2(getStyles);
   const navIndex = useSelector((state) => state.navIndex);
 
-  const helpNode = cloneDeep(navIndex['help']);
-  const enrichedHelpNode = helpNode ? enrichHelpItem(helpNode) : undefined;
+  // const helpNode = cloneDeep(navIndex['help']);
+  // const enrichedHelpNode = helpNode ? enrichHelpItem(helpNode) : undefined;
   const profileNode = navIndex['profile'];
 
 
@@ -47,13 +47,13 @@ export const TopSearchBar = React.memo(function TopSearchBar({
       <TopSearchBarSection align="right">
         <TopSearchBarCommandPaletteTrigger />
         <QuickAdd />
-        {enrichedHelpNode && (
-          <Dropdown overlay={() => <TopNavBarMenu node={enrichedHelpNode} />} placement="bottom-end">
-            <ToolbarButton iconOnly icon="question-circle" aria-label="Help" />
-          </Dropdown>
-        )}
-        {config.newsFeedEnabled && <NewsContainer />}
-        {!contextSrv.user.isSignedIn && <SignInLink />}
+        {/*{enrichedHelpNode && (*/}
+        {/*  <Dropdown overlay={() => <TopNavBarMenu node={enrichedHelpNode} />} placement="bottom-end">*/}
+        {/*    <ToolbarButton iconOnly icon="question-circle" aria-label="Help" />*/}
+        {/*  </Dropdown>*/}
+        {/*)}*/}
+        {/*{config.newsFeedEnabled && <NewsContainer />}*/}
+        {/*{!contextSrv.user.isSignedIn && <SignInLink />}*/}
         {profileNode && (
           <Dropdown overlay={() => <TopNavBarMenu node={profileNode} />} placement="bottom-end">
             <ToolbarButton

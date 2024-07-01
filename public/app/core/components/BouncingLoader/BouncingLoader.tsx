@@ -17,7 +17,7 @@ export function BouncingLoader() {
       aria-label={t('bouncing-loader.label', 'Loading')}
     >
       <div className={styles.bounce}>
-        <img alt="" src="public/img/analytix_icon.svg" className={styles.logo} />
+        <img alt="" src="public/img/analytix_min_icon.svg" className={styles.logo} />
       </div>
     </div>
   );
@@ -85,7 +85,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     [theme.transitions.handleMotion('no-preference')]: {
       animationName: fadeIn,
       animationIterationCount: 1,
-      animationDuration: '0.9s',
+      animationDuration: '1.3s',
       animationDelay: '0.5s',
       animationFillMode: 'forwards',
     },
@@ -101,7 +101,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     textAlign: 'center',
     [theme.transitions.handleMotion('no-preference')]: {
       animationName: bounce,
-      animationDuration: '0.9s',
+      animationDuration: '1.3s',
       animationIterationCount: 'infinite',
     },
   }),
@@ -110,10 +110,10 @@ const getStyles = (theme: GrafanaTheme2) => ({
     display: 'inline-block',
     [theme.transitions.handleMotion('no-preference')]: {
       animationName: squash,
-      animationDuration: '0.9s',
+      animationDuration: '1.3s',
       animationIterationCount: 'infinite',
     },
-    width: '200px',
-    height: '200px',
+    width: '100px',
+    height: '100px',
   }),
 });

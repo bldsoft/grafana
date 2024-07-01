@@ -180,7 +180,7 @@ const getStyles = (theme: GrafanaTheme2) => {
     `,
     queryName: css`
       font-weight: ${theme.typography.fontWeightMedium};
-      color: ${theme.colors.primary.text};
+      color: ${theme.colors.text.link};
       cursor: pointer;
       overflow: hidden;
       margin-left: ${theme.spacing(0.5)};

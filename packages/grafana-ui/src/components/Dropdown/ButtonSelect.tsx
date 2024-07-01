@@ -1,4 +1,4 @@
-import { css } from '@emotion/css';
+import { css, cx } from '@emotion/css';
 import {
   autoUpdate,
   flip,
@@ -14,7 +14,7 @@ import React, { HTMLAttributes, useState } from 'react';
 
 import { GrafanaTheme2, SelectableValue } from '@grafana/data';
 
-import { useStyles2 } from '../../themes/ThemeContext';
+import { useStyles2 } from '../../themes';
 import { Menu } from '../Menu/Menu';
 import { MenuItem } from '../Menu/MenuItem';
 import { ToolbarButton, ToolbarButtonVariant } from '../ToolbarButton';
@@ -30,6 +30,7 @@ export interface Props<T> extends HTMLAttributes<HTMLButtonElement> {
   narrow?: boolean;
   variant?: ToolbarButtonVariant;
   tooltip?: string;
+  grouped?: boolean;
 }
 
 /**
@@ -37,7 +38,7 @@ export interface Props<T> extends HTMLAttributes<HTMLButtonElement> {
  * A temporary component until we have a proper dropdown component
  */
 const ButtonSelectComponent = <T,>(props: Props<T>) => {
-  const { className, options, value, onChange, narrow, variant, ...restProps } = props;
+  const { className, options, value, onChange, narrow, variant, grouped, ...restProps } = props;
   const styles = useStyles2(getStyles);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -74,7 +75,9 @@ const ButtonSelectComponent = <T,>(props: Props<T>) => {
   return (
     <div className={styles.wrapper}>
       <ToolbarButton
-        className={className}
+        className={cx(className, {
+          [styles.grouped]: grouped,
+        })}
         isOpen={isOpen}
         narrow={narrow}
         variant={variant}
@@ -129,5 +132,9 @@ const getStyles = (theme: GrafanaTheme2) => {
     menuWrapper: css({
       zIndex: theme.zIndex.dropdown,
     }),
+    grouped: css({
+      borderTopLeftRadius: 0,
+      borderBottomLeftRadius: 0
+    })
   };
 };

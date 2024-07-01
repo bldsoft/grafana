@@ -24,7 +24,7 @@ export const DashboardLoading = ({ initPhase }: Props) => {
             <Spinner inline={true} /> {initPhase}
           </HorizontalGroup>{' '}
           <HorizontalGroup align="center" justify="center">
-            <Button variant="secondary" size="md" icon="repeat" onClick={cancelVariables}>
+            <Button variant="secondary" size="md" onClick={cancelVariables}>
               Cancel loading dashboard
             </Button>
           </HorizontalGroup>
@@ -39,7 +39,7 @@ export const getStyles = (theme: GrafanaTheme2) => {
   const slowStartThreshold = '0.5s';
 
   const invisibleToVisible = keyframes`
-    0% { opacity: 0%; }
+    0% { opacity: 0; }
     100% { opacity: 100%; }
   `;
 

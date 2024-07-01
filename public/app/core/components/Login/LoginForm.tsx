@@ -33,16 +33,16 @@ export const LoginForm = ({ children, onSubmit, isLoggingIn, passwordHint, login
     <div className={styles.wrapper}>
       <form onSubmit={handleSubmit(onSubmit)}>
         <Field
-          label={t('login.form.username-label', 'Email or Username')}
+          label={t('login.form.username-label', 'Username')}
           invalid={!!errors.user}
           error={errors.user?.message}
         >
           <Input
-            {...register('user', { required: t('login.form.username-required', 'Email or username is required') })}
+            {...register('user', { required: t('login.form.username-required', 'Username is required') })}
             id={usernameId}
             autoFocus
             autoCapitalize="none"
-            placeholder={loginHint || t('login.form.username-placeholder', 'Email or Username')}
+            placeholder={loginHint || t('login.form.username-placeholder', 'Username')}
             data-testid={selectors.pages.Login.username}
           />
         </Field>

@@ -123,6 +123,7 @@ export class RefreshPicker extends PureComponent<Props> {
             data-testid={selectors.components.RefreshPicker.intervalButtonV2}
             aria-label={ariaLabel}
             tooltip={tooltipAutoRefresh}
+            grouped={true}
           />
         )}
       </ButtonGroup>

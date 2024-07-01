@@ -1,12 +1,13 @@
-import { css } from '@emotion/css';
-import React, { PureComponent } from 'react';
+import { css } from '@emotion/css'
+import React, { PureComponent } from 'react'
 
-import { FeatureState, SelectableValue, getBuiltInThemes, ThemeRegistryItem } from '@grafana/data';
-import { selectors } from '@grafana/e2e-selectors';
-import { config, reportInteraction } from '@grafana/runtime';
-import { Preferences as UserPreferencesDTO } from '@grafana/schema/src/raw/preferences/x/preferences_types.gen';
+import { FeatureState, getBuiltInThemes, SelectableValue, ThemeRegistryItem } from '@grafana/data'
+import { selectors } from '@grafana/e2e-selectors'
+import { config, reportInteraction } from '@grafana/runtime'
+import { Preferences as UserPreferencesDTO } from '@grafana/schema/src/raw/preferences/x/preferences_types.gen'
 import {
   Button,
+  FeatureBadge,
   Field,
   FieldSet,
   Label,
@@ -14,13 +15,12 @@ import {
   stylesFactory,
   TimeZonePicker,
   WeekStartPicker,
-  FeatureBadge,
-} from '@grafana/ui';
-import { DashboardPicker } from 'app/core/components/Select/DashboardPicker';
-import { t, Trans } from 'app/core/internationalization';
-import { LANGUAGES, PSEUDO_LOCALE } from 'app/core/internationalization/constants';
-import { PreferencesService } from 'app/core/services/PreferencesService';
-import { changeTheme } from 'app/core/services/theme';
+} from '@grafana/ui'
+import { DashboardPicker } from 'app/core/components/Select/DashboardPicker'
+import { t, Trans } from 'app/core/internationalization'
+import { LANGUAGES, PSEUDO_LOCALE } from 'app/core/internationalization/constants'
+import { PreferencesService } from 'app/core/services/PreferencesService'
+import { changeTheme } from 'app/core/services/theme'
 
 export interface Props {
   resourceUri: string;
@@ -47,15 +47,13 @@ function getLanguageOptions(): Array<SelectableValue<string>> {
     return a.label.localeCompare(b.label);
   });
 
-  const options = [
+  return [
     {
       value: '',
       label: t('common.locale.default', 'Default'),
     },
     ...languageOptions,
   ];
-
-  return options;
 }
 
 export class SharedPreferences extends PureComponent<Props, State> {
@@ -140,23 +138,23 @@ export class SharedPreferences extends PureComponent<Props, State> {
   };
 
   render() {
-    const { theme, timezone, weekStart, homeDashboardUID, language } = this.state;
+    const { timezone, weekStart, homeDashboardUID, language } = this.state;
     const { disabled } = this.props;
     const styles = getStyles();
     const languages = getLanguageOptions();
-    const currentThemeOption = this.themeOptions.find((x) => x.value === theme) ?? this.themeOptions[0];
+    // const currentThemeOption = this.themeOptions.find((x) => x.value === theme) ?? this.themeOptions[0];
 
     return (
       <form onSubmit={this.onSubmitForm} className={styles.form}>
         <FieldSet label={<Trans i18nKey="shared-preferences.title">Preferences</Trans>} disabled={disabled}>
-          <Field label={t('shared-preferences.fields.theme-label', 'Interface theme')}>
-            <Select
-              options={this.themeOptions}
-              value={currentThemeOption}
-              onChange={this.onThemeChanged}
-              inputId="shared-preferences-theme-select"
-            />
-          </Field>
+          {/*<Field label={t('shared-preferences.fields.theme-label', 'Interface theme')}>*/}
+          {/*  <Select*/}
+          {/*    options={this.themeOptions}*/}
+          {/*    value={currentThemeOption}*/}
+          {/*    onChange={this.onThemeChanged}*/}
+          {/*    inputId="shared-preferences-theme-select"*/}
+          {/*  />*/}
+          {/*</Field>*/}
 
           <Field
             label={
