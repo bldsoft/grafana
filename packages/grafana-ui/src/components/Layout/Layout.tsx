@@ -164,6 +164,7 @@ const getStyles = (
       '&:last-child': {
         marginBottom: orientation === Orientation.Vertical ? 0 : undefined,
         marginRight: orientation === Orientation.Horizontal ? 0 : undefined,
+        paddingTop: 3,
       },
     }),
   };

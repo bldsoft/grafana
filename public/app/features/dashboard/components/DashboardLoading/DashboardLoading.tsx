@@ -45,7 +45,7 @@ export const getStyles = (theme: GrafanaTheme2) => {
 
   return {
     dashboardLoading: css({
-      height: '60vh',
+      height: '70vh',
       display: 'flex',
       opacity: '0%',
       alignItems: 'center',

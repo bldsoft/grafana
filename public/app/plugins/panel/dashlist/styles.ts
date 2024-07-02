@@ -14,7 +14,6 @@ export const getStyles = (theme: GrafanaTheme2) => ({
   dashlistLink: css`
     display: flex;
     cursor: pointer;
-    border-bottom: 1px solid ${theme.colors.border.weak};
     margin-right: ${theme.spacing(1)};
     padding: ${theme.spacing(1)};
     align-items: center;
