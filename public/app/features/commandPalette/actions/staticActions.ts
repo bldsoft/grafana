@@ -1,10 +1,9 @@
 import { NavModelItem } from '@grafana/data';
 import { enrichHelpItem } from 'app/core/components/AppChrome/MegaMenu/utils';
 import { t } from 'app/core/internationalization';
-import { changeTheme } from 'app/core/services/theme';
 
 import { CommandPaletteAction } from '../types';
-import { ACTIONS_PRIORITY, DEFAULT_PRIORITY, PREFERENCES_PRIORITY } from '../values';
+import { ACTIONS_PRIORITY, DEFAULT_PRIORITY } from '../values';
 
 // TODO: Clean this once ID is mandatory on nav items
 function idForNavItem(navItem: NavModelItem) {
@@ -71,33 +70,7 @@ function navTreeToActions(navTree: NavModelItem[], parents: NavModelItem[] = [])
 }
 
 export default (navBarTree: NavModelItem[], extensionActions: CommandPaletteAction[]): CommandPaletteAction[] => {
-  const globalActions: CommandPaletteAction[] = [
-    {
-      id: 'preferences/theme',
-      name: t('command-palette.action.change-theme', 'Change theme...'),
-      keywords: 'interface color dark light',
-      section: t('command-palette.section.preferences', 'Preferences'),
-      priority: PREFERENCES_PRIORITY,
-    },
-    {
-      id: 'preferences/dark-theme',
-      name: t('command-palette.action.dark-theme', 'Dark'),
-      keywords: 'dark theme',
-      perform: () => changeTheme('dark'),
-      parent: 'preferences/theme',
-      priority: PREFERENCES_PRIORITY,
-    },
-    {
-      id: 'preferences/light-theme',
-      name: t('command-palette.action.light-theme', 'Light'),
-      keywords: 'light theme',
-      perform: () => changeTheme('light'),
-      parent: 'preferences/theme',
-      priority: PREFERENCES_PRIORITY,
-    },
-  ];
-
   const navBarActions = navTreeToActions(navBarTree);
 
-  return [...globalActions, ...extensionActions, ...navBarActions];
+  return [...extensionActions, ...navBarActions];
 };

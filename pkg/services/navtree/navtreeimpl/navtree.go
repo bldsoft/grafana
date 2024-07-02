@@ -139,7 +139,7 @@ func (s *ServiceImpl) GetNavTree(c *contextmodel.ReqContext, prefs *pref.Prefere
 	_, uaIsDisabledForOrg := s.cfg.UnifiedAlerting.DisabledOrgs[c.SignedInUser.GetOrgID()]
 	uaVisibleForOrg := s.cfg.UnifiedAlerting.IsEnabled() && !uaIsDisabledForOrg
 
-	if uaVisibleForOrg {
+	if uaVisibleForOrg && c.SignedInUser.GetOrgRole() == org.RoleAdmin {
 		if alertingSection := s.buildAlertNavLinks(c); alertingSection != nil {
 			treeRoot.AddSection(alertingSection)
 		}
@@ -149,15 +149,17 @@ func (s *ServiceImpl) GetNavTree(c *contextmodel.ReqContext, prefs *pref.Prefere
 		treeRoot.AddSection(connectionsSection)
 	}
 
-	orgAdminNode, err := s.getAdminNode(c)
+	if c.SignedInUser.GetOrgRole() == org.RoleAdmin {
+	  	orgAdminNode, err := s.getAdminNode(c)
 
-	if orgAdminNode != nil && len(orgAdminNode.Children) > 0 {
-		treeRoot.AddSection(orgAdminNode)
-	} else if err != nil {
-		return nil, err
+	  	if orgAdminNode != nil && len(orgAdminNode.Children) > 0 {
+			treeRoot.AddSection(orgAdminNode)
+		} else if err != nil {
+			return nil, err
+		}
+
+		s.addHelpLinks(treeRoot, c)
 	}
-
-	s.addHelpLinks(treeRoot, c)
 
 	if err := s.addAppLinks(treeRoot, c); err != nil {
 		return nil, err
@@ -322,11 +324,13 @@ func (s *ServiceImpl) buildDashboardNavLinks(c *contextmodel.ReqContext) []*navt
 
 	dashboardChildNavs := []*navtree.NavLink{}
 
-	dashboardChildNavs = append(dashboardChildNavs, &navtree.NavLink{
-		Text: "Playlists", SubTitle: "Groups of dashboards that are displayed in a sequence", Id: "dashboards/playlists", Url: s.cfg.AppSubURL + "/playlists", Icon: "presentation-play",
-	})
+	if c.SignedInUser.GetOrgRole() == org.RoleAdmin {
+		dashboardChildNavs = append(dashboardChildNavs, &navtree.NavLink{
+			Text: "Playlists", SubTitle: "Groups of dashboards that are displayed in a sequence", Id: "dashboards/playlists", Url: s.cfg.AppSubURL + "/playlists", Icon: "presentation-play",
+		})
+	}
 
-	if c.IsSignedIn {
+	if c.IsSignedIn && c.SignedInUser.GetOrgRole() == org.RoleAdmin {
 		if s.cfg.SnapshotEnabled {
 			dashboardChildNavs = append(dashboardChildNavs, &navtree.NavLink{
 				Text:     "Snapshots",

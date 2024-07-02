@@ -24,7 +24,7 @@ export const DashboardLoading = ({ initPhase }: Props) => {
             <Spinner inline={true} /> {initPhase}
           </HorizontalGroup>{' '}
           <HorizontalGroup align="center" justify="center">
-            <Button variant="secondary" size="md" onClick={cancelVariables}>
+            <Button className={styles.loadingButton} variant="secondary" size="md" onClick={cancelVariables}>
               Cancel loading dashboard
             </Button>
           </HorizontalGroup>
@@ -53,6 +53,11 @@ export const getStyles = (theme: GrafanaTheme2) => {
       [theme.transitions.handleMotion('no-preference', 'reduce')]: {
         animation: `${invisibleToVisible} 0s step-end ${slowStartThreshold} 1 normal forwards`,
       },
+    }),
+    loadingButton: css({
+      padding: '10px 24px',
+      height: 44,
+      borderRadius: 10
     }),
     dashboardLoadingText: css({
       fontSize: theme.typography.h4.fontSize,

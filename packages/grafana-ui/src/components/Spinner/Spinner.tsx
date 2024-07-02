@@ -49,7 +49,6 @@ export const Spinner = ({
     const iconRoot = getIconRoot();
     const subDir = getIconSubDir(iconName, 'default');
     const svgPath = `${iconRoot}${subDir}/${iconName}.svg`;
-    console.log(svgPath)
     return (
       <div
         data-testid="Spinner"
@@ -72,7 +71,6 @@ export const Spinner = ({
       </div>
     );
   }
-  console.log(iconName)
   return (
     <div
       data-testid="Spinner"

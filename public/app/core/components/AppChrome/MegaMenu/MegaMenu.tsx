@@ -49,10 +49,10 @@ export const MegaMenu = React.memo(
     return (
       <div data-testid={selectors.components.NavMenu.Menu} ref={ref} {...restProps}>
         <nav className={styles.content}>
+          <a className={styles.logo} href={homeUrl} title="Go to home">
+            <Branding.MenuLogo className={styles.img} menuOpen={state.megaMenuOpen}/>
+          </a>
           <CustomScrollbar showScrollIndicators hideHorizontalTrack>
-             <a className={styles.logo} href={homeUrl} title="Go to home">
-               <Branding.MenuLogo className={styles.img} menuOpen={state.megaMenuOpen}/>
-             </a>
             <ul className={styles.itemList} aria-label={t('navigation.megamenu.list-label', 'Navigation')}>
               {navItems.map((link) => (
                 <Stack key={link.text} alignItems="center">
