@@ -3,7 +3,7 @@ import { css } from '@emotion/css';
 import React from 'react';
 
 import { GrafanaTheme2, NavModelItem } from '@grafana/data';
-import { Dropdown, ToolbarButton, useStyles2 } from '@grafana/ui';
+import { Dropdown, ToolbarButton, useStyles2 } from '@grafana/ui'
 // import { config } from 'app/core/config';
 // import { contextSrv } from 'app/core/core';
 import { useSelector } from 'app/types';
@@ -21,15 +21,18 @@ import { TopNavBarMenu } from './TopNavBarMenu';
 import { TopSearchBarCommandPaletteTrigger } from './TopSearchBarCommandPaletteTrigger';
 import { TopSearchBarSection } from './TopSearchBarSection';
 import { OrganizationSwitcher } from '../OrganizationSwitcher/OrganizationSwitcher'
+import { NavToolbarSeparator } from '../NavToolbar/NavToolbarSeparator'
 
 interface Props {
   sectionNav: NavModelItem;
   pageNav?: NavModelItem;
+  actions: React.ReactNode;
 }
 
 export const TopSearchBar = React.memo(function TopSearchBar({
                                                                sectionNav,
                                                                pageNav,
+                                                               actions
                                                              }: Props) {
   const styles = useStyles2(getStyles);
   const navIndex = useSelector((state) => state.navIndex);
@@ -47,6 +50,10 @@ export const TopSearchBar = React.memo(function TopSearchBar({
       <div className={styles.dFlex}>
         <OrganizationSwitcher />
         <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />
+      </div>
+      <div className={styles.actions}>
+        {actions}
+        {actions && <NavToolbarSeparator />}
       </div>
       <TopSearchBarSection align="right">
         <TopSearchBarCommandPaletteTrigger />
@@ -107,6 +114,21 @@ const getStyles = (theme: GrafanaTheme2) => ({
     paddingLeft: 15,
     [theme.breakpoints.down('sm')]: {
       minWidth: '50%',
+    },
+  }),
+  actions: css({
+    label: 'NavToolbar-actions',
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'nowrap',
+    justifyContent: 'flex-end',
+    paddingLeft: theme.spacing(1),
+    flexGrow: 1,
+    gap: theme.spacing(1),
+    minWidth: 0,
+
+    '.body-drawer-open &': {
+      display: 'none',
     },
   }),
 });
