@@ -20,6 +20,7 @@ import { TOP_BAR_LEVEL_HEIGHT } from '../types';
 import { TopNavBarMenu } from './TopNavBarMenu';
 import { TopSearchBarCommandPaletteTrigger } from './TopSearchBarCommandPaletteTrigger';
 import { TopSearchBarSection } from './TopSearchBarSection';
+import { OrganizationSwitcher } from '../OrganizationSwitcher/OrganizationSwitcher'
 
 interface Props {
   sectionNav: NavModelItem;
@@ -43,7 +44,10 @@ export const TopSearchBar = React.memo(function TopSearchBar({
 
   return (
     <div className={styles.layout}>
-      <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />
+      <div className={styles.dFlex}>
+        <OrganizationSwitcher />
+        <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />
+      </div>
       <TopSearchBarSection align="right">
         <TopSearchBarCommandPaletteTrigger />
         <QuickAdd />
@@ -94,9 +98,13 @@ const getStyles = (theme: GrafanaTheme2) => ({
       width: '24px',
     },
   }),
+  dFlex: css({
+    display: 'flex'
+  }),
   breadcrumbsWrapper: css({
     display: 'flex',
     overflow: 'hidden',
+    paddingLeft: 15,
     [theme.breakpoints.down('sm')]: {
       minWidth: '50%',
     },

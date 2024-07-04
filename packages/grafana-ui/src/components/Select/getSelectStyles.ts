@@ -2,7 +2,7 @@ import { css } from '@emotion/css';
 
 import { GrafanaTheme2 } from '@grafana/data';
 
-import { stylesFactory } from '../../themes/stylesFactory';
+import { stylesFactory } from '../../themes';
 
 export const getSelectStyles = stylesFactory((theme: GrafanaTheme2) => {
   return {
@@ -13,6 +13,7 @@ export const getSelectStyles = stylesFactory((theme: GrafanaTheme2) => {
       position: 'relative',
       minWidth: '100%',
       zIndex: 1,
+      borderRadius: 10
     }),
     option: css({
       label: 'grafana-select-option',
@@ -24,6 +25,7 @@ export const getSelectStyles = stylesFactory((theme: GrafanaTheme2) => {
       whiteSpace: 'nowrap',
       cursor: 'pointer',
       borderLeft: '2px solid transparent',
+      borderRadius: 10,
 
       '&:hover': {
         background: theme.colors.action.hover,
