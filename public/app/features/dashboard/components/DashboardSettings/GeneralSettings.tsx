@@ -120,7 +120,7 @@ export function GeneralSettingsUnconnected({
 
   return (
     <Page navModel={sectionNav} pageNav={pageNav}>
-      <div style={{ maxWidth: '600px' }}>
+      <div style={{ maxWidth: '525px' }}>
         <Box marginBottom={5}>
           <Field
             label={
@@ -205,6 +205,7 @@ export function GeneralSettingsUnconnected({
         <CollapsableSection label={t('dashboard-settings.general.panel-options-label', 'Panel options')} isOpen={true}>
           <Field
             label={t('dashboard-settings.general.panel-options-graph-tooltip-label', 'Graph tooltip')}
+            className={}
             description={t(
               'dashboard-settings.general.panel-options-graph-tooltip-description',
               'Controls tooltip and hover highlight behavior across different panels. Reload the dashboard for changes to take effect'

@@ -86,6 +86,7 @@ export function AppChrome({ children }: Props) {
               <TopSearchBar
                 sectionNav={state.sectionNav.node}
                 pageNav={state.pageNav}
+                actions={state.actions}
               />
             </header>}
             {children}
