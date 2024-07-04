@@ -205,7 +205,6 @@ export function GeneralSettingsUnconnected({
         <CollapsableSection label={t('dashboard-settings.general.panel-options-label', 'Panel options')} isOpen={true}>
           <Field
             label={t('dashboard-settings.general.panel-options-graph-tooltip-label', 'Graph tooltip')}
-            className={}
             description={t(
               'dashboard-settings.general.panel-options-graph-tooltip-description',
               'Controls tooltip and hover highlight behavior across different panels. Reload the dashboard for changes to take effect'
