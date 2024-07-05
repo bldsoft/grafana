@@ -5,7 +5,7 @@ import Skeleton from 'react-loading-skeleton';
 import { GrafanaTheme2 } from '@grafana/data';
 
 import { useStyles2, useTheme2 } from '../../themes';
-import { IconName } from '../../types/icon';
+import { IconName } from '@grafana/data';
 import { getTagColor, getTagColorsFromName } from '../../utils';
 import { SkeletonComponent, attachSkeleton } from '../../utils/skeleton';
 import { Icon } from '../Icon/Icon';
@@ -66,6 +66,7 @@ const getSkeletonStyles = () => ({
 
 const getTagStyles = (theme: GrafanaTheme2, name: string, colorIndex?: number) => {
   let colors;
+  console.log(colorIndex)
   if (colorIndex === undefined) {
     colors = getTagColorsFromName(name);
   } else {
@@ -80,7 +81,7 @@ const getTagStyles = (theme: GrafanaTheme2, name: string, colorIndex?: number) =
       lineHeight: theme.typography.bodySmall.lineHeight,
       verticalAlign: 'baseline',
       backgroundColor: colors.color,
-      color: theme.v1.palette.gray98,
+      color: theme.colors.text.accent1,
       whiteSpace: 'nowrap',
       textShadow: 'none',
       padding: '3px 6px',

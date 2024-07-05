@@ -101,7 +101,7 @@ export function DashboardLinkForm({ link, onUpdate, onGoBack }: DashboardLinkFor
           <Checkbox label="Open link in new tab" name="targetBlank" value={link.targetBlank} onChange={onChange} />
         </Field>
       </CollapsableSection>
-      <Button variant="secondary" onClick={onGoBack}>
+      <Button variant="secondary" fill="outline" onClick={onGoBack}>
         Back to list
       </Button>
     </div>

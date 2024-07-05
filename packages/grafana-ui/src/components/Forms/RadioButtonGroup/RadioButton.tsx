@@ -6,7 +6,7 @@ import { StringSelector, selectors } from '@grafana/e2e-selectors';
 
 import { useStyles2 } from '../../../themes';
 import { getFocusStyles, getMouseFocusStyles } from '../../../themes/mixins';
-import { Tooltip } from '../../Tooltip/Tooltip';
+import { Tooltip } from '../../Tooltip';
 import { getPropertiesForButtonSize } from '../commonStyles';
 
 export type RadioButtonSize = 'sm' | 'md';
@@ -81,12 +81,11 @@ export const RadioButton = React.forwardRef<HTMLInputElement, RadioButtonProps>(
 RadioButton.displayName = 'RadioButton';
 
 const getRadioButtonStyles = (theme: GrafanaTheme2, size: RadioButtonSize, fullWidth?: boolean) => {
-  const { fontSize, height, padding } = getPropertiesForButtonSize(size, theme);
+  const { fontSize } = getPropertiesForButtonSize(size, theme);
 
   const textColor = theme.colors.text.secondary;
   const textColorHover = theme.colors.text.primary;
   // remove the group inner padding (set on RadioButtonGroup)
-  const labelHeight = height * theme.spacing.gridSize - 4 - 2;
 
   return {
     radioOption: css({
@@ -107,7 +106,8 @@ const getRadioButtonStyles = (theme: GrafanaTheme2, size: RadioButtonSize, fullW
       '&:checked + label': {
         color: theme.colors.text.primary,
         fontWeight: theme.typography.fontWeightMedium,
-        background: theme.colors.action.selected,
+        background: theme.colors.background.buttonHovered,
+        border: 'none',
         zIndex: 1,
       },
 
@@ -125,13 +125,14 @@ const getRadioButtonStyles = (theme: GrafanaTheme2, size: RadioButtonSize, fullW
       alignItems: 'center',
       justifyContent: 'center',
       fontSize,
-      height: `${labelHeight}px`,
+      height: 44,
       // Deduct border from line-height for perfect vertical centering on windows and linux
-      lineHeight: `${labelHeight}px`,
+      lineHeight: 24,
       color: textColor,
-      padding: theme.spacing(0, padding),
       borderRadius: theme.shape.radius.default,
-      background: theme.colors.background.primary,
+      padding: '10px 16px',
+      border: `1px solid ${theme.colors.border.secondary}`,
+      background: theme.colors.background.surfacePrimary,
       cursor: 'pointer',
       userSelect: 'none',
       whiteSpace: 'nowrap',

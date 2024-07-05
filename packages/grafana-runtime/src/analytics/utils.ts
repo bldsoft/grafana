@@ -1,6 +1,6 @@
 import { config } from '../config';
 import { locationService } from '../services';
-import { getEchoSrv, EchoEventType } from '../services/EchoSrv';
+import { getEchoSrv, EchoEventType } from '../services';
 
 import {
   ExperimentViewEchoEvent,
@@ -44,6 +44,7 @@ export const reportPageview = () => {
  * @public
  */
 export const reportInteraction = (interactionName: string, properties?: Record<string, unknown>) => {
+  console.log(interactionName)
   getEchoSrv().addEvent<InteractionEchoEvent>({
     type: EchoEventType.Interaction,
     payload: {

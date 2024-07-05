@@ -2,7 +2,7 @@ import { css } from '@emotion/css';
 import React from 'react';
 
 import { GrafanaTheme2 } from '@grafana/data';
-import { Box, Button, Icon, Select, Tooltip, useStyles2 } from '@grafana/ui';
+import { Box, Icon, IconButton, Select, Tooltip, useStyles2 } from '@grafana/ui'
 
 import { ResourcePermission } from './types';
 
@@ -50,17 +50,18 @@ export const PermissionListItem = ({ item, permissionLevels, canSet, onRemove, o
       </td>
       <td>
         {item.isManaged ? (
-          <Button
-            size="sm"
-            icon="times"
-            variant="destructive"
-            disabled={!canSet}
-            onClick={() => onRemove(item)}
-            aria-label={`Remove permission for ${getName(item)}`}
-          />
+          <div className={styles.dFlex}>
+            <IconButton
+              onClick={() => onRemove(item)}
+              disabled={!canSet}
+              name="trash-alt"
+              tooltip="Remove permission"
+              aria-label={`Remove permission for ${getName(item)}`}
+            />
+          </div>
         ) : (
           <Tooltip content={item.isInherited ? 'Inherited Permission' : 'Provisioned Permission'}>
-            <Button size="sm" icon="lock" />
+            <Icon name="lock" size="lg" />
           </Tooltip>
         )}
       </td>
@@ -104,4 +105,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
   warning: css({
     color: theme.colors.warning.main,
   }),
+  dFlex: css({
+    display: 'flex'
+  })
 });

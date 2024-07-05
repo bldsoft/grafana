@@ -149,6 +149,7 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuCl
     position: 'relative',
     width: '100%',
     cursor: 'pointer',
+    fontSize: 16,
 
     '&:focus-visible': {
       boxShadow: 'none',

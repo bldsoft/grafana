@@ -95,7 +95,7 @@ const getStyles = (theme: GrafanaTheme2) => {
     }),
     link: css({
       color: theme.colors.text.secondary,
-      padding: theme.spacing(1, 1.5, 0.5),
+      padding: theme.spacing(0, 1.5, 1),
       borderRadius: theme.shape.radius.default,
 
       display: 'block',
@@ -131,6 +131,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       label: 'activeTabStyle',
       color: theme.colors.text.primary,
       overflow: 'hidden',
+      fontSize: 16,
 
       '&::before': {
         backgroundImage: `linear-gradient(0.01deg, ${theme.colors.custom.accentAccent1} 0.01%, ${theme.colors.custom.accentAccent1} 99.99%)`,

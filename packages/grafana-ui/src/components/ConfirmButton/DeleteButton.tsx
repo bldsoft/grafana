@@ -1,9 +1,9 @@
 import React from 'react';
 
-import { ComponentSize } from '../../types/size';
-import { Button } from '../Button';
+import { ComponentSize } from '../../types';
 
 import { ConfirmButton } from './ConfirmButton';
+import { Icon } from '../Icon/Icon'
 
 export interface Props {
   /** Confirm action callback */
@@ -27,7 +27,7 @@ export const DeleteButton = ({ size, disabled, onConfirm, 'aria-label': ariaLabe
       onConfirm={onConfirm}
       closeOnConfirm={closeOnConfirm}
     >
-      <Button aria-label={ariaLabel} variant="destructive" icon="times" size={size || 'sm'} />
+      <Icon name="trash-alt" />
     </ConfirmButton>
   );
 };

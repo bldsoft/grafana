@@ -1,12 +1,11 @@
 import { css, cx } from '@emotion/css';
 import React, { AnchorHTMLAttributes, ButtonHTMLAttributes } from 'react';
 
-import { GrafanaTheme2, ThemeRichColor } from '@grafana/data';
+import { GrafanaTheme2, ThemeRichColor, IconName } from '@grafana/data';
 
 import { useTheme2 } from '../../themes';
 import { getFocusStyles, getMouseFocusStyles } from '../../themes/mixins';
 import { ComponentSize, IconSize, IconType } from '../../types';
-import { IconName } from '@grafana/data';
 import { getPropertiesForButtonSize } from '../Forms/commonStyles';
 import { Icon } from '../Icon/Icon';
 import { PopoverContent, Tooltip, TooltipPlacement } from '../Tooltip';
@@ -25,6 +24,7 @@ type CommonProps = {
   children?: React.ReactNode;
   fullWidth?: boolean;
   type?: string;
+  buttonType?: string;
   /** Tooltip content to display on hover */
   tooltip?: PopoverContent;
   /** Position of the tooltip */
@@ -44,6 +44,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       children,
       className,
       type = 'button',
+      buttonType,
       tooltip,
       disabled,
       tooltipPlacement,
@@ -66,6 +67,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       styles.button,
       {
         [styles.disabled]: disabled,
+        [styles.iconButton]: buttonType === 'icon'
       },
       className
     );
@@ -207,22 +209,21 @@ export interface StyleProps {
 
 export const getButtonStyles = (props: StyleProps) => {
   const { theme, variant, fill = 'solid', size, iconOnly, fullWidth } = props;
-  const { height, padding, fontSize } = getPropertiesForButtonSize(size, theme);
+  const { height, padding } = getPropertiesForButtonSize(size, theme);
   const variantStyles = getPropertiesForVariant(theme, variant, fill);
   const disabledStyles = getPropertiesForDisabled(theme, variant, fill);
   const focusStyle = getFocusStyles(theme);
-  const paddingMinusBorder = theme.spacing.gridSize * padding - 1;
 
   return {
     button: css({
       label: 'button',
       display: 'inline-flex',
       alignItems: 'center',
-      fontSize: fontSize,
+      fontSize: 14,
       fontWeight: theme.typography.fontWeightMedium,
       fontFamily: theme.typography.fontFamily,
-      padding: `0 ${paddingMinusBorder}px`,
-      height: theme.spacing(height),
+      padding: `10px 24px`,
+      height: 44,
       // Deduct border from line-height for perfect vertical centering on windows and linux
       lineHeight: `${theme.spacing.gridSize * height - 2}px`,
       verticalAlign: 'middle',
@@ -238,6 +239,12 @@ export const getButtonStyles = (props: StyleProps) => {
       ...variantStyles,
       ':disabled': disabledStyles,
       '&[disabled]': disabledStyles,
+    }),
+    iconButton: css({
+      padding: '0 8px',
+      '&:hover': {
+        background: 'transparent'
+      }
     }),
     disabled: css(disabledStyles, {
       '&:hover': css(disabledStyles),
@@ -393,7 +400,7 @@ export const clearButtonStyles = (theme: GrafanaTheme2) => {
   });
 };
 
-export const clearLinkButtonStyles = (theme: GrafanaTheme2) => {
+export const clearLinkButtonStyles = () => {
   return css({
     background: 'transparent',
     border: 'none',

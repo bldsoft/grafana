@@ -57,5 +57,8 @@ export const palette = {
   'surface_secondary': '#2E2E2E',
 
   'background_secondary': '#1F1F1F',
-  'background_const-primary': '#262626'
+  'background_const-primary': '#262626',
+
+  'border_secondary': '#404040',
+  'border_teriary': '#595959'
 };

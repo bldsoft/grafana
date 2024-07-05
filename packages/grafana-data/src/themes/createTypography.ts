@@ -118,10 +118,10 @@ export function createTypography(colors: ThemeColors, typographyInput: ThemeTypo
   };
 
   const size = {
-    base: '14px',
+    base: '16px',
     xs: '10px',
     sm: '12px',
-    md: '14px',
+    md: '16px',
     lg: '18px',
   };
 

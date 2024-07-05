@@ -87,7 +87,9 @@ export function DashboardLinkList({
                 ) : null}
               </td>
               <td style={{ width: '1%' }} role="gridcell">
-                <IconButton name="copy" onClick={() => onDuplicate(link)} tooltip="Copy link" />
+                <div className={styles.dFlex}>
+                  <IconButton name="copy" onClick={() => onDuplicate(link)} tooltip="Copy link" />
+                </div>
               </td>
               <td style={{ width: '1%' }} role="gridcell">
                 <DeleteButton
@@ -112,6 +114,9 @@ const getStyles = (theme: GrafanaTheme2) => ({
     width: '20vw',
     textOverflow: 'ellipsis',
     overflow: 'hidden',
+  }),
+  dFlex: css({
+    display: 'flex'
   }),
   urlWrapper: css({
     width: '40vw',

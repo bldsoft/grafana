@@ -57,6 +57,8 @@ export interface ThemeColorsBase<TColor> {
     weak: string;
     medium: string;
     strong: string;
+    secondary: string;
+    teriary: string;
   };
 
   gradients: {
@@ -118,6 +120,8 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     weak: `rgba(${this.whiteBase}, 0.12)`,
     medium: `rgba(${this.whiteBase}, 0.20)`,
     strong: `rgba(${this.whiteBase}, 0.30)`,
+    secondary: palette['border_secondary'],
+    teriary: palette['border_teriary']
   };
 
   text = {
@@ -238,6 +242,8 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     weak: `rgba(${this.blackBase}, 0.12)`,
     medium: `rgba(${this.blackBase}, 0.30)`,
     strong: `rgba(${this.blackBase}, 0.40)`,
+    secondary: palette['border_secondary'],
+    teriary: palette['border_teriary']
   };
 
   secondary = {
