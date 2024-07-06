@@ -33,8 +33,8 @@ interface DashboardsTreeProps {
   requestLoadMore: (folderUid: string | undefined) => void;
 }
 
-const HEADER_HEIGHT = 36;
-const ROW_HEIGHT = 36;
+const HEADER_HEIGHT = 48;
+const ROW_HEIGHT = 48;
 const DIVIDER_HEIGHT = 0; // Yes - make it appear as a border on the row rather than a row itself
 
 export function DashboardsTree({
@@ -122,7 +122,7 @@ export function DashboardsTree({
   );
 
   const handleLoadMore = useCallback(
-    (startIndex: number, endIndex: number) => {
+    (startIndex: number) => {
       const { parentUID } = items[startIndex];
       requestLoadMore(parentUID);
     },

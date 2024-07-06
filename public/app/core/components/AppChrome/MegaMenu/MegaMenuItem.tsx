@@ -170,7 +170,8 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     alignItems: 'center',
     gap: theme.spacing(1),
     height: 44,
-    paddingLeft: theme.spacing(0.5),
+    paddingLeft: theme.spacing(1),
+    paddingRight: theme.spacing(1),
     position: 'relative',
     width: '100%',
     borderRadius: 10,
@@ -183,7 +184,7 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     }
   }),
   menuItemWithIcon: css({
-    paddingLeft: theme.spacing(0),
+    paddingLeft: theme.spacing(1),
   }),
   collapseButtonWrapper: css({
     display: 'flex',

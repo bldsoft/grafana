@@ -17,6 +17,9 @@
     tr:nth-child(odd) {
       background: $table-bg-odd;
     }
+    tr {
+      border-radius: 10px;
+    }
   }
 
   th {
@@ -38,6 +41,14 @@
       padding: 0;
       border-right: 3px solid $page-bg;
     }
+    &:first-child {
+      border-bottom-left-radius: 10px;
+      border-top-left-radius: 10px;
+    }
+    &:last-child {
+      border-bottom-right-radius: 10px;
+      border-top-right-radius: 10px;
+    }
   }
 
   .link-td {
@@ -53,7 +64,7 @@
 
     a {
       display: block;
-      padding: 0px $space-sm;
+      padding: 0 $space-sm;
       height: 30px;
     }
   }

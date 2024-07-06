@@ -26,7 +26,7 @@ export const FieldSet = ({ label, children, className, ...rest }: Props) => {
 
 const getStyles = (theme: GrafanaTheme2) => ({
   wrapper: css({
-    marginBottom: theme.spacing(4),
+    marginBottom: theme.spacing(0.5),
 
     '&:last-child': {
       marginBottom: 0,

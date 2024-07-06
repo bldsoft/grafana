@@ -103,7 +103,7 @@ export function UserProfileEditPage({
   ];
 
   const UserProfile = () => (
-    <Stack direction="column" gap={2}>
+    <Stack direction="column" gap={3}>
       <UserProfileEditForm updateProfile={updateUserProfile} isSavingUser={isUpdating} user={user} />
       <SharedPreferences resourceUri="user" preferenceType="user" />
       <Stack direction="column" gap={6}>

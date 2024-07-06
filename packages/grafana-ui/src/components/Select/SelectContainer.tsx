@@ -4,7 +4,7 @@ import { components, ContainerProps as BaseContainerProps, GroupBase } from 'rea
 
 import { GrafanaTheme2 } from '@grafana/data';
 
-import { useStyles2 } from '../../themes/ThemeContext';
+import { useStyles2 } from '../../themes';
 import { getFocusStyles } from '../../themes/mixins';
 import { sharedInputStyle } from '../Forms/commonStyles';
 import { getInputStyles } from '../Input/Input';
@@ -52,7 +52,6 @@ const getSelectContainerStyles = (theme: GrafanaTheme2, focused: boolean, disabl
         alignItems: 'stretch',
         justifyContent: 'space-between',
         minHeight: '32px',
-        height: 'auto',
         maxWidth: '100%',
 
         /* Input padding is applied to the InputControl so the menu is aligned correctly */

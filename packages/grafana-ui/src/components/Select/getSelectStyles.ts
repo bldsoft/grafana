@@ -25,8 +25,14 @@ export const getSelectStyles = stylesFactory((theme: GrafanaTheme2) => {
       whiteSpace: 'nowrap',
       cursor: 'pointer',
       borderLeft: '2px solid transparent',
-      borderRadius: 10,
-
+      '&:first-child': {
+        borderTopLeftRadius: 10,
+        borderTopRightRadius: 10,
+      },
+      '&:last-child': {
+        borderBottomLeftRadius: 10,
+        borderBottomRightRadius: 10,
+      },
       '&:hover': {
         background: theme.colors.action.hover,
         '@media (forced-colors: active), (prefers-contrast: more)': {

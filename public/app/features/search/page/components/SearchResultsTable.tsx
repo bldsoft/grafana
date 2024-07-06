@@ -35,7 +35,7 @@ export type TableColumn = Column & {
   field?: Field;
 };
 
-const ROW_HEIGHT = 36; // pixels
+const ROW_HEIGHT = 48; // pixels
 
 export const SearchResultsTable = React.memo(
   ({
@@ -236,26 +236,32 @@ const getStyles = (theme: GrafanaTheme2) => {
     headerCell: css`
       align-items: center;
       display: flex;
-      overflo: hidden;
+      overflow: hidden;
       padding: ${theme.spacing(1)};
     `,
     headerRow: css`
-      background-color: ${theme.colors.background.secondary};
+      background-color: ${theme.colors.background.surfaceSecondary};
       display: flex;
       gap: ${theme.spacing(1)};
       height: ${ROW_HEIGHT}px;
+      border-top-left-radius: 10px;
+      border-top-right-radius: 10px;
     `,
     selectedRow: css`
       background-color: ${rowHoverBg};
-      box-shadow: inset 3px 0px ${theme.colors.primary.border};
+      box-shadow: inset 3px 0 ${theme.colors.primary.border};
     `,
     rowContainer: css`
       display: flex;
       gap: ${theme.spacing(1)};
-      height: ${ROW_HEIGHT}px;
+      height: ${ROW_HEIGHT}px !important;
       label: row;
       &:hover {
         background-color: ${rowHoverBg};
+      }
+      &:last-child {
+        border-bottom-left-radius: 10px;
+        border-bottom-right-radius: 10px;
       }
 
       &:not(:hover) div[role='cell'] {
