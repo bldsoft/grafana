@@ -16,7 +16,7 @@ import React, { useCallback, useId, useRef, useState } from 'react';
 import { GrafanaTheme2 } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
 
-import { useStyles2 } from '../../themes/ThemeContext';
+import { useStyles2 } from '../../themes';
 import { buildTooltipTheme, getPlacement } from '../../utils/tooltipUtils';
 import { Portal } from '../Portal/Portal';
 
@@ -26,7 +26,7 @@ export interface TooltipProps {
   theme?: 'info' | 'error' | 'info-alt';
   show?: boolean;
   placement?: TooltipPlacement;
-  content: PopoverContent;
+  content?: PopoverContent;
   children: JSX.Element;
   /**
    * Set to true if you want the tooltip to stay long enough so the user can move mouse over content to select text or click a link
@@ -39,6 +39,9 @@ export const Tooltip = React.forwardRef<HTMLElement, TooltipProps>(
     const arrowRef = useRef(null);
     const [controlledVisible, setControlledVisible] = useState(show);
     const isOpen = show ?? controlledVisible;
+    if (!content) {
+      return children
+    }
 
     // the order of middleware is important!
     // `arrow` should almost always be at the end

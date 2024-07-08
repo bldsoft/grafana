@@ -4,7 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { useLocalStorage } from 'react-use';
 
 import { GrafanaTheme2, NavModelItem, toIconName } from '@grafana/data';
-import { useStyles2, Text, IconButton, Icon, Stack } from '@grafana/ui';
+import { useStyles2, Text, IconButton, Icon, Stack, Tooltip } from '@grafana/ui'
 import { useGrafana } from 'app/core/context/GrafanaContext';
 
 import { Indent } from '../../Indent/Indent';
@@ -96,16 +96,18 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
             target={link.target}
             url={link.url}
           >
-            <div
-              className={cx(styles.labelWrapper, {
-                [styles.hasActiveChild]: hasActiveChild,
-                [styles.labelWrapperWithIcon]: Boolean(level === 0 && iconElement),
-                [styles.jcC]: !state.megaMenuOpen
-              })}
-            >
-              {level === 0 && iconElement && <FeatureHighlightWrapper>{iconElement}</FeatureHighlightWrapper>}
-              <Text truncate textAlignment={state.megaMenuOpen ? 'left' : 'center'}>{link.text}</Text>
-            </div>
+            <Tooltip content={!state.megaMenuOpen && link.text.length > 8 ? link.text : undefined} placement='bottom'>
+              <div
+                className={cx(styles.labelWrapper, {
+                  [styles.hasActiveChild]: hasActiveChild,
+                  [styles.labelWrapperWithIcon]: Boolean(level === 0 && iconElement),
+                  [styles.jcC]: !state.megaMenuOpen
+                })}
+              >
+                {level === 0 && iconElement && <FeatureHighlightWrapper>{iconElement}</FeatureHighlightWrapper>}
+                  <Text truncate textAlignment={state.megaMenuOpen ? 'left' : 'center'}>{link.text}</Text>
+              </div>
+            </Tooltip>
           </MegaMenuItemText>
         </div>
         {state.megaMenuOpen && (
