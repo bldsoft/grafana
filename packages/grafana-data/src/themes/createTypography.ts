@@ -122,7 +122,7 @@ export function createTypography(colors: ThemeColors, typographyInput: ThemeTypo
     xs: '10px',
     sm: '12px',
     md: '16px',
-    lg: '18px',
+    lg: '21px',
   };
 
   return {

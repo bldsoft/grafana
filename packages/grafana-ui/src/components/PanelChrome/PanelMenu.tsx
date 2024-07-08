@@ -43,7 +43,7 @@ export function PanelMenu({
         aria-label={`Menu for panel with ${title ? `title ${title}` : 'no title'}`}
         title="Menu"
         icon="ellipsis-v"
-        iconSize="md"
+        iconSize="lg"
         narrow
         data-testid={testId}
         className={cx(menuButtonClass, dragClassCancel)}

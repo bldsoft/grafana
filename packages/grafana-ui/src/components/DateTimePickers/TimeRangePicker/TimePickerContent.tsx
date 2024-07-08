@@ -360,7 +360,6 @@ const getFullScreenStyles = (theme: GrafanaTheme2, hideQuickRanges?: boolean) =>
 
 const getEmptyListStyles = (theme: GrafanaTheme2) => ({
   container: css({
-    padding: '12px',
     margin: '12px',
 
     'a, span': {

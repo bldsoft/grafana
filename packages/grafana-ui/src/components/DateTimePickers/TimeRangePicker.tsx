@@ -15,12 +15,12 @@ import {
 } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
 
-import { useStyles2 } from '../../themes/ThemeContext';
+import { useStyles2 } from '../../themes';
 import { t, Trans } from '../../utils/i18n';
 import { ButtonGroup } from '../Button';
 import { getModalStyles } from '../Modal/getModalStyles';
 import { ToolbarButton } from '../ToolbarButton';
-import { Tooltip } from '../Tooltip/Tooltip';
+import { Tooltip } from '../Tooltip';
 
 import { TimePickerContent } from './TimeRangePicker/TimePickerContent';
 import { quickOptions } from './options';
@@ -290,7 +290,7 @@ const getLabelStyles = (theme: GrafanaTheme2) => {
       whiteSpace: 'nowrap',
     }),
     utc: css({
-      color: theme.v1.palette.orange,
+      color: theme.colors.text.accent1,
       fontSize: theme.typography.size.sm,
       paddingLeft: '6px',
       lineHeight: '28px',

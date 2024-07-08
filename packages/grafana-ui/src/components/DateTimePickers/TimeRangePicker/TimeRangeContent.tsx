@@ -14,13 +14,13 @@ import {
 } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
 
-import { useStyles2 } from '../../../themes/ThemeContext';
+import { useStyles2 } from '../../../themes';
 import { t, Trans } from '../../../utils/i18n';
 import { Button } from '../../Button';
 import { Field } from '../../Forms/Field';
 import { Icon } from '../../Icon/Icon';
 import { Input } from '../../Input/Input';
-import { Tooltip } from '../../Tooltip/Tooltip';
+import { Tooltip } from '../../Tooltip';
 import { isValid } from '../utils';
 
 import TimePickerCalendar from './TimePickerCalendar';
@@ -135,15 +135,14 @@ export const TimeRangeContent = (props: Props) => {
   const fiscalYearMessage = t('time-picker.range-content.fiscal-year', 'Fiscal year');
 
   const fyTooltip = (
-    <div className={style.tooltip}>
-      {rangeUtil.isFiscal(value) ? (
+    rangeUtil.isFiscal(value) ? (
+      <div className={style.tooltip}>
         <Tooltip
           content={`${fiscalYearMessage}: ${fiscalYear.from.format('MMM-DD')} - ${fiscalYear.to.format('MMM-DD')}`}
         >
           <Icon name="info-circle" />
         </Tooltip>
-      ) : null}
-    </div>
+       </div>) : null
   );
 
   const icon = (
@@ -158,9 +157,10 @@ export const TimeRangeContent = (props: Props) => {
   );
 
   return (
-    <div>
+    <div style={{width: 'fit-content'}}>
       <div className={style.fieldContainer}>
         <Field
+          className={style.field}
           label={t('time-picker.range-content.from-input', 'From')}
           invalid={from.invalid}
           error={from.errorMessage}
@@ -178,7 +178,9 @@ export const TimeRangeContent = (props: Props) => {
         {fyTooltip}
       </div>
       <div className={style.fieldContainer}>
-        <Field label={t('time-picker.range-content.to-input', 'To')} invalid={to.invalid} error={to.errorMessage}>
+        <Field
+          className={style.field}
+          label={t('time-picker.range-content.to-input', 'To')} invalid={to.invalid} error={to.errorMessage}>
           <Input
             id={toFieldId}
             onClick={(event) => event.stopPropagation()}
@@ -194,6 +196,7 @@ export const TimeRangeContent = (props: Props) => {
       <div className={style.buttonsContainer}>
         <Button
           data-testid={selectors.components.TimePicker.copyTimeRange}
+          size="lg"
           icon="copy"
           variant="secondary"
           tooltip={t('time-picker.copy-paste.tooltip-copy', 'Copy time range to clipboard')}
@@ -203,6 +206,7 @@ export const TimeRangeContent = (props: Props) => {
         <Button
           data-testid={selectors.components.TimePicker.pasteTimeRange}
           icon="clipboard-alt"
+          size="lg"
           variant="secondary"
           tooltip={t('time-picker.copy-paste.tooltip-paste', 'Paste time range')}
           type="button"
@@ -267,6 +271,9 @@ function valueAsString(value: DateTime | string, timeZone?: TimeZone): string {
 
 function getStyles(theme: GrafanaTheme2) {
   return {
+    field: css({
+      width: '100%',
+    }),
     fieldContainer: css({
       display: 'flex',
     }),

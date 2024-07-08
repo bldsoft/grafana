@@ -1,22 +1,16 @@
 import { css } from '@emotion/css';
-// import { cloneDeep } from 'lodash';
 import React from 'react';
 
 import { GrafanaTheme2, NavModelItem } from '@grafana/data';
 import { Dropdown, ToolbarButton, useStyles2 } from '@grafana/ui'
-// import { config } from 'app/core/config';
-// import { contextSrv } from 'app/core/core';
 import { useSelector } from 'app/types';
 
 import { HOME_NAV_ID } from '../../../reducers/navModel';
 import { Breadcrumbs } from '../../Breadcrumbs/Breadcrumbs';
 import { buildBreadcrumbs } from '../../Breadcrumbs/utils';
-// import { enrichHelpItem } from '../MegaMenu/utils';
-// import { NewsContainer } from '../News/NewsContainer';
 import { QuickAdd } from '../QuickAdd/QuickAdd';
 import { TOP_BAR_LEVEL_HEIGHT } from '../types';
 
-// import { SignInLink } from './SignInLink';
 import { TopNavBarMenu } from './TopNavBarMenu';
 import { TopSearchBarCommandPaletteTrigger } from './TopSearchBarCommandPaletteTrigger';
 import { TopSearchBarSection } from './TopSearchBarSection';
@@ -40,7 +34,8 @@ export const TopSearchBar = React.memo(function TopSearchBar({
   // const helpNode = cloneDeep(navIndex['help']);
   // const enrichedHelpNode = helpNode ? enrichHelpItem(helpNode) : undefined;
   const profileNode = navIndex['profile'];
-
+  // @ts-ignore
+  const withoutSeparator = (actions && Object.prototype.hasOwnProperty.call(actions, 'length')) ? actions[actions.length - 1].key.includes('spacer') : false;
 
   const homeNav = useSelector((state) => state.navIndex)[HOME_NAV_ID];
   const breadcrumbs = buildBreadcrumbs(sectionNav, pageNav, homeNav);
@@ -53,7 +48,7 @@ export const TopSearchBar = React.memo(function TopSearchBar({
       </div>
       <div className={styles.actions}>
         {actions}
-        {actions && <NavToolbarSeparator />}
+        {actions && !withoutSeparator && <NavToolbarSeparator />}
       </div>
       <TopSearchBarSection align="right">
         <TopSearchBarCommandPaletteTrigger />

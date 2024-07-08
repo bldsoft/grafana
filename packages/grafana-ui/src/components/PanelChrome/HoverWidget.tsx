@@ -13,12 +13,11 @@ interface Props {
   children?: React.ReactNode;
   menu?: ReactElement | (() => ReactElement);
   title?: string;
-  offset?: number;
   dragClass?: string;
   onOpenMenu?: () => void;
 }
 
-export function HoverWidget({ menu, title, dragClass, children, offset = -32, onOpenMenu }: Props) {
+export function HoverWidget({ menu, title, dragClass, children, onOpenMenu }: Props) {
   const styles = useStyles2(getStyles);
   const draggableRef = useRef<HTMLDivElement>(null);
   const selectors = e2eSelectors.components.Panels.Panel.HoverWidget;
@@ -36,7 +35,7 @@ export function HoverWidget({ menu, title, dragClass, children, offset = -32, on
   }
 
   return (
-    <div className={cx(styles.container, 'show-on-hover')} style={{ top: offset }} data-testid={selectors.container}>
+    <div className={cx(styles.container, 'show-on-hover')} style={{marginTop: 12, marginRight: 12 }} data-testid={selectors.container}>
       {dragClass && (
         <div
           className={cx(styles.square, styles.draggable, dragClass)}
@@ -75,12 +74,10 @@ function getStyles(theme: GrafanaTheme2) {
       right: 0,
       boxSizing: 'content-box',
       alignItems: 'center',
-      background: theme.colors.background.secondary,
       color: theme.colors.text.primary,
-      border: `1px solid ${theme.colors.border.weak}`,
+      background: theme.colors.secondary.main,
       borderRadius: theme.shape.radius.default,
       height: theme.spacing(4),
-      boxShadow: theme.shadows.z1,
     }),
     square: css({
       display: 'flex',
@@ -100,8 +97,12 @@ function getStyles(theme: GrafanaTheme2) {
       // Background and border are overriden when topnav toggle is disabled
       background: 'inherit',
       border: 'none',
+      width: 16,
+      height: 32,
+      padding: '0 8px',
       '&:hover': {
-        background: theme.colors.secondary.main,
+        color: theme.colors.text.active,
+        background: theme.colors.border.teriary,
       },
     }),
     draggableIcon: css({

@@ -160,7 +160,6 @@ export function PanelChrome({
   );
 
   const headerStyles: CSSProperties = {
-    height: headerHeight,
     cursor: dragClass ? 'move' : 'auto',
   };
 
@@ -266,7 +265,6 @@ export function PanelChrome({
           <HoverWidget
             menu={menu}
             title={typeof title === 'string' ? title : undefined}
-            offset={hoverHeaderOffset}
             dragClass={dragClass}
             onOpenMenu={onOpenMenu}
           >
@@ -428,6 +426,8 @@ const getStyles = (theme: GrafanaTheme2) => {
       label: 'panel-header',
       display: 'flex',
       alignItems: 'center',
+      height: 56,
+      padding: 12
     }),
     pointer: css({
       cursor: 'pointer',
@@ -464,7 +464,10 @@ const getStyles = (theme: GrafanaTheme2) => {
     menuItem: css({
       label: 'panel-menu',
       border: 'none',
+      width: 32,
+      height: 32,
       background: theme.colors.secondary.main,
+      padding: '0 8px',
       '&:hover': {
         background: theme.colors.secondary.shade,
       },

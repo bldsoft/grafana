@@ -47,7 +47,6 @@ const getStyles = (theme: GrafanaTheme2) => {
   return {
     offset: css(textBase, {
       color: theme.colors.text.primary,
-      background: theme.colors.background.secondary,
       padding: '2px 5px',
       borderRadius: theme.shape.radius.default,
       marginLeft: '4px',

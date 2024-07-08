@@ -44,7 +44,6 @@ export const reportPageview = () => {
  * @public
  */
 export const reportInteraction = (interactionName: string, properties?: Record<string, unknown>) => {
-  console.log(interactionName)
   getEchoSrv().addEvent<InteractionEchoEvent>({
     type: EchoEventType.Interaction,
     payload: {

@@ -133,9 +133,8 @@ const getStyles = (theme: GrafanaTheme2) => {
     background: theme.colors.secondary.main,
 
     '&:hover': {
-      color: theme.colors.text.primary,
-      background: theme.colors.secondary.shade,
-      border: `1px solid ${theme.colors.border.medium}`,
+      color: theme.colors.text.active,
+      background: theme.colors.border.teriary,
     },
   });
 
@@ -166,7 +165,8 @@ const getStyles = (theme: GrafanaTheme2) => {
       '&:focus:not(:focus-visible)': getMouseFocusStyles(theme),
 
       '&:hover': {
-        boxShadow: theme.shadows.z1,
+        color: theme.colors.text.active,
+        background: theme.colors.border.teriary,
       },
 
       '&[disabled], &:disabled': {
@@ -176,9 +176,8 @@ const getStyles = (theme: GrafanaTheme2) => {
         boxShadow: 'none',
 
         '&:hover': {
-          color: theme.colors.text.disabled,
-          background: theme.colors.action.disabledBackground,
-          boxShadow: 'none',
+          color: theme.colors.text.active,
+          background: theme.colors.border.teriary,
         },
       },
     }),
