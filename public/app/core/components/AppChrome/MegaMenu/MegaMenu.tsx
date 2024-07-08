@@ -67,6 +67,7 @@ export const MegaMenu = React.memo(
           </CustomScrollbar>
           <IconButton
             id="dock-menu-button"
+            size="xl"
             className={styles.dockMenuButton}
             tooltip={
               state.megaMenuOpen
