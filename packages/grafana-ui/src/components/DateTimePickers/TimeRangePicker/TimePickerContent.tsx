@@ -228,18 +228,6 @@ const EmptyRecentList = memo(() => {
       <div>
         <span>{emptyRecentListText}</span>
       </div>
-      <Trans i18nKey="time-picker.content.empty-recent-list-docs">
-        <div>
-          <a
-            className={styles.link}
-            href="https://grafana.com/docs/grafana/latest/dashboards/time-range-controls"
-            target="_new"
-          >
-            Read the documentation
-          </a>
-          <span> to find out more about how to enter custom time ranges.</span>
-        </div>
-      </Trans>
     </div>
   );
 });
@@ -311,6 +299,7 @@ const getStyles = (
   }),
   scrollContent: css({
     overflowY: 'auto',
+    padding: 8,
     scrollbarWidth: 'thin',
   }),
 });
