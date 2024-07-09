@@ -35,7 +35,7 @@ export function HoverWidget({ menu, title, dragClass, children, onOpenMenu }: Pr
   }
 
   return (
-    <div className={cx(styles.container, 'show-on-hover')} data-testid={selectors.container}>
+    <div className={cx(styles.container)} data-testid={selectors.container}>
       {dragClass && (
         <div
           className={cx(styles.square, styles.draggable, dragClass)}
@@ -97,9 +97,10 @@ function getStyles(theme: GrafanaTheme2) {
       // Background and border are overriden when topnav toggle is disabled
       background: 'inherit',
       border: 'none',
-      width: 16,
+      width: 32,
       height: 32,
-      padding: '0 8px',
+      padding: 0,
+      justifyContent: 'center',
       '&:hover': {
         color: theme.colors.text.active,
         background: theme.colors.border.teriary,

@@ -223,6 +223,7 @@ export const getButtonStyles = (props: StyleProps) => {
       fontWeight: theme.typography.fontWeightMedium,
       fontFamily: theme.typography.fontFamily,
       padding: `10px 24px`,
+      justifyContent: 'center',
       height: 44,
       // Deduct border from line-height for perfect vertical centering on windows and linux
       lineHeight: `${theme.spacing.gridSize * height - 2}px`,

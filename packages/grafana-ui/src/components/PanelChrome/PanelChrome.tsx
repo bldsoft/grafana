@@ -464,7 +464,8 @@ const getStyles = (theme: GrafanaTheme2) => {
       border: 'none',
       width: 32,
       background: theme.colors.secondary.main,
-      padding: '0 8px',
+      padding: 0,
+      justifyContent: 'center',
       '&:hover': {
         background: theme.colors.secondary.shade,
       },
