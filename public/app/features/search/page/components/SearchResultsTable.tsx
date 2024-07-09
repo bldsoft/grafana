@@ -225,45 +225,43 @@ SearchResultsTable.displayName = 'SearchResultsTable';
 const getStyles = (theme: GrafanaTheme2) => {
 
   return {
-    noData: css`
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-    `,
-    headerCell: css`
-      align-items: center;
-      display: flex;
-      overflow: hidden;
-      padding: ${theme.spacing(1)};
-    `,
-    headerRow: css`
-      display: flex;
-      gap: ${theme.spacing(1)};
-      height: ${ROW_HEIGHT}px;
-      border-top-left-radius: 10px;
-      border-top-right-radius: 10px;
-    `,
-    selectedRow: css`
-      background-color: ${theme.colors.background.surfaceSecondary};
-    `,
-    rowContainer: css`
-      display: flex;
-      gap: ${theme.spacing(1)};
-      height: ${ROW_HEIGHT}px !important;
-      label: row;
-      &:hover {
-        background-color: ${theme.colors.background.surfaceSecondary};
-      }
-      border-radius: 10px;
+    noData: css({
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      height: '100%',
+    }),
+    headerCell: css({
+      alignItems: 'center',
+      display: 'flex',
+      overflow: 'hidden',
+      padding: theme.spacing(1),
+    }),
+    headerRow: css({
+      display: 'flex',
+      gap: theme.spacing(1),
+      height: ROW_HEIGHT,
+    }),
+    selectedRow: css({
+      background: theme.colors.background.surfaceSecondary
+    }),
+    rowContainer: css({
+      display: 'flex',
+      gap: theme.spacing(1),
+      height: `${ROW_HEIGHT}px !important`,
+      label: 'row',
+      borderRadius: 10,
+      '&:hover': {
+        background: theme.colors.background.surfaceSecondary,
+      },
 
-      &:not(:hover) div[role='cell'] {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
+      "&:not(:hover) div[role='cell']": {
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
       }
-    `,
+    }),
   };
 };
 
