@@ -155,6 +155,6 @@ export const AnnotationSettingsList = ({ dashboard, onNew, onEdit }: Props) => {
 const getStyles = () => ({
   table: css({
     width: '100%',
-    overflowX: 'scroll',
+    overflowX: 'auto',
   }),
 });

@@ -34,13 +34,12 @@ const MenuComp = React.forwardRef<HTMLDivElement, MenuProps>(
       <Box
         {...otherProps}
         aria-label={ariaLabel}
-        backgroundColor="primary"
+        backgroundColor="surfacePrimary"
         borderRadius="default"
-        boxShadow="z3"
         display="inline-block"
         onKeyDown={handleKeys}
         paddingX={1}
-        paddingY={0.5}
+        paddingY={1}
         ref={localRef}
         role="menu"
         tabIndex={-1}

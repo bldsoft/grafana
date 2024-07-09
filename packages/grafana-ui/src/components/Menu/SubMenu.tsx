@@ -77,9 +77,8 @@ const getStyles = (theme: GrafanaTheme2) => {
       color: theme.colors.text.secondary,
     }),
     itemsWrapper: css({
-      padding: '4px 8px',
-      background: theme.colors.background.primary,
-      boxShadow: theme.shadows.z3,
+      padding: '8px 8px',
+      background: theme.colors.background.surfacePrimary,
       display: 'inline-block',
       borderRadius: theme.shape.radius.default,
     }),

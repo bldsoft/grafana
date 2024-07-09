@@ -75,7 +75,7 @@ function getStyles(theme: GrafanaTheme2) {
       boxSizing: 'content-box',
       alignItems: 'center',
       color: theme.colors.text.primary,
-      background: theme.colors.secondary.main,
+      background: 'transparent',
       borderRadius: theme.shape.radius.default,
       height: theme.spacing(4),
     }),

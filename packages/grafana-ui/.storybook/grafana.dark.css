@@ -6590,6 +6590,7 @@ select.gf-form-input ~ .gf-form-help-icon {
 }
 .filter-table tbody tr {
   border-radius: 10px;
+  height: 48px;
 }
 .filter-table th {
   width: auto;
