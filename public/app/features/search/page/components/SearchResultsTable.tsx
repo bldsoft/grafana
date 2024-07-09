@@ -242,6 +242,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       display: 'flex',
       gap: theme.spacing(1),
       height: ROW_HEIGHT,
+      paddingLeft: 16,
     }),
     selectedRow: css({
       background: theme.colors.background.surfaceSecondary
@@ -251,6 +252,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       gap: theme.spacing(1),
       height: `${ROW_HEIGHT}px !important`,
       label: 'row',
+      paddingLeft: 16,
       borderRadius: theme.shape.radius.default,
       '&:hover': {
         background: theme.colors.background.surfaceSecondary,

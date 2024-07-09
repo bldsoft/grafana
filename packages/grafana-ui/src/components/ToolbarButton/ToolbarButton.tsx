@@ -130,7 +130,7 @@ const getStyles = (theme: GrafanaTheme2) => {
 
   const defaultOld = css({
     color: theme.colors.text.primary,
-    background: theme.colors.secondary.main,
+    background: 'transparent',
 
     '&:hover': {
       color: theme.colors.text.active,

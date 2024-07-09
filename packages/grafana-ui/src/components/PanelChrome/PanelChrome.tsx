@@ -463,7 +463,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       label: 'panel-menu',
       border: 'none',
       width: 32,
-      background: theme.colors.secondary.main,
+      background: 'transparent',
       padding: 0,
       justifyContent: 'center',
       '&:hover': {

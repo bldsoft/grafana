@@ -63,6 +63,7 @@ const getStyles = (theme: GrafanaTheme2) => {
     borderRadius: `${theme.shape.radius.default}`,
     padding: `${theme.spacing(0, 1)}`,
     height: `${theme.spacing(theme.components.panel.headerHeight)}`,
+    width: 32,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -72,11 +73,6 @@ const getStyles = (theme: GrafanaTheme2) => {
       zIndex: 1,
     },
     '&: focus:not(:focus-visible)': getMouseFocusStyles(theme),
-
-    '&:hover ': {
-      background: theme.colors.background.surfaceSecondary,
-      color: theme.colors.text.primary,
-    },
   });
 
   return {
