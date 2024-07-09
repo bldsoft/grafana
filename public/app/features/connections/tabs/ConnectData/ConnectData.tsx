@@ -98,7 +98,6 @@ export function AddNewConnection() {
       )}
       {showNoResults && (
         <EmptyState
-          variant="not-found"
           message={t('connections.connect-data.empty-message', 'No results matching your query were found')}
         />
       )}

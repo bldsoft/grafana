@@ -30,7 +30,6 @@ export function DashboardLinkList({
     return (
       <Stack direction="column">
         <EmptyState
-          variant="call-to-action"
           button={
             <Button onClick={onNew} size="lg">
               <Trans i18nKey="dashboard-links.empty-state.button-title">Add dashboard link</Trans>

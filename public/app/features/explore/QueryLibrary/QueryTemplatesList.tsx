@@ -14,7 +14,7 @@ export function QueryTemplatesList() {
 
   if (error) {
     return (
-      <EmptyState variant="not-found" message={`Something went wrong`}>
+      <EmptyState message={`Something went wrong`}>
         {error.message}
       </EmptyState>
     );
@@ -26,7 +26,7 @@ export function QueryTemplatesList() {
 
   if (!data || data.length === 0) {
     return (
-      <EmptyState message={`Query Library`} variant="not-found">
+      <EmptyState message={`Query Library`}>
         <p>
           {
             "You haven't saved any queries to your library yet. Start adding them from Explore or your Query History tab."

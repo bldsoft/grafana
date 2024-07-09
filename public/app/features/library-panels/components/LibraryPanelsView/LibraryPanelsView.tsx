@@ -79,7 +79,6 @@ export const LibraryPanelsView = ({
   if (!hasFilter && loadingState === LoadingState.Done && libraryPanels.length < 1) {
     return (
       <EmptyState
-        variant="call-to-action"
         message={t('library-panel.empty-state.message', "You haven't created any library panels yet")}
       >
         <Trans i18nKey="library-panel.empty-state.more-info">
@@ -104,7 +103,7 @@ export const LibraryPanelsView = ({
           <LibraryPanelCard.Skeleton showSecondaryActions={showSecondaryActions} />
         </>
       ) : libraryPanels.length < 1 ? (
-        <EmptyState variant="not-found" message={t('library-panels.empty-state.message', 'No library panels found')} />
+        <EmptyState message={t('library-panels.empty-state.message', 'No library panels found')} />
       ) : (
         libraryPanels?.map((item, i) => (
           <LibraryPanelCard

@@ -137,7 +137,7 @@ export class ApiKeysPageUnconnected extends PureComponent<Props, State> {
               onDelete={this.onDeleteApiKey}
             />
           ) : (
-            <EmptyState variant="not-found" message={t('api-keys.empty-state.message', 'No API keys found')} />
+            <EmptyState message={t('api-keys.empty-state.message', 'No API keys found')} />
           )}
         </Page.Contents>
         {migrationResult && (

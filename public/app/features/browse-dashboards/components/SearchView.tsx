@@ -103,7 +103,6 @@ export function SearchView({
             </Button>
           }
           message={t('browse-dashboards.no-results.text', 'No results found for your query')}
-          variant="not-found"
           role="alert"
         />
       </div>

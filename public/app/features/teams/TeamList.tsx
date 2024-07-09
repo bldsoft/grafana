@@ -217,7 +217,6 @@ export const TeamList = ({
       <Page.Contents>
         {noTeams ? (
           <EmptyState
-            variant="call-to-action"
             button={
               <LinkButton disabled={!canCreate} href="org/teams/new" icon="users-alt" size="lg">
                 <Trans i18nKey="teams.empty-state.button-title">New team</Trans>
@@ -240,7 +239,7 @@ export const TeamList = ({
               </InlineField>
             </div>
             {hasFetched && teams.length === 0 ? (
-              <EmptyState variant="not-found" message={t('teams.empty-state.message', 'No teams found')} />
+              <EmptyState message={t('teams.empty-state.message', 'No teams found')} />
             ) : (
               <Stack direction={'column'} gap={2}>
                 <InteractiveTable

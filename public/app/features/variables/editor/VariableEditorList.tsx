@@ -109,7 +109,6 @@ function EmptyVariablesList({ onAdd }: { onAdd: () => void }): ReactElement {
   return (
     <Stack direction="column">
       <EmptyState
-        variant="call-to-action"
         button={
           <Button
             data-testid={selectors.components.CallToActionCard.buttonV2('Add variable')}

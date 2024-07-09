@@ -101,7 +101,6 @@ export const AnnotationSettingsList = ({ annotations, onNew, onEdit, onMove, onD
       {showEmptyListCTA && (
         <Stack direction="column">
           <EmptyState
-            variant="call-to-action"
             button={
               <Button
                 data-testid={selectors.components.CallToActionCard.buttonV2('Add annotation query')}

@@ -211,13 +211,11 @@ export const ServiceAccountsListPageUnconnected = ({
         </div>
         {!isLoading && !noServiceAccountsCreated && serviceAccounts.length === 0 && (
           <EmptyState
-            variant="not-found"
             message={t('service-accounts.empty-state.message', 'No services accounts found')}
           />
         )}
         {!isLoading && noServiceAccountsCreated && (
           <EmptyState
-            variant="call-to-action"
             button={
               <LinkButton
                 disabled={!contextSrv.hasPermission(AccessControlAction.ServiceAccountsCreate)}

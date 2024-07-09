@@ -67,7 +67,6 @@ export function DataSourcesListView({
   if (!isLoading && dataSourcesCount === 0) {
     return (
       <EmptyState
-        variant="call-to-action"
         button={
           <LinkButton disabled={!hasCreateRights} href={dataSourcesRoutes.New} icon="database" size="lg">
             <Trans i18nKey="data-source-list.empty-state.button-title">Add data source</Trans>
@@ -113,7 +112,7 @@ export function DataSourcesListView({
 
       {/* List */}
       {dataSources.length === 0 && !isLoading ? (
-        <EmptyState variant="not-found" message={t('data-sources.empty-state.message', 'No data sources found')} />
+        <EmptyState message={t('data-sources.empty-state.message', 'No data sources found')} />
       ) : (
         <ul className={styles.list}>{getDataSourcesList()}</ul>
       )}

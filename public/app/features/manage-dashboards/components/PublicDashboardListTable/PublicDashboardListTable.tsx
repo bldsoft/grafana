@@ -152,7 +152,6 @@ export const PublicDashboardListTable = () => {
           <div>
             {paginatedPublicDashboards.publicDashboards.length === 0 ? (
               <EmptyState
-                variant="call-to-action"
                 message={t(
                   'public-dashboard-list.empty-state.message',
                   "You haven't created any public dashboards yet"

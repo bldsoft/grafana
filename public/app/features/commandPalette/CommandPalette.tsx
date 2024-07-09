@@ -1,30 +1,30 @@
-import { css, cx } from '@emotion/css';
-import { useDialog } from '@react-aria/dialog';
-import { FocusScope } from '@react-aria/focus';
-import { useOverlay } from '@react-aria/overlays';
+import { css, cx } from '@emotion/css'
+import { useDialog } from '@react-aria/dialog'
+import { FocusScope } from '@react-aria/focus'
+import { useOverlay } from '@react-aria/overlays'
 import {
+  ActionImpl,
   KBarAnimator,
   KBarPortal,
   KBarPositioner,
   KBarSearch,
-  VisualState,
-  useRegisterActions,
   useKBar,
-  ActionImpl,
-} from 'kbar';
-import React, { useEffect, useMemo, useRef } from 'react';
+  useRegisterActions,
+  VisualState,
+} from 'kbar'
+import React, { useEffect, useMemo, useRef } from 'react'
 
-import { GrafanaTheme2 } from '@grafana/data';
-import { reportInteraction } from '@grafana/runtime';
-import { EmptyState, Icon, LoadingBar, useStyles2 } from '@grafana/ui';
-import { t } from 'app/core/internationalization';
+import { GrafanaTheme2 } from '@grafana/data'
+import { reportInteraction } from '@grafana/runtime'
+import { EmptyState, Icon, LoadingBar, useStyles2 } from '@grafana/ui'
+import { t } from 'app/core/internationalization'
 
-import { KBarResults } from './KBarResults';
-import { ResultItem } from './ResultItem';
-import { useSearchResults } from './actions/dashboardActions';
-import useActions from './actions/useActions';
-import { CommandPaletteAction } from './types';
-import { useMatches } from './useMatches';
+import { KBarResults } from './KBarResults'
+import { ResultItem } from './ResultItem'
+import { useSearchResults } from './actions/dashboardActions'
+import useActions from './actions/useActions'
+import { CommandPaletteAction } from './types'
+import { useMatches } from './useMatches'
 
 export function CommandPalette() {
   const styles = useStyles2(getSearchStyles);
@@ -122,7 +122,6 @@ const RenderResults = ({ isFetchingSearchResults, searchResults }: RenderResults
 
   return showEmptyState ? (
     <EmptyState
-      variant="not-found"
       role="alert"
       message={t('command-palette.empty-state.message', 'No results found')}
     />
@@ -133,14 +132,11 @@ const RenderResults = ({ isFetchingSearchResults, searchResults }: RenderResults
       onRender={({ item, active }) => {
         const isFirst = items[0] === item;
 
-        const renderedItem =
-          typeof item === 'string' ? (
-            <div className={cx(styles.sectionHeader, isFirst && styles.sectionHeaderFirst)}>{item}</div>
-          ) : (
-            <ResultItem action={item} active={active} currentRootActionId={rootActionId!} />
-          );
-
-        return renderedItem;
+        return typeof item === 'string' ? (
+          <div className={cx(styles.sectionHeader, isFirst && styles.sectionHeaderFirst)}>{item}</div>
+        ) : (
+          <ResultItem action={item} active={active} currentRootActionId={rootActionId!}/>
+        );
       }}
     />
   );

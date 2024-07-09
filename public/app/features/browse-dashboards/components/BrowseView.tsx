@@ -1,25 +1,25 @@
-import React, { useCallback } from 'react';
+import React, { useCallback } from 'react'
 
-import { CallToActionCard, EmptyState, LinkButton, TextLink } from '@grafana/ui';
-import { Trans, t } from 'app/core/internationalization';
-import { DashboardViewItem } from 'app/features/search/types';
-import { useDispatch } from 'app/types';
+import { CallToActionCard, EmptyState, LinkButton, TextLink } from '@grafana/ui'
+import { t, Trans } from 'app/core/internationalization'
+import { DashboardViewItem } from 'app/features/search/types'
+import { useDispatch } from 'app/types'
 
-import { PAGE_SIZE } from '../api/services';
+import { PAGE_SIZE } from '../api/services'
 import {
-  useFlatTreeState,
-  useCheckboxSelectionState,
+  fetchNextChildrenPage,
+  setAllSelection,
   setFolderOpenState,
   setItemSelectionState,
-  useChildrenByParentUIDState,
-  setAllSelection,
   useBrowseLoadingStatus,
+  useCheckboxSelectionState,
+  useChildrenByParentUIDState,
+  useFlatTreeState,
   useLoadNextChildrenPage,
-  fetchNextChildrenPage,
-} from '../state';
-import { BrowseDashboardsState, DashboardTreeSelection, SelectionState } from '../types';
+} from '../state'
+import { BrowseDashboardsState, DashboardTreeSelection, SelectionState } from '../types'
 
-import { DashboardsTree } from './DashboardsTree';
+import { DashboardsTree } from './DashboardsTree'
 
 interface BrowseViewProps {
   height: number;
@@ -104,9 +104,7 @@ export function BrowseView({ folderUID, width, height, canSelect }: BrowseViewPr
         return false;
       }
       const item = treeItem.item;
-      const result = !(item.kind === 'ui' && item.uiKind === 'pagination-placeholder');
-
-      return result;
+      return !(item.kind === 'ui' && item.uiKind === 'pagination-placeholder');
     },
     [flatTree]
   );
@@ -118,7 +116,6 @@ export function BrowseView({ folderUID, width, height, canSelect }: BrowseViewPr
       <div style={{ width }}>
         {canSelect ? (
           <EmptyState
-            variant="call-to-action"
             button={
               <LinkButton
                 href={folderUID ? `dashboard/new?folderUid=${folderUID}` : 'dashboard/new'}

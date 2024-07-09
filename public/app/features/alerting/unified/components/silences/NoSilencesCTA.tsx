@@ -17,7 +17,6 @@ export const NoSilencesSplash = ({ alertManagerSourceName }: Props) => {
   if (contextSrv.hasPermission(permissions.create)) {
     return (
       <EmptyState
-        variant="call-to-action"
         button={
           <LinkButton href={makeAMLink('alerting/silence/new', alertManagerSourceName)} icon="bell-slash" size="lg">
             <Trans i18nKey="silences.empty-state.button-title">Create silence</Trans>

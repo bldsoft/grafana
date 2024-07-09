@@ -56,7 +56,7 @@ export function StoredNotifications() {
 
   if (notifications.length === 0) {
     return (
-      <EmptyState variant="completed" message={t('notifications.empty-state.title', "You're all caught up!")}>
+      <EmptyState message={t('notifications.empty-state.title', "You're all caught up!")}>
         <Trans i18nKey="notifications.empty-state.description">Notifications you have received will appear here</Trans>
       </EmptyState>
     );

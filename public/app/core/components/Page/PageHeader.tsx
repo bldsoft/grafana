@@ -86,8 +86,9 @@ const getStyles = (theme: GrafanaTheme2) => {
       marginBottom: theme.spacing(2),
     }),
     subTitle: css({
+      fontSize: 18,
       position: 'relative',
-      color: theme.colors.text.secondary,
+      color: theme.colors.text.tertiary,
     }),
     img: css({
       width: '32px',

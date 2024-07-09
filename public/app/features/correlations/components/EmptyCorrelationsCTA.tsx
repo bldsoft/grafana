@@ -12,7 +12,6 @@ export const EmptyCorrelationsCTA = ({ onClick, canWriteCorrelations }: Props) =
 
   return canWriteCorrelations ? (
     <EmptyState
-      variant="call-to-action"
       button={
         <Button icon="gf-glue" onClick={onClick} size="lg">
           <Trans i18nKey="correlations.empty-state.button-title">Add correlation</Trans>

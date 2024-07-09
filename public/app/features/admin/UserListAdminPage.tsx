@@ -100,7 +100,7 @@ const UserListAdminPageUnConnected = ({
         </div>
       </div>
       {!isLoading && users.length === 0 ? (
-        <EmptyState message={t('users.empty-state.message', 'No users found')} variant="not-found" />
+        <EmptyState message={t('users.empty-state.message', 'No users found')} />
       ) : (
         <UsersTable
           users={users}
