@@ -33,7 +33,7 @@ export function buildTooltipTheme(
       backgroundColor: theme.colors.background.surfacePrimary,
       borderRadius: theme.shape.radius.default,
       border: `1px solid ${theme.colors.background.surfacePrimary}`,
-      boxShadow: theme.shadows.z2,
+      boxShadow: theme.shadows.z1,
       color: tooltipText,
       fontSize: theme.typography.bodySmall.fontSize,
       padding: theme.spacing(tooltipPadding.topBottom, tooltipPadding.rightLeft),
