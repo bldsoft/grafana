@@ -426,8 +426,6 @@ const getStyles = (theme: GrafanaTheme2) => {
       label: 'panel-header',
       display: 'flex',
       alignItems: 'center',
-      height: 56,
-      padding: 12
     }),
     pointer: css({
       cursor: 'pointer',
@@ -465,7 +463,6 @@ const getStyles = (theme: GrafanaTheme2) => {
       label: 'panel-menu',
       border: 'none',
       width: 32,
-      height: 32,
       background: theme.colors.secondary.main,
       padding: '0 8px',
       '&:hover': {

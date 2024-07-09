@@ -35,7 +35,7 @@ export function HoverWidget({ menu, title, dragClass, children, onOpenMenu }: Pr
   }
 
   return (
-    <div className={cx(styles.container, 'show-on-hover')} style={{marginTop: 12, marginRight: 12 }} data-testid={selectors.container}>
+    <div className={cx(styles.container, 'show-on-hover')} data-testid={selectors.container}>
       {dragClass && (
         <div
           className={cx(styles.square, styles.draggable, dragClass)}
