@@ -99,6 +99,9 @@ const getStyles = (theme: GrafanaTheme2) => ({
       marginRight: 0,
       width: '24px',
     },
+    '&:hover': {
+      background: 'inherit'
+    }
   }),
   dFlex: css({
     display: 'flex'
