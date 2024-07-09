@@ -251,7 +251,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       gap: theme.spacing(1),
       height: `${ROW_HEIGHT}px !important`,
       label: 'row',
-      borderRadius: 10,
+      borderRadius: theme.shape.radius.default,
       '&:hover': {
         background: theme.colors.background.surfaceSecondary,
       },

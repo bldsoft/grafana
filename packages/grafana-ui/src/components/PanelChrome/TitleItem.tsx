@@ -74,9 +74,8 @@ const getStyles = (theme: GrafanaTheme2) => {
     '&: focus:not(:focus-visible)': getMouseFocusStyles(theme),
 
     '&:hover ': {
-      boxShadow: `${theme.shadows.z1}`,
-      background: `${theme.colors.background.secondary}`,
-      color: `${theme.colors.text.primary}`,
+      background: theme.colors.background.surfaceSecondary,
+      color: theme.colors.text.primary,
     },
   });
 

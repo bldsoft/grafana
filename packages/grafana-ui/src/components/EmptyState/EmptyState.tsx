@@ -59,10 +59,10 @@ const getStyles = (theme: GrafanaTheme2) => ({
     alignItems: 'center',
     gap: theme.spacing(4),
     background: theme.colors.background.surfaceSecondary,
-    borderRadius: 10,
+    borderRadius: theme.shape.radius.default,
     width: '100%',
     paddingTop: 32,
-    paddingBottom: 32,
+    paddingBottom: 32
   }),
   button: css({
     paddingTop: 24,

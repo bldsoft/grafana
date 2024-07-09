@@ -8,14 +8,14 @@ import { useSelector } from 'app/types';
 import { HOME_NAV_ID } from '../../../reducers/navModel';
 import { Breadcrumbs } from '../../Breadcrumbs/Breadcrumbs';
 import { buildBreadcrumbs } from '../../Breadcrumbs/utils';
+import { NavToolbarSeparator } from '../NavToolbar/NavToolbarSeparator'
+import { OrganizationSwitcher } from '../OrganizationSwitcher/OrganizationSwitcher'
 import { QuickAdd } from '../QuickAdd/QuickAdd';
 import { TOP_BAR_LEVEL_HEIGHT } from '../types';
 
 import { TopNavBarMenu } from './TopNavBarMenu';
 import { TopSearchBarCommandPaletteTrigger } from './TopSearchBarCommandPaletteTrigger';
 import { TopSearchBarSection } from './TopSearchBarSection';
-import { OrganizationSwitcher } from '../OrganizationSwitcher/OrganizationSwitcher'
-import { NavToolbarSeparator } from '../NavToolbar/NavToolbarSeparator'
 
 interface Props {
   sectionNav: NavModelItem;
