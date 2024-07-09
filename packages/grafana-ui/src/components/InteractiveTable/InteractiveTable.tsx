@@ -24,7 +24,6 @@ import { Column } from './types';
 import { EXPANDER_CELL_ID, getColumns } from './utils';
 
 const getStyles = (theme: GrafanaTheme2) => {
-  const rowHoverBg = theme.colors.emphasize(theme.colors.background.primary, 0.03);
 
   return {
     container: css({
@@ -35,8 +34,16 @@ const getStyles = (theme: GrafanaTheme2) => {
       overflowX: 'auto',
     }),
     cell: css({
-      padding: theme.spacing(1),
+      padding: '0 8px',
       minWidth: theme.spacing(3),
+      '&:first-child': {
+        borderTopLeftRadius: 10,
+        borderBottomLeftRadius: 10,
+      },
+      '&:last-child': {
+        borderTopRightRadius: 10,
+        borderBottomRightRadius: 10,
+      },
     }),
     table: css({
       borderRadius: theme.shape.radius.default,
@@ -46,7 +53,6 @@ const getStyles = (theme: GrafanaTheme2) => {
       width: 0,
     }),
     header: css({
-      borderBottom: `1px solid ${theme.colors.border.weak}`,
       minWidth: theme.spacing(3),
       '&, & > button': {
         position: 'relative',
@@ -68,10 +74,10 @@ const getStyles = (theme: GrafanaTheme2) => {
     }),
     row: css({
       label: 'row',
-      borderBottom: `1px solid ${theme.colors.border.weak}`,
+      height: 48,
 
       '&:hover': {
-        backgroundColor: rowHoverBg,
+        backgroundColor: theme.colors.background.surfaceSecondary,
       },
 
       '&:last-child': {
@@ -83,7 +89,6 @@ const getStyles = (theme: GrafanaTheme2) => {
       borderBottom: 'none',
     }),
     expandedContentCell: css({
-      borderBottom: `1px solid ${theme.colors.border.weak}`,
       position: 'relative',
       padding: theme.spacing(2, 2, 2, 5),
 
@@ -274,6 +279,7 @@ export function InteractiveTable<TableData extends object>({
         <tbody {...getTableBodyProps()}>
           {(paginationEnabled ? tableInstance.page : tableInstance.rows).map((row) => {
             prepareRow(row);
+            console.log(row)
 
             const { key, ...otherRowProps } = row.getRowProps();
             const rowId = getRowHTMLID(row);

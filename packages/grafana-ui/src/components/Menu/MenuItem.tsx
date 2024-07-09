@@ -219,7 +219,6 @@ const getStyles = (theme: GrafanaTheme2) => {
       color: theme.colors.text.secondary,
       display: 'flex',
       flexDirection: 'column',
-      alignItems: 'stretch',
       padding: theme.spacing(0.5, 2),
       minHeight: theme.spacing(4),
       margin: 0,

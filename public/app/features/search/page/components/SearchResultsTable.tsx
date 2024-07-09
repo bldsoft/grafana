@@ -223,7 +223,6 @@ export const SearchResultsTable = React.memo(
 SearchResultsTable.displayName = 'SearchResultsTable';
 
 const getStyles = (theme: GrafanaTheme2) => {
-  const rowHoverBg = theme.colors.emphasize(theme.colors.background.primary, 0.03);
 
   return {
     noData: css`
@@ -240,7 +239,6 @@ const getStyles = (theme: GrafanaTheme2) => {
       padding: ${theme.spacing(1)};
     `,
     headerRow: css`
-      background-color: ${theme.colors.background.surfaceSecondary};
       display: flex;
       gap: ${theme.spacing(1)};
       height: ${ROW_HEIGHT}px;
@@ -248,8 +246,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       border-top-right-radius: 10px;
     `,
     selectedRow: css`
-      background-color: ${rowHoverBg};
-      box-shadow: inset 3px 0 ${theme.colors.primary.border};
+      background-color: ${theme.colors.background.surfaceSecondary};
     `,
     rowContainer: css`
       display: flex;
@@ -257,12 +254,9 @@ const getStyles = (theme: GrafanaTheme2) => {
       height: ${ROW_HEIGHT}px !important;
       label: row;
       &:hover {
-        background-color: ${rowHoverBg};
+        background-color: ${theme.colors.background.surfaceSecondary};
       }
-      &:last-child {
-        border-bottom-left-radius: 10px;
-        border-bottom-right-radius: 10px;
-      }
+      border-radius: 10px;
 
       &:not(:hover) div[role='cell'] {
         white-space: nowrap;

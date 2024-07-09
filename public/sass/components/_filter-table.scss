@@ -24,17 +24,17 @@
 
   th {
     width: auto;
-    padding: $space-inset-squish-md;
+    padding: 16px 24px;
     text-align: left;
-    line-height: 30px;
-    height: 30px;
+    line-height: 16px;
+    height: 16px;
     white-space: nowrap;
   }
 
   td {
-    padding: $space-inset-squish-md;
-    line-height: 30px;
-    height: 30px;
+    padding: 2px 24px;
+    line-height: 16px;
+    height: 16px;
     white-space: nowrap;
 
     &.filter-table__switch-cell {
