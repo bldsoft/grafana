@@ -27,12 +27,12 @@ export function buildTooltipTheme(
 ) {
   return {
     arrow: css({
-      fill: tooltipBg,
+      fill: theme.colors.background.surfacePrimary,
     }),
     container: css({
-      backgroundColor: tooltipBg,
+      backgroundColor: theme.colors.background.surfacePrimary,
       borderRadius: theme.shape.radius.default,
-      border: `1px solid ${toggletipBorder}`,
+      border: `1px solid ${theme.colors.background.surfacePrimary}`,
       boxShadow: theme.shadows.z2,
       color: tooltipText,
       fontSize: theme.typography.bodySmall.fontSize,

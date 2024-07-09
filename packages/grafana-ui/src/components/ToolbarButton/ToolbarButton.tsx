@@ -166,7 +166,7 @@ const getStyles = (theme: GrafanaTheme2) => {
 
       '&:hover': {
         color: theme.colors.text.active,
-        background: theme.colors.border.teriary,
+        background: theme.colors.background.surfaceSecondary,
       },
 
       '&[disabled], &:disabled': {
