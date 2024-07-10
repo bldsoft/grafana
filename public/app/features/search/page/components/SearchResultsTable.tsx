@@ -178,7 +178,7 @@ export const SearchResultsTable = React.memo(
           });
 
           return (
-            <div key={key} {...headerGroupProps} className={styles.newHeaderRow}>
+            <div key={key} {...headerGroupProps} className={styles.headerRow}>
               {headerGroup.headers.map((column) => {
                 const { key, ...headerProps } = column.getHeaderProps();
                 return (
@@ -238,7 +238,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       overflow: 'hidden',
       padding: theme.spacing(1),
     }),
-    newHeaderRow: css({
+    headerRow: css({
       display: 'flex',
       gap: theme.spacing(1),
       height: ROW_HEIGHT,

@@ -260,7 +260,6 @@ const getStyles = (theme: GrafanaTheme2) => {
     }),
 
     headerRow: css({
-      backgroundColor: theme.colors.background.secondary,
       height: HEADER_HEIGHT,
     }),
 
