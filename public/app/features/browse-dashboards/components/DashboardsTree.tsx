@@ -265,9 +265,10 @@ const getStyles = (theme: GrafanaTheme2) => {
 
     bodyRow: css({
       height: ROW_HEIGHT,
+      borderRadius: theme.shape.radius.default,
 
       '&:hover': {
-        backgroundColor: theme.colors.emphasize(theme.colors.background.primary, 0.03),
+        background: theme.colors.background.surfaceSecondary,
       },
     }),
 
