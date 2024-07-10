@@ -97,7 +97,7 @@ export const getStyles = (theme: GrafanaTheme2) => {
       gridTemplateRows: 'auto',
       gap: theme.spacing(2),
       gridAutoFlow: 'row',
-      background: theme.colors.background.secondary,
+      background: theme.colors.background.surfacePrimary,
       borderRadius: theme.shape.radius.default,
       padding: theme.spacing(3),
       [theme.transitions.handleMotion('no-preference', 'reduce')]: {
@@ -107,7 +107,7 @@ export const getStyles = (theme: GrafanaTheme2) => {
       },
 
       '&:hover': {
-        background: theme.colors.emphasize(theme.colors.background.secondary, 0.03),
+        background: theme.colors.background.surfaceSecondary
       },
     }),
     list: css({

@@ -90,7 +90,7 @@ export const getCardContainerStyles = (
         "Figure Actions Secondary"`,
       width: '100%',
       padding: theme.spacing(isCompact ? 1 : 2),
-      background: theme.colors.background.secondary,
+      background: theme.colors.background.surfacePrimary,
       borderRadius: theme.shape.radius.default,
       marginBottom: '8px',
       pointerEvents: disabled ? 'none' : 'auto',
@@ -102,7 +102,7 @@ export const getCardContainerStyles = (
 
       ...(!disableHover && {
         '&:hover': {
-          background: theme.colors.emphasize(theme.colors.background.secondary, 0.03),
+          background: theme.colors.background.surfaceSecondary,
           cursor: 'pointer',
           zIndex: 1,
         },
