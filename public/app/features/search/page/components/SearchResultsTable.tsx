@@ -276,53 +276,53 @@ const getColumnStyles = (theme: GrafanaTheme2) => {
       display: 'flex',
       alignItems: 'center',
     }),
-    nameCellStyle: css`
-      overflow: hidden;
-      text-overflow: ellipsis;
-      user-select: text;
-      white-space: nowrap;
-    `,
+    nameCellStyle: css({
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
+      userSelect: 'text',
+      whiteSpace: 'nowrap'
+    }),
     typeCell: css({
       gap: theme.spacing(0.5),
     }),
-    typeIcon: css`
-      fill: ${theme.colors.text.secondary};
-    `,
-    datasourceItem: css`
-      span {
-        &:hover {
-          color: ${theme.colors.text.link};
+    typeIcon: css({
+      fill: theme.colors.text.secondary
+    }),
+    datasourceItem: css({
+      span: {
+        '&:hover': {
+          color: theme.colors.text.link,
         }
       }
-    `,
-    missingTitleText: css`
-      color: ${theme.colors.text.disabled};
-      font-style: italic;
-    `,
-    invalidDatasourceItem: css`
-      color: ${theme.colors.error.main};
-      text-decoration: line-through;
-    `,
+    }),
+    missingTitleText: css({
+      color: theme.colors.text.disabled,
+      fontStyle: 'italic',
+    }),
+    invalidDatasourceItem: css({
+      color: theme.colors.error.main,
+      textDecoration: 'line-through'
+    }),
     locationContainer: css({
       display: 'flex',
       flexWrap: 'nowrap',
       gap: theme.spacing(1),
       overflow: 'hidden',
     }),
-    locationItem: css`
-      align-items: center;
-      color: ${theme.colors.text.secondary};
-      display: flex;
-      flex-wrap: nowrap;
-      gap: 4px;
-      overflow: hidden;
-    `,
-    explainItem: css`
-      cursor: pointer;
-    `,
-    tagList: css`
-      justify-content: flex-start;
-      flex-wrap: nowrap;
-    `,
+    locationItem: css({
+      alignItems: 'center',
+      color: theme.colors.text.secondary,
+      display: 'flex',
+      flexWrap: 'nowrap',
+      gap: 4,
+      overflow: 'hidden',
+    }),
+    explainItem: css({
+      cursor: 'pointer'
+    }),
+    tagList: css({
+      justifyContent: 'flex-start',
+      flexWrap: 'nowrap',
+    }),
   };
 };
