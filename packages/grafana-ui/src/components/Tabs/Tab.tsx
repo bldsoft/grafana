@@ -95,7 +95,8 @@ const getStyles = (theme: GrafanaTheme2) => {
     }),
     link: css({
       color: theme.colors.text.secondary,
-      padding: theme.spacing(0, 1.5, 1),
+      padding: theme.spacing(0.5, 1.5, 0.5),
+      fontSize: 16,
       borderRadius: theme.shape.radius.default,
 
       display: 'block',
@@ -116,6 +117,8 @@ const getStyles = (theme: GrafanaTheme2) => {
         height: '4px',
         borderRadius: theme.shape.radius.default,
         bottom: 0,
+        marginLeft: 1,
+        marginRight: 1
       },
     }),
     notActive: css({
@@ -123,7 +126,7 @@ const getStyles = (theme: GrafanaTheme2) => {
         color: theme.colors.text.primary,
 
         '&::before': {
-          backgroundColor: theme.colors.action.hover,
+          backgroundImage: `linear-gradient(0.01deg, ${theme.colors.action.hover} 0.01%, ${theme.colors.action.hover} 99.99%)`,
         },
       },
     }),
@@ -131,8 +134,6 @@ const getStyles = (theme: GrafanaTheme2) => {
       label: 'activeTabStyle',
       color: theme.colors.text.primary,
       overflow: 'hidden',
-      fontSize: 16,
-
       '&::before': {
         backgroundImage: `linear-gradient(0.01deg, ${theme.colors.custom.accentAccent1} 0.01%, ${theme.colors.custom.accentAccent1} 99.99%)`,
       },

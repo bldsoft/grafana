@@ -63,7 +63,7 @@ $white: #ffffff;
 
 $layer0: #1F1F1F;
 $layer1: #1F1F1F;
-$layer2: #22252b;
+$layer2: #262626;
 
 $divider: rgba(204, 204, 220, 0.12);
 
@@ -147,16 +147,16 @@ $page-header-border-color: #1F1F1F;
 $divider-border-color: $gray-1;
 
 // Graphite Target Editor
-$tight-form-func-bg: #22252b;
-$tight-form-func-highlight-bg: rgb(40, 43, 49);
+$tight-form-func-bg: #262626;
+$tight-form-func-highlight-bg: rgb(44, 44, 44);
 
 $modal-backdrop-bg: rgba(204, 204, 220, 0.16);
 $code-tag-bg: $dark-1;
 $code-tag-border: $dark-9;
 
 // cards
-$card-background: #22252b;
-$card-background-hover: rgb(40, 43, 49);
+$card-background: #262626;
+$card-background-hover: rgb(44, 44, 44);
 $card-shadow: none;
 
 // Lists
@@ -164,7 +164,7 @@ $list-item-bg: $card-background;
 $list-item-hover-bg: $card-background-hover;
 $list-item-shadow: $card-shadow;
 
-$empty-list-cta-bg: #22252b;
+$empty-list-cta-bg: #262626;
 
 // Scrollbars
 $scrollbarBackground: #404357;
@@ -173,7 +173,7 @@ $scrollbarBorder: black;
 
 // Tables
 // -------------------------
-$table-bg-accent: #22252b;
+$table-bg-accent: #262626;
 $table-border: rgba(204, 204, 220, 0.20);
 $table-bg-odd: rgb(35, 35, 35);
 $table-bg-hover: rgb(42, 42, 42);
@@ -221,7 +221,7 @@ $input-box-shadow: none;
 $input-border-focus: #6E9FFF;
 $input-box-shadow-focus: #6E9FFF !default;
 $input-color-placeholder: rgba(204, 204, 220, 0.6);
-$input-label-bg: #22252b;
+$input-label-bg: #262626;
 $input-color-select-arrow: $white;
 
 // Search
@@ -259,7 +259,7 @@ $navbarBorder: 1px solid $dark-6;
 $side-menu-bg: $panel-bg;
 $side-menu-bg-mobile: $panel-bg;
 $side-menu-border: none;
-$side-menu-item-hover-bg: #22252b;
+$side-menu-item-hover-bg: #262626;
 $side-menu-shadow: 0 0 30px #111;
 $side-menu-icon-color: #9fa7b3;
 $side-menu-header-color: #E6E6E6;
@@ -292,16 +292,16 @@ $tooltipLinkColor: $link-color;
 $tooltipExternalLinkColor: $external-link-color;
 $graph-tooltip-bg: $dark-1;
 
-$tooltipBackground: #22252b;
+$tooltipBackground: #262626;
 $tooltipColor: #E6E6E6;
-$tooltipArrowColor: #22252b;
+$tooltipArrowColor: #262626;
 $tooltipBackgroundError: #E5584D;
 $tooltipShadow: 0px 4px 8px rgba(1, 4, 9, 0.75);
 
 $popover-bg: #1F1F1F;
 $popover-color: #E6E6E6;
 $popover-border-color: rgba(204, 204, 220, 0.12);
-$popover-header-bg: #22252b;
+$popover-header-bg: #262626;
 $popover-shadow: 0px 8px 24px rgb(1, 4, 9);
 
 $popover-help-bg: $tooltipBackground;
@@ -340,10 +340,10 @@ $json-explorer-url-color: #027bff;
 $diff-label-bg: rgba(204, 204, 220, 0.16);
 $diff-label-fg: $white;
 
-$diff-group-bg: #22252b;
+$diff-group-bg: #262626;
 $diff-arrow-color: $white;
 
-$diff-json-bg: #22252b;
+$diff-json-bg: #262626;
 $diff-json-fg: #E6E6E6;
 
 $diff-json-added: $blue-shade;

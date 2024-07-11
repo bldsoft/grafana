@@ -4,7 +4,7 @@ import { UseFormRegister } from 'react-hook-form';
 
 import { GrafanaTheme2 } from '@grafana/data/src';
 import { selectors as e2eSelectors } from '@grafana/e2e-selectors/src';
-import { Checkbox, FieldSet, HorizontalGroup, LinkButton, useStyles2, VerticalGroup } from '@grafana/ui/src';
+import { Checkbox, FieldSet, HorizontalGroup, useStyles2, VerticalGroup } from '@grafana/ui/src';
 import { t, Trans } from 'app/core/internationalization';
 
 import { SharePublicDashboardAcknowledgmentInputs } from './CreatePublicDashboard';
@@ -91,15 +91,6 @@ export const AcknowledgeCheckboxes = ({
                 {...register(acknowledge.type, { required: true })}
                 label={acknowledge.description}
                 data-testid={acknowledge.testId}
-              />
-              <LinkButton
-                variant="primary"
-                href={acknowledge.info.href}
-                target="_blank"
-                fill="text"
-                icon="info-circle"
-                rel="noopener noreferrer"
-                tooltip={acknowledge.info.tooltip}
               />
             </HorizontalGroup>
           ))}

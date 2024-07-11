@@ -631,7 +631,7 @@ a.external-link:hover, .grafana-info-box a:hover {
 }
 .markdown-html table th {
   font-weight: 500;
-  background: #22252b;
+  background: #262626;
 }
 .markdown-html table,
 .markdown-html th,
@@ -5986,7 +5986,7 @@ button.close {
 }
 
 .toggle-btn {
-  background: #22252b;
+  background: #262626;
   color: #E6E6E6;
   box-shadow: none;
 }
@@ -5999,7 +5999,7 @@ button.close {
   margin-left: 0 !important;
 }
 .toggle-btn.active {
-  background-color: #2d3139;
+  background-color: #333333;
   color: #E6E6E6;
 }
 .toggle-btn.active:hover {
@@ -6039,7 +6039,7 @@ button.close {
   padding: 15px 20px;
   margin-bottom: 4px;
   border-left: 3px solid #E5584D;
-  background: #22252b;
+  background: #262626;
   position: relative;
   border-radius: 10px;
   display: flex;
@@ -6302,7 +6302,7 @@ button.close {
   border-radius: 10px;
 }
 .gf-form-label--btn:hover {
-  background: rgb(40, 43, 49);
+  background: rgb(44, 44, 44);
   color: #E6E6E6;
 }
 .gf-form-label:disabled {
@@ -6546,7 +6546,7 @@ select.gf-form-input ~ .gf-form-help-icon {
 .cta-form {
   position: relative;
   padding: 24px;
-  background-color: #22252b;
+  background-color: #262626;
   margin-bottom: 24px;
   border-top: 3px solid #1A7F4B;
 }
@@ -7236,13 +7236,13 @@ select.gf-form-input ~ .gf-form-help-icon {
 .dropdown-menu.dropdown-menu--new li a:hover,
 .dropdown-menu.dropdown-menu--new li button:hover {
   color: #FFFFFF;
-  background: #22252b;
+  background: #262626;
 }
 
 .grafana-info-box {
   position: relative;
   padding: 24px;
-  background-color: #22252b;
+  background-color: #262626;
   border-left: 3px solid #3CB043;
   margin-bottom: 16px;
   margin-right: 4px;
@@ -7293,7 +7293,7 @@ select.gf-form-input ~ .gf-form-help-icon {
 }
 
 .tight-form-func {
-  background: #22252b;
+  background: #262626;
 }
 .tight-form-func.show-function-controls {
   padding-top: 5px;
@@ -7331,7 +7331,7 @@ input[type=text].tight-form-func-param {
 }
 
 .tight-form-func {
-  background: #22252b;
+  background: #262626;
 }
 .tight-form-func.show-function-controls {
   padding-top: 5px;
@@ -7400,7 +7400,7 @@ input[type=text].tight-form-func-param {
 }
 
 .query-part {
-  background-color: #22252b;
+  background-color: #262626;
 }
 .query-part.show-function-controls {
   padding-top: 5px;
@@ -7414,7 +7414,7 @@ input[type=text].tight-form-func-param {
   display: inline;
 }
 .query-part:hover {
-  background: rgb(40, 43, 49);
+  background: rgb(44, 44, 44);
 }
 
 .query-part__link {
@@ -7845,12 +7845,12 @@ input[type=text].tight-form-func-param {
   display: flex;
   align-items: center;
   cursor: pointer;
-  background: #22252b;
+  background: #262626;
   border-radius: 3px;
   margin-bottom: 2px;
 }
 .add-data-source-item:hover {
-  background: rgb(40, 43, 49);
+  background: rgb(44, 44, 44);
 }
 .add-data-source-item:hover .add-data-source-item-actions {
   opacity: 1;
@@ -8166,7 +8166,7 @@ div.flot-text {
   align-items: center;
   width: 100%;
   height: 100%;
-  background: #22252b;
+  background: #262626;
   box-shadow: none;
   padding: 4px 8px;
   border-radius: 4px;
@@ -8328,7 +8328,7 @@ div.flot-text {
 }
 
 .delta-html {
-  background: #22252b;
+  background: #262626;
   padding-top: 5px;
   padding-bottom: 5px;
   user-select: none;
@@ -8429,7 +8429,7 @@ div.flot-text {
 }
 
 .diff-group {
-  background: #22252b;
+  background: #262626;
   font-size: 16px;
   font-style: normal;
   padding: 10px 15px;
@@ -8561,7 +8561,7 @@ div.flot-text {
 
 .ReactTable .rt-thead.-header {
   box-shadow: none;
-  background: #22252b;
+  background: #262626;
   border-top: 2px solid #1F1F1F;
   border-bottom: 2px solid #1F1F1F;
   height: 2em;
@@ -8598,7 +8598,7 @@ div.flot-text {
 
 .ReactTable .-pagination .-btn {
   color: #33a2e5;
-  background: #22252b;
+  background: #262626;
 }
 
 .ReactTable .-pagination input,
@@ -8775,7 +8775,7 @@ input.invalid {
 .ace_tooltip.ace_doc-tooltip {
   font-family: "Roboto Mono", monospace;
   font-size: 12px;
-  background-color: #22252b;
+  background-color: #262626;
   color: #E6E6E6;
   background-image: none;
   border: 1px solid rgba(204, 204, 220, 0.12);
@@ -8969,7 +8969,7 @@ input.invalid {
   overflow: hidden;
 }
 .graph-legend-table .graph-legend-series:nth-child(even) {
-  background: #22252b;
+  background: #262626;
 }
 .graph-legend-table .graph-legend-value.current::before, .graph-legend-table .graph-legend-value.max::before, .graph-legend-table .graph-legend-value.min::before, .graph-legend-table .graph-legend-value.total::before, .graph-legend-table .graph-legend-value.avg::before {
   content: "";
@@ -9053,7 +9053,7 @@ input.invalid {
   margin-top: 8px;
 }
 .graph-annotation .graph-annotation__header {
-  background: #22252b;
+  background: #262626;
   padding: 4px 8px;
   display: flex;
   flex-wrap: nowrap;
@@ -9120,7 +9120,7 @@ input.invalid {
   position: relative;
   float: right;
   box-shadow: none;
-  background: #22252b;
+  background: #262626;
   cursor: move;
   width: 100px;
   font-size: 12px;
@@ -9348,7 +9348,7 @@ input.invalid {
   padding: 10px;
   font-size: 11pt;
   font-weight: 200;
-  background-color: #22252b;
+  background-color: #262626;
   border-radius: 5px;
   z-index: 9999;
   max-width: 800px;
@@ -9404,7 +9404,7 @@ input.invalid {
   border-left-width: 0;
 }
 .table-panel-footer ul > li > a:hover {
-  background-color: #22252b;
+  background-color: #262626;
 }
 .table-panel-footer ul > li > a.active {
   font-weight: bold;
@@ -9446,7 +9446,7 @@ input.invalid {
   text-underline-position: under;
 }
 .table-panel-table td.cell-highlighted:hover {
-  background-color: #22252b;
+  background-color: #262626;
 }
 .table-panel-table td:hover .table-panel-filter-link {
   visibility: visible;
@@ -9461,7 +9461,7 @@ input.invalid {
 }
 
 .table-panel-header-bg {
-  background: #22252b;
+  background: #262626;
   border-top: 2px solid #1F1F1F;
   border-bottom: 2px solid #1F1F1F;
   height: 2em;
@@ -10326,12 +10326,12 @@ input:checked + .gf-form-switch__checkbox {
   border-radius: 6px;
   position: relative;
   font-weight: 500;
-  background: #22252b;
+  background: #262626;
   color: #E6E6E6;
   padding: 8px;
   word-wrap: break-word;
   max-width: 280px;
-  border: 1px solid #22252b;
+  border: 1px solid #262626;
 }
 .drop-element.drop-help .drop-content:before {
   content: "";
@@ -10353,7 +10353,7 @@ input:checked + .gf-form-switch__checkbox {
   top: 100%;
   left: 50%;
   margin-left: -10px;
-  border-top-color: #22252b;
+  border-top-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-top.drop-element-attached-center .drop-content {
   margin-top: 10px;
@@ -10362,7 +10362,7 @@ input:checked + .gf-form-switch__checkbox {
   bottom: 100%;
   left: 50%;
   margin-left: -10px;
-  border-bottom-color: #22252b;
+  border-bottom-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-right.drop-element-attached-middle .drop-content {
   margin-right: 10px;
@@ -10371,7 +10371,7 @@ input:checked + .gf-form-switch__checkbox {
   left: 100%;
   top: 50%;
   margin-top: -10px;
-  border-left-color: #22252b;
+  border-left-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-left.drop-element-attached-middle .drop-content {
   margin-left: 10px;
@@ -10380,7 +10380,7 @@ input:checked + .gf-form-switch__checkbox {
   right: 100%;
   top: 50%;
   margin-top: -10px;
-  border-right-color: #22252b;
+  border-right-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-left.drop-target-attached-center .drop-content {
   left: -20px;
@@ -10394,7 +10394,7 @@ input:checked + .gf-form-switch__checkbox {
 .drop-element.drop-help.drop-element-attached-top.drop-element-attached-left.drop-target-attached-middle .drop-content:before {
   bottom: 100%;
   left: 10px;
-  border-bottom-color: #22252b;
+  border-bottom-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-top.drop-element-attached-right.drop-target-attached-middle .drop-content {
   margin-top: 10px;
@@ -10402,7 +10402,7 @@ input:checked + .gf-form-switch__checkbox {
 .drop-element.drop-help.drop-element-attached-top.drop-element-attached-right.drop-target-attached-middle .drop-content:before {
   bottom: 100%;
   right: 10px;
-  border-bottom-color: #22252b;
+  border-bottom-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-bottom.drop-element-attached-left.drop-target-attached-middle .drop-content {
   margin-bottom: 10px;
@@ -10410,7 +10410,7 @@ input:checked + .gf-form-switch__checkbox {
 .drop-element.drop-help.drop-element-attached-bottom.drop-element-attached-left.drop-target-attached-middle .drop-content:before {
   top: 100%;
   left: 10px;
-  border-top-color: #22252b;
+  border-top-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-bottom.drop-element-attached-right.drop-target-attached-middle .drop-content {
   margin-bottom: 10px;
@@ -10418,7 +10418,7 @@ input:checked + .gf-form-switch__checkbox {
 .drop-element.drop-help.drop-element-attached-bottom.drop-element-attached-right.drop-target-attached-middle .drop-content:before {
   top: 100%;
   right: 10px;
-  border-top-color: #22252b;
+  border-top-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-top.drop-element-attached-left.drop-target-attached-bottom .drop-content {
   margin-top: 10px;
@@ -10426,7 +10426,7 @@ input:checked + .gf-form-switch__checkbox {
 .drop-element.drop-help.drop-element-attached-top.drop-element-attached-left.drop-target-attached-bottom .drop-content:before {
   bottom: 100%;
   left: 10px;
-  border-bottom-color: #22252b;
+  border-bottom-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-top.drop-element-attached-right.drop-target-attached-bottom .drop-content {
   margin-top: 10px;
@@ -10434,7 +10434,7 @@ input:checked + .gf-form-switch__checkbox {
 .drop-element.drop-help.drop-element-attached-top.drop-element-attached-right.drop-target-attached-bottom .drop-content:before {
   bottom: 100%;
   right: 10px;
-  border-bottom-color: #22252b;
+  border-bottom-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-bottom.drop-element-attached-left.drop-target-attached-top .drop-content {
   margin-bottom: 10px;
@@ -10442,7 +10442,7 @@ input:checked + .gf-form-switch__checkbox {
 .drop-element.drop-help.drop-element-attached-bottom.drop-element-attached-left.drop-target-attached-top .drop-content:before {
   top: 100%;
   left: 10px;
-  border-top-color: #22252b;
+  border-top-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-bottom.drop-element-attached-right.drop-target-attached-top .drop-content {
   margin-bottom: 10px;
@@ -10450,7 +10450,7 @@ input:checked + .gf-form-switch__checkbox {
 .drop-element.drop-help.drop-element-attached-bottom.drop-element-attached-right.drop-target-attached-top .drop-content:before {
   top: 100%;
   right: 10px;
-  border-top-color: #22252b;
+  border-top-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-top.drop-element-attached-right.drop-target-attached-left .drop-content {
   margin-right: 10px;
@@ -10458,7 +10458,7 @@ input:checked + .gf-form-switch__checkbox {
 .drop-element.drop-help.drop-element-attached-top.drop-element-attached-right.drop-target-attached-left .drop-content:before {
   top: 10px;
   left: 100%;
-  border-left-color: #22252b;
+  border-left-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-top.drop-element-attached-left.drop-target-attached-right .drop-content {
   margin-left: 10px;
@@ -10466,7 +10466,7 @@ input:checked + .gf-form-switch__checkbox {
 .drop-element.drop-help.drop-element-attached-top.drop-element-attached-left.drop-target-attached-right .drop-content:before {
   top: 10px;
   right: 100%;
-  border-right-color: #22252b;
+  border-right-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-bottom.drop-element-attached-right.drop-target-attached-left .drop-content {
   margin-right: 10px;
@@ -10474,7 +10474,7 @@ input:checked + .gf-form-switch__checkbox {
 .drop-element.drop-help.drop-element-attached-bottom.drop-element-attached-right.drop-target-attached-left .drop-content:before {
   bottom: 10px;
   left: 100%;
-  border-left-color: #22252b;
+  border-left-color: #262626;
 }
 .drop-element.drop-help.drop-element-attached-bottom.drop-element-attached-left.drop-target-attached-right .drop-content {
   margin-left: 10px;
@@ -10482,7 +10482,7 @@ input:checked + .gf-form-switch__checkbox {
 .drop-element.drop-help.drop-element-attached-bottom.drop-element-attached-left.drop-target-attached-right .drop-content:before {
   bottom: 10px;
   right: 100%;
-  border-right-color: #22252b;
+  border-right-color: #262626;
 }
 
 .drop-element.drop-help {
