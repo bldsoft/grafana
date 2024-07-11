@@ -144,7 +144,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       position: 'relative',
       display: 'flex',
       alignItems: 'center',
-      height: theme.spacing(theme.components.height.md),
+      minHeight: theme.spacing(theme.components.height.md),
       padding: theme.spacing(0, 1),
       borderRadius: theme.shape.radius.default,
       lineHeight: `${theme.components.height.md * theme.spacing.gridSize - 2}px`,

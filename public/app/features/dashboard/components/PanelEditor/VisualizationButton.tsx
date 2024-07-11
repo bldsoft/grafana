@@ -71,5 +71,6 @@ const styles = {
   }),
   vizButton: css({
     textAlign: 'left',
+    height: 44
   }),
 };
