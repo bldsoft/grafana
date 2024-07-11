@@ -279,7 +279,6 @@ export function InteractiveTable<TableData extends object>({
         <tbody {...getTableBodyProps()}>
           {(paginationEnabled ? tableInstance.page : tableInstance.rows).map((row) => {
             prepareRow(row);
-            console.log(row)
 
             const { key, ...otherRowProps } = row.getRowProps();
             const rowId = getRowHTMLID(row);

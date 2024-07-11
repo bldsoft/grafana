@@ -279,6 +279,7 @@ function getButtonVariantStyles(theme: GrafanaTheme2, color: ThemeRichColor, fil
   let outlineBorderColor = color.border;
   let borderColor = 'transparent';
   let hoverBorderColor = 'transparent';
+  let hoverColor = color.shade
 
   // Secondary button has some special rules as we lack theem color token to
   // specify border color for normal button vs border color for outline button
@@ -286,6 +287,13 @@ function getButtonVariantStyles(theme: GrafanaTheme2, color: ThemeRichColor, fil
     borderColor = color.border;
     hoverBorderColor = theme.colors.emphasize(color.border, 0.25);
     outlineBorderColor = theme.colors.border.strong;
+  }
+
+  if (color.name === 'error') {
+    hoverColor = theme.colors.custom.hoverErrorButton
+  }
+  if (color.name === 'primary') {
+    hoverColor = theme.colors.menu.selectedHovered
   }
 
   if (fill === 'outline') {
@@ -335,7 +343,7 @@ function getButtonVariantStyles(theme: GrafanaTheme2, color: ThemeRichColor, fil
     }),
 
     '&:hover': {
-      background: color.shade,
+      background: hoverColor,
       color: theme.colors.text.primary,
       boxShadow: theme.shadows.z1,
       borderColor: hoverBorderColor,

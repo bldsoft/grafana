@@ -90,6 +90,7 @@ export interface ThemeColorsBase<TColor> {
 
   custom: {
     accentAccent1: string;
+    hoverErrorButton: string;
   }
 
   hoverFactor: number;
@@ -138,7 +139,7 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
 
   primary = {
     main: palette.blueDarkMain,
-    text: palette.blueDarkText,
+    text: palette['accent_accent-1'],
     border: palette.blueDarkText,
   };
 
@@ -207,7 +208,8 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   };
 
   custom = {
-    accentAccent1: palette['accent_accent-1']
+    accentAccent1: palette['accent_accent-1'],
+    hoverErrorButton: palette['accent_error-hovered']
   };
 
   contrastThreshold = 3;
@@ -312,7 +314,8 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   };
 
   custom = {
-    accentAccent1: palette['accent_accent-1']
+    accentAccent1: palette['accent_accent-1'],
+    hoverErrorButton: palette['accent_error-hovered']
   };
 
   contrastThreshold = 3;

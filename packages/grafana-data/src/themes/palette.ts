@@ -26,7 +26,7 @@ export const palette = {
 
   blueDarkMain: '#3CB043', // '#4165F5',
   blueDarkText: '#6E9FFF', // '#58a6ff', //'#33a2e5', // '#5790FF',
-  redDarkMain: '#D10E5C',
+  redDarkMain: '#E5584D',
   redDarkText: '#FF5286',
   greenDarkMain: '#1A7F4B',
   greenDarkText: '#6CCF8E',
@@ -47,6 +47,7 @@ export const palette = {
   'accent_accent-1-hovered': '#41BE48',
   'accent_accent-2': '#4D4D4D',
   'accent_error': '#E5584D',
+  'accent_error-hovered': '#CE3C31',
 
   'text-icon_const-primary': '#FFFFFF',
   'text-icon_const-quaternary': '#CCCCCC',
