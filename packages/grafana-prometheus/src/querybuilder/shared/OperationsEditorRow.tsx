@@ -23,7 +23,7 @@ const getStyles = (theme: GrafanaTheme2) => {
   return {
     root: css({
       padding: theme.spacing(1, 1, 0, 1),
-      backgroundColor: theme.colors.background.secondary,
+      backgroundColor: theme.colors.background.surfacePrimary,
       borderRadius: theme.shape.radius.default,
     }),
   };

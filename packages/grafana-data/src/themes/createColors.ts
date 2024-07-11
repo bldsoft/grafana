@@ -176,7 +176,7 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     canvas: palette['background_secondary'],
     primary: palette['background_secondary'],
     constPrimary: palette['background_const-primary'],
-    secondary: palette.gray15,
+    secondary: palette['surface_primary'],
     surfacePrimary: palette['surface_primary'],
     buttonHovered: palette['accent_accent-2'],
     surfaceSecondary: palette['surface_secondary']

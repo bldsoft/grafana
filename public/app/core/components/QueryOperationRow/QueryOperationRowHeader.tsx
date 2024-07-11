@@ -92,9 +92,10 @@ export const QueryOperationRowHeader = ({
 const getStyles = (theme: GrafanaTheme2) => ({
   header: css`
     label: Header;
+    height: 100%;
+
     padding: ${theme.spacing(0.5, 0.5)};
     border-radius: ${theme.shape.radius.default};
-    background: ${theme.colors.background.secondary};
     min-height: ${theme.spacing(4)};
     display: grid;
     grid-template-columns: minmax(100px, max-content) min-content;

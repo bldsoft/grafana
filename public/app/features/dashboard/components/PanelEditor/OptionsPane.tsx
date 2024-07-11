@@ -66,7 +66,8 @@ const getStyles = (theme: GrafanaTheme2) => {
       minHeight: 0,
     }),
     vizButtonWrapper: css({
-      padding: `0 ${theme.spacing(2, 2)} 0`,
+      height: 70,
+      padding: `3px ${theme.spacing(2, 2.5)} 0`,
     }),
     legacyOptions: css({
       label: 'legacy-options',

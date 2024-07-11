@@ -86,7 +86,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   noRulesWrapper: css({
     margin: theme.spacing(2),
-    backgroundColor: theme.colors.background.secondary,
+    backgroundColor: theme.colors.background.surfacePrimary,
     padding: theme.spacing(3),
   }),
 });

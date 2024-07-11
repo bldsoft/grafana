@@ -294,6 +294,7 @@ function getButtonVariantStyles(theme: GrafanaTheme2, color: ThemeRichColor, fil
   }
   if (color.name === 'primary') {
     hoverColor = theme.colors.menu.selectedHovered
+    outlineBorderColor = theme.colors.custom.accentAccent1;
   }
 
   if (fill === 'outline') {

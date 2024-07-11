@@ -19,11 +19,11 @@ $colors-action-selected: rgba(204, 204, 220, 0.12);
 
 // New Colors
 // -------------------------
-$blue-light: #6E9FFF;
+$blue-light: #3CB043;
 $blue-base: #3CB043;
 $blue-shade: rgb(89, 187, 95);
-$red-base: #D10E5C;
-$red-shade: rgb(215, 50, 116);
+$red-base: #E5584D;
+$red-shade: rgb(232, 113, 103);
 $green-base: #1A7F4B;
 $green-shade: rgb(60, 146, 102);
 $orange-dark: #ff780a;
@@ -82,7 +82,7 @@ $variable: #3CB043;
 $brand-primary: #eb7b18;
 $brand-success: #1A7F4B;
 $brand-warning: #FF9900;
-$brand-danger: #D10E5C;
+$brand-danger: #E5584D;
 
 $query-red: #E5584D;
 $query-green: #6CCF8E;
@@ -107,7 +107,7 @@ $text-color-semi-weak: #E6E6E6;
 $text-color-weak: #E6E6E6;
 $text-color-faint: rgba(204, 204, 220, 0.6);
 $text-color-emphasis: #FFFFFF;
-$text-blue: #6E9FFF;
+$text-blue: #3CB043;
 
 $text-shadow-faint: 1px 1px 4px rgb(45, 45, 45);
 $textShadow: none;
@@ -280,7 +280,7 @@ $warning-text-color: #fbad37;
 $error-text-color: #E5584D;
 $success-text-color: #6CCF8E;
 
-$alert-error-bg: #D10E5C;
+$alert-error-bg: #E5584D;
 $alert-success-bg: #1A7F4B;
 $alert-warning-bg: #FF9900;
 $alert-info-bg: #FF9900;
@@ -295,7 +295,7 @@ $graph-tooltip-bg: $dark-1;
 $tooltipBackground: #22252b;
 $tooltipColor: #E6E6E6;
 $tooltipArrowColor: #22252b;
-$tooltipBackgroundError: #D10E5C;
+$tooltipBackgroundError: #E5584D;
 $tooltipShadow: 0px 4px 8px rgba(1, 4, 9, 0.75);
 
 $popover-bg: #1F1F1F;

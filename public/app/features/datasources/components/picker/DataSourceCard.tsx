@@ -42,7 +42,7 @@ function getStyles(theme: GrafanaTheme2, builtIn = false) {
   return {
     card: css`
       cursor: pointer;
-      background-color: ${theme.colors.background.primary};
+      background-color: ${theme.colors.background.surfacePrimary};
       border-bottom: 1px solid ${theme.colors.border.weak};
       // Move to list component
       margin-bottom: 0;
@@ -96,7 +96,7 @@ function getStyles(theme: GrafanaTheme2, builtIn = false) {
       color: ${theme.colors.border.weak};
     `,
     selected: css`
-      background-color: ${theme.colors.background.secondary};
+      background-color: ${theme.colors.background.surfacePrimary};
     `,
     meta: css`
       display: block;
