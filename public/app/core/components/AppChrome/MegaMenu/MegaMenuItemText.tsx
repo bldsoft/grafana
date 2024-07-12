@@ -1,11 +1,13 @@
 import { css, cx } from '@emotion/css';
 import React, { useEffect, useState } from 'react'
 
+import Popup from 'reactjs-popup'
+
 import { GrafanaTheme2, NavModelItem } from '@grafana/data'
 import { selectors } from '@grafana/e2e-selectors';
 import { Icon, IconButton, Link, useTheme2 } from '@grafana/ui'
+
 import { useGrafana } from '../../../context/GrafanaContext'
-import Popup from 'reactjs-popup'
 import { hasChildMatch } from './utils'
 
 export interface Props {
@@ -15,13 +17,12 @@ export interface Props {
   onClick?: () => void;
   target?: HTMLAnchorElement['target'];
   url: string;
-  megaMenuClose?: boolean;
   link?: any
 }
 
-export function MegaMenuItemText({ children, isActive, activeItem, onClick, target, url, megaMenuClose, link }: Props) {
+export function MegaMenuItemText({ children, isActive, activeItem, onClick, target, url, link }: Props) {
   const theme = useTheme2();
-  const styles = getStyles(theme, isActive, megaMenuClose);
+  const styles = getStyles(theme);
   const LinkComponent = !target && url.startsWith('/') ? Link : 'a';
   const { chrome } = useGrafana();
   const state = chrome.useState();
@@ -141,7 +142,7 @@ export function MegaMenuItemText({ children, isActive, activeItem, onClick, targ
 
 MegaMenuItemText.displayName = 'MegaMenuItemText';
 
-const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuClose: Props['megaMenuClose']) => ({
+const getStyles = (theme: GrafanaTheme2) => ({
   container: css({
     alignItems: 'center',
     color: 'inherit',
@@ -162,7 +163,6 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuCl
     gap: '0.5rem',
     height: '100%',
     width: '100%',
-    justifyContent: megaMenuClose ? 'center' : 'unset',
   }),
   activeMenuItem: css({
     backgroundColor: theme.colors.menu.active,
@@ -177,7 +177,7 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuCl
     padding: 8,
     color: '#CCCCCC',
     fontSize: 16,
-    borderRadius: 8
+    borderRadius: theme.shape.radius.default
   }),
   subMenu: css({
     display: 'flex',
@@ -186,7 +186,7 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuCl
     padding: '0 8px',
     color: '#CCCCCC',
     fontSize: 16,
-    borderRadius: 8
+    borderRadius: theme.shape.radius.default
   }),
   jcSB: css({
     display: 'flex',
@@ -195,7 +195,7 @@ const getStyles = (theme: GrafanaTheme2, isActive: Props['isActive'], megaMenuCl
   menuItem: css({
     padding: '10px 12px',
     width: '100%',
-    borderRadius: 8,
+    borderRadius: theme.shape.radius.default,
     margin: '3px 0',
 
     '&:hover': {

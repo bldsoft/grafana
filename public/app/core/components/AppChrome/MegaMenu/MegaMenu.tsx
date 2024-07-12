@@ -109,16 +109,17 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     display: 'flex',
     flexDirection: 'column',
     listStyleType: 'none',
-    padding: theme.spacing(1, 1, 2, 1),
-    width: megaMenuOpen ? 240 : 120
+    padding: theme.spacing(1, 1.5, 2, 1.5),
+    width: megaMenuOpen ? 240 : 68
   }),
   dockMenuButton: css({
     display: 'inline-flex',
     width: 'fit-content',
-    alignSelf: 'end'
+    alignSelf: 'end',
+    marginRight: 19
   }),
   img: css({
-    height: megaMenuOpen ? 42 : 23,
+    height: 42,
     width: megaMenuOpen ? 184 : 25
   }),
   logo: css({

@@ -119,11 +119,11 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
     dockedMegaMenu: css({
       background: theme.colors.background.constPrimary,
       display: 'block',
-      width: megaMenuOpen ? 240 : 120,
+      width: megaMenuOpen ? 240 : 68,
     }),
     topNav: css({
       display: 'flex',
-      left: megaMenuOpen ? 240 : 120,
+      left: megaMenuOpen ? 240 : 68,
       right: 0,
       background: theme.colors.background.primary,
       flexDirection: 'column',

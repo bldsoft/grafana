@@ -240,15 +240,15 @@ const getStyles = (theme: GrafanaTheme2) => {
     }),
     drawer: css({
       '.main-view &': {
-        top: 80,
+        top: 68,
       },
 
       '.main-view--search-bar-hidden &': {
-        top: 40,
+        top: 68,
       },
 
       '.main-view--chrome-hidden &': {
-        top: 0,
+        top: 68,
       },
 
       '.rc-drawer-content-wrapper': {
@@ -290,15 +290,15 @@ const getStyles = (theme: GrafanaTheme2) => {
         right: 0,
 
         '.main-view &': {
-          top: 80,
+          top: 68,
         },
 
         '.main-view--search-bar-hidden &': {
-          top: 40,
+          top: 68,
         },
 
         '.main-view--chrome-hidden &': {
-          top: 0,
+          top: 68,
         },
       },
     }),

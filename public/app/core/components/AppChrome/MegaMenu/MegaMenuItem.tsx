@@ -37,7 +37,7 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
   const showExpandButton = level < MAX_DEPTH && Boolean(linkHasChildren(link) || link.emptyMessage);
   const item = useRef<HTMLLIElement>(null);
 
-  const styles = useStyles2(getStyles, state.megaMenuOpen);
+  const styles = useStyles2(getStyles);
 
   // expand parent sections if child is active
   useEffect(() => {
@@ -61,7 +61,7 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
 
   let iconElement: React.JSX.Element | null = null;
   if (link.icon) {
-    iconElement = <Icon className={styles.icon} filled={hasActiveChild || isActive} name={toIconName(link.icon) ?? 'link'} size={state.megaMenuOpen ? 'lg' : 'xl'} />;
+    iconElement = <Icon className={styles.icon} filled={hasActiveChild || isActive} name={toIconName(link.icon) ?? 'link'} size={'lg'} />;
   } else if (link.img) {
     iconElement = (
       <Stack width={3} justifyContent="center">
@@ -86,7 +86,6 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
         <div className={styles.collapsibleSectionWrapper}>
           <MegaMenuItemText
             isActive={isActive}
-            megaMenuClose={!state.megaMenuOpen}
             activeItem={activeItem}
             link={link}
             onClick={() => {
@@ -96,18 +95,27 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
             target={link.target}
             url={link.url}
           >
-            <Tooltip content={!state.megaMenuOpen && link.text.length > 8 ? link.text : undefined} placement='bottom'>
+
+            {!state.megaMenuOpen && <Tooltip content={link.text} placement="bottom">
               <div
                 className={cx(styles.labelWrapper, {
                   [styles.hasActiveChild]: hasActiveChild,
                   [styles.labelWrapperWithIcon]: Boolean(level === 0 && iconElement),
-                  [styles.jcC]: !state.megaMenuOpen
                 })}
               >
                 {level === 0 && iconElement && <FeatureHighlightWrapper>{iconElement}</FeatureHighlightWrapper>}
-                  <Text truncate textAlignment={state.megaMenuOpen ? 'left' : 'center'}>{link.text}</Text>
               </div>
-            </Tooltip>
+            </Tooltip>}
+            {state.megaMenuOpen && <div
+              className={cx(styles.labelWrapper, {
+                [styles.hasActiveChild]: hasActiveChild,
+                [styles.labelWrapperWithIcon]: Boolean(level === 0 && iconElement),
+                [styles.jcC]: !state.megaMenuOpen,
+              })}
+            >
+                {level === 0 && iconElement && <FeatureHighlightWrapper>{iconElement}</FeatureHighlightWrapper>}
+                <Text truncate textAlignment={state.megaMenuOpen ? 'left' : 'center'}>{link.text}</Text>
+              </div>}
           </MegaMenuItemText>
         </div>
         {state.megaMenuOpen && (
@@ -150,7 +158,7 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
   );
 }
 
-const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
+const getStyles = (theme: GrafanaTheme2) => ({
   icon: css({
     width: theme.spacing(3),
     color: 'inherit'
@@ -172,11 +180,11 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     alignItems: 'center',
     gap: theme.spacing(1),
     height: 44,
-    paddingLeft: theme.spacing(1),
+    paddingLeft: theme.spacing(1,5),
     paddingRight: theme.spacing(1),
     position: 'relative',
     width: '100%',
-    borderRadius: 10,
+    borderRadius: theme.shape.radius.default,
     margin: '3px 0',
     color: theme.colors.menu.fontColor,
 
@@ -220,10 +228,8 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     },
   }),
   collapsedMenu: css({
-    height: 86,
-    width: 86,
-    padding: '18px 10px',
-    position: 'relative',
+    height: 44,
+    width: 44,
   }),
   collapsibleSectionWrapper: css({
     alignItems: 'center',
@@ -234,14 +240,14 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
   }),
   labelWrapper: css({
     display: 'flex',
-    flexDirection: megaMenuOpen ? 'row' : 'column',
+    flexDirection: 'row' ,
     alignItems: 'center',
-    gap: megaMenuOpen ? theme.spacing(1) : theme.spacing(0.5),
+    gap: theme.spacing(1),
     width: '100%',
-    paddingLeft: megaMenuOpen ? theme.spacing(1) : 0,
+    paddingLeft:theme.spacing(1),
   }),
   labelWrapperWithIcon: css({
-    paddingLeft: megaMenuOpen ? theme.spacing(0.5) : 0,
+    paddingLeft: theme.spacing(0.25),
   }),
   hasActiveChild: css({
     color: theme.colors.text.active,
