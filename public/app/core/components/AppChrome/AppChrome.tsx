@@ -11,7 +11,6 @@ import store from 'app/core/store';
 import { CommandPalette } from 'app/features/commandPalette/CommandPalette';
 import { KioskMode } from 'app/types';
 
-import { AppChromeMenu } from './AppChromeMenu';
 import { DOCKED_LOCAL_STORAGE_KEY, DOCKED_MENU_OPEN_LOCAL_STORAGE_KEY } from './AppChromeService';
 import { MegaMenu } from './MegaMenu/MegaMenu';
 import { ReturnToPrevious } from './ReturnToPrevious/ReturnToPrevious';
@@ -93,7 +92,6 @@ export function AppChrome({ children }: Props) {
           </main>
         </div>
       </div>
-      {!state.chromeless && !state.megaMenuDocked && <AppChromeMenu />}
       {!state.chromeless && <CommandPalette />}
       {shouldShowReturnToPrevious && state.returnToPrevious && (
         <ReturnToPrevious href={state.returnToPrevious.href} title={state.returnToPrevious.title} />
