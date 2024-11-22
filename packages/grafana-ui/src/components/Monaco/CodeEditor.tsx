@@ -149,7 +149,7 @@ class UnthemedCodeEditor extends PureComponent<Props> {
 
       readOnly,
       lineNumbersMinChars: 4,
-      lineDecorationsWidth: 1 * theme.spacing.gridSize,
+      lineDecorationsWidth: theme.spacing.gridSize,
       overviewRulerBorder: false,
       automaticLayout: true,
       padding: {
@@ -202,6 +202,8 @@ const getStyles = (theme: GrafanaTheme2) => {
     container: css({
       borderRadius: theme.shape.radius.default,
       border: `1px solid ${theme.components.input.borderColor}`,
+      zIndex: 2,
+      position: 'relative'
     }),
   };
 };

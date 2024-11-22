@@ -171,7 +171,7 @@ const getStyles = (theme: GrafanaTheme2) => {
         flexGrow: 1,
         flexDirection: 'column',
         marginBottom: '0 !important',
-        overflow: 'hidden scroll !important'
+        overflow: 'auto'
       },
       '.track-vertical': {
         borderRadius: theme.shape.borderRadius(2),
