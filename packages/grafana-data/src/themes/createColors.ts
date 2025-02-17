@@ -29,6 +29,7 @@ export interface ThemeColorsBase<TColor> {
     /** Used for auto white or dark text on colored backgrounds */
     maxContrast: string;
     active: string;
+    icon3: string;
   };
 
   background: {
@@ -134,7 +135,8 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     disabled: `rgba(${this.whiteBase}, 0.6)`,
     link: palette['accent_accent-1'],
     maxContrast: palette.white,
-    active: palette['text-icon_const-primary']
+    active: palette['text-icon_const-primary'],
+    icon3: palette['text-icon_text-icon-3']
   };
 
   primary = {
@@ -237,7 +239,8 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     disabled: `rgba(${this.blackBase}, 0.64)`,
     link: this.primary.text,
     maxContrast: palette.black,
-    active: palette['text-icon_const-primary']
+    active: palette['text-icon_const-primary'],
+    icon3: palette['text-icon_text-icon-3']
   };
 
   border = {

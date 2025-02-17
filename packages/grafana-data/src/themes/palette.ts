@@ -53,6 +53,7 @@ export const palette = {
   'text-icon_const-quaternary': '#CCCCCC',
   'text-icon_tertiary': '#999999',
   'text-icon_secondary': '#E6E6E6',
+  'text-icon_text-icon-3': '#797373',
 
   'surface_primary': '#262626',
   'surface_secondary': '#2E2E2E',

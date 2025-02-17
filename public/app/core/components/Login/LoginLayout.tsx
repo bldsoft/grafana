@@ -35,9 +35,11 @@ export const LoginLayout = ({ children, branding, isChangingPassword }: React.Pr
       className={cx(loginStyles.container, startAnim && loginStyles.loginAnim, branding?.loginBackground)}
     >
       <div className={loginStyles.loginMain}>
+        <Branding.LoginLogo className={loginStyles.loginLogo} logo={loginLogo} />
         <div className={cx(loginStyles.loginContent, loginBoxBackground, 'login-content-box')}>
           <div className={loginStyles.loginLogoWrapper}>
-            <Branding.LoginLogo className={loginStyles.loginLogo} logo={loginLogo} />
+            <div className={loginStyles.titleText}>Welcome back</div>
+            <div className={loginStyles.additionalText}>Sign in to your account and do your best</div>
             <div className={loginStyles.titleWrapper}>
               {isChangingPassword ? (
                 <h1 className={loginStyles.mainTitle}>Update your password</h1>
@@ -50,6 +52,7 @@ export const LoginLayout = ({ children, branding, isChangingPassword }: React.Pr
           </div>
           <div className={loginStyles.loginOuterBox}>{children}</div>
         </div>
+        <div className={loginStyles.productText}>A <img src={'public/img/setplex.png'} alt="Setplex" /> product. All right reserved. Supported by Grafana.</div>
       </div>
     </Branding.LoginBackground>
   );
@@ -88,10 +91,6 @@ export const getLoginStyles = (theme: GrafanaTheme2) => {
       justifyContent: 'center',
     }),
     loginAnim: css({
-      ['&:before']: {
-        opacity: 1,
-      },
-
       ['.login-content-box']: {
         opacity: 1,
         backgroundColor: '#262626',
@@ -102,11 +101,34 @@ export const getLoginStyles = (theme: GrafanaTheme2) => {
       justifyContent: 'center',
       width: '100%',
     }),
+    titleText: css({
+      fontSize: '32px',
+      lineHeight: '40px',
+      fontWeight: '700'
+    }),
+    additionalText: css({
+      fontSize: '16px',
+      lineHeight: '24px',
+      fontWeight: '400',
+      paddingTop: '16px',
+      color: theme.colors.text.icon3,
+    }),
+    productText: css({
+      fontSize: '12px',
+      lineHeight: '16px',
+      fontWeight: '500',
+      color: theme.colors.text.icon3,
+      position: 'absolute',
+      bottom: '5%',
+      left: '42%'
+    }),
     loginLogo: css({
       width: '100%',
       maxWidth: 60,
       marginBottom: theme.spacing(2),
-
+      position: 'absolute',
+      top: '16%',
+      left: '45%',
       [theme.breakpoints.up('sm')]: {
         maxWidth: 200,
       },

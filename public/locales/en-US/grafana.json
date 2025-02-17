@@ -786,9 +786,9 @@
       "password-required": "Password is required",
       "submit-label": "Log in",
       "submit-loading-label": "Logging in...",
-      "username-label": "Username",
-      "username-placeholder": "Enter username",
-      "username-required": "Username is required"
+      "username-label": "Email or Username",
+      "username-placeholder": "Enter email or username",
+      "username-required": "Email or Username is required"
     },
     "services": {
       "sing-in-with-prefix": "Sign in with {{serviceName}}"
