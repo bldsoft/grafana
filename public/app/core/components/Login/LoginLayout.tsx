@@ -35,7 +35,9 @@ export const LoginLayout = ({ children, branding, isChangingPassword }: React.Pr
       className={cx(loginStyles.container, startAnim && loginStyles.loginAnim, branding?.loginBackground)}
     >
       <div className={loginStyles.loginMain}>
-        <Branding.LoginLogo className={loginStyles.loginLogo} logo={loginLogo} />
+        <div className={loginStyles.loginLogoContainer}>
+          <Branding.LoginLogo className={loginStyles.loginLogo} logo={loginLogo} />
+        </div>
         <div className={cx(loginStyles.loginContent, loginBoxBackground, 'login-content-box')}>
           <div className={loginStyles.loginLogoWrapper}>
             <div className={loginStyles.titleText}>Welcome back</div>
@@ -119,19 +121,23 @@ export const getLoginStyles = (theme: GrafanaTheme2) => {
       fontWeight: '500',
       color: theme.colors.text.icon3,
       position: 'absolute',
-      bottom: '5%',
-      left: '42%'
+      bottom: '44px',
+      width: '100%',
+      textAlign: 'center'
     }),
     loginLogo: css({
       width: '100%',
       maxWidth: 60,
       marginBottom: theme.spacing(2),
-      position: 'absolute',
-      top: '16%',
-      left: '45%',
       [theme.breakpoints.up('sm')]: {
         maxWidth: 200,
       },
+    }),
+    loginLogoContainer: css({
+      width: '100%',
+      position: 'absolute',
+      top: '16%',
+      textAlign: 'center'
     }),
     loginLogoWrapper: css({
       display: 'flex',
