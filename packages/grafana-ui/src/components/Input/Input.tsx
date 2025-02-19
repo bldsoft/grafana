@@ -33,7 +33,6 @@ interface StyleDeps {
 
 export const Input = React.forwardRef<HTMLInputElement, Props>((props, ref) => {
   const { className, addonAfter, addonBefore, prefix, suffix, invalid, loading, width = 0, ...restProps } = props;
-  console.log('asdas')
   /**
    * Prefix & suffix are positioned absolutely within inputWrapper. We use client rects below to apply correct padding to the input
    * when prefix/suffix is larger than default (28px = 16px(icon) + 12px(left/right paddings)).
