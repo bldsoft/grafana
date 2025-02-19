@@ -120,24 +120,21 @@ export const getLoginStyles = (theme: GrafanaTheme2) => {
       lineHeight: '16px',
       fontWeight: '500',
       color: theme.colors.text.icon3,
-      position: 'absolute',
-      bottom: '44px',
       width: '100%',
-      textAlign: 'center'
+      textAlign: 'center',
+      marginTop: theme.spacing(20)
     }),
     loginLogo: css({
       width: '100%',
       maxWidth: 60,
-      marginBottom: theme.spacing(2),
       [theme.breakpoints.up('sm')]: {
         maxWidth: 200,
       },
     }),
     loginLogoContainer: css({
       width: '100%',
-      position: 'absolute',
-      top: '16%',
-      textAlign: 'center'
+      textAlign: 'center',
+      marginBottom: theme.spacing(8)
     }),
     loginLogoWrapper: css({
       display: 'flex',

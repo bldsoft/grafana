@@ -30,6 +30,7 @@ export interface ThemeColorsBase<TColor> {
     maxContrast: string;
     active: string;
     icon3: string;
+    iconsSecondary: string;
   };
 
   background: {
@@ -136,7 +137,8 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     link: palette['accent_accent-1'],
     maxContrast: palette.white,
     active: palette['text-icon_const-primary'],
-    icon3: palette['text-icon_text-icon-3']
+    icon3: palette['text-icon_text-icon-3'],
+    iconsSecondary: palette['text-icons_secondary'],
   };
 
   primary = {
@@ -240,7 +242,8 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     link: this.primary.text,
     maxContrast: palette.black,
     active: palette['text-icon_const-primary'],
-    icon3: palette['text-icon_text-icon-3']
+    icon3: palette['text-icon_text-icon-3'],
+    iconsSecondary: palette['text-icons_secondary'],
   };
 
   border = {
