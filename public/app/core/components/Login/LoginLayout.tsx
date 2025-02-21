@@ -54,7 +54,7 @@ export const LoginLayout = ({ children, branding, isChangingPassword }: React.Pr
           </div>
           <div className={loginStyles.loginOuterBox}>{children}</div>
         </div>
-        <div className={loginStyles.productText}>A <img src={'public/img/setplex.png'} alt="Setplex" /> product. Supported by <span className={loginStyles.grafanaText}>Grafana</span>.</div>
+        <div className={loginStyles.productText}>A <img src={'public/img/setplex.png'} alt="Setplex" /> product. Supported by <a href="https://grafana.com/grafana" className={loginStyles.grafanaText} target="_blank" rel="noreferrer">Grafana</a>.</div>
       </div>
     </Branding.LoginBackground>
   );
@@ -126,7 +126,8 @@ export const getLoginStyles = (theme: GrafanaTheme2) => {
       marginTop: theme.spacing(20)
     }),
     grafanaText: css({
-      color: '#40B041'
+      color: '#40B041',
+      position: 'relative'
     }),
     loginLogo: css({
       width: '100%',
