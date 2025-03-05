@@ -1,5 +1,6 @@
 import { css, cx } from '@emotion/css';
-import React, { useEffect, useState } from 'react'
+import * as React from 'react';
+import { useEffect, useState } from 'react'
 
 import Popup from 'reactjs-popup'
 

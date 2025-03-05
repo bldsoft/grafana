@@ -1,5 +1,4 @@
 import { css } from '@emotion/css';
-import React from 'react';
 import { useForm } from 'react-hook-form';
 
 import { GrafanaTheme2, TimeRange } from '@grafana/data/src';
@@ -22,7 +21,7 @@ import {
   usePauseOrResumePublicDashboardMutation,
   useUpdatePublicDashboardMutation,
 } from 'app/features/dashboard/api/publicDashboardApi';
-import { DashboardModel } from 'app/features/dashboard/state';
+import { DashboardModel } from 'app/features/dashboard/state/DashboardModel';
 import { getTimeRange } from 'app/features/dashboard/utils/timeRange';
 import { DashboardScene } from 'app/features/dashboard-scene/scene/DashboardScene';
 import { DashboardInteractions } from 'app/features/dashboard-scene/utils/interactions';
@@ -265,7 +264,6 @@ export function ConfigPublicDashboard({ publicDashboard, unsupportedDatasources 
           onRevoke={() => {
             DashboardInteractions.revokePublicDashboardClicked();
             showModal(DeletePublicDashboardModal, {
-              dashboardTitle: dashboard.title,
               onConfirm: () => onDeletePublicDashboardClick(hideModal),
               onDismiss: () => {
                 showModal(ShareModal, {

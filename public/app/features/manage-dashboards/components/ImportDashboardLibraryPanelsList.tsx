@@ -1,5 +1,5 @@
 import { css } from '@emotion/css';
-import React, { ReactElement } from 'react';
+import { ReactElement } from 'react';
 
 import { GrafanaTheme2 } from '@grafana/data';
 import { LibraryPanel } from '@grafana/schema';
@@ -52,11 +52,11 @@ export function ImportDashboardLibraryPanelsList({
 
 function getStyles(theme: GrafanaTheme2) {
   return {
-    spacer: css`
-      margin-bottom: ${theme.spacing(2)};
-    `,
-    item: css`
-      margin-bottom: ${theme.spacing(1)};
-    `,
+    spacer: css({
+      marginBottom: theme.spacing(2),
+    }),
+    item: css({
+      marginBottom: theme.spacing(1),
+    }),
   };
 }

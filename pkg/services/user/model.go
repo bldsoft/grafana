@@ -98,6 +98,12 @@ type UpdateUserLastSeenAtCommand struct {
 	OrgID  int64
 }
 
+type ListUserResult struct {
+	Users      []*User
+	ContinueID int64
+	RV         int64
+}
+
 type SearchUsersQuery struct {
 	SignedInUser identity.Requester
 	OrgID        int64 `xorm:"org_id"`
@@ -120,7 +126,7 @@ type SearchUserQueryResult struct {
 
 type UserSearchHitDTO struct {
 	ID            int64                `json:"id" xorm:"id"`
-	UID           string               `json:"uid" xorm:"id"`
+	UID           string               `json:"uid" xorm:"uid"`
 	Name          string               `json:"name"`
 	Login         string               `json:"login"`
 	Email         string               `json:"email"`
@@ -206,6 +212,10 @@ type GetUserByIDQuery struct {
 	ID int64
 }
 
+type GetUserByUIDQuery struct {
+	UID string
+}
+
 type StartVerifyEmailCommand struct {
 	User   User
 	Email  string
@@ -253,6 +263,7 @@ const (
 
 type AdminCreateUserResponse struct {
 	ID      int64  `json:"id"`
+	UID     string `json:"uid"`
 	Message string `json:"message"`
 }
 

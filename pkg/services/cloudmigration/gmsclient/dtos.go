@@ -1,13 +1,8 @@
-// TODO: Move these to a shared library in common with GMS
 package gmsclient
 
-type MigrateDataType string
+import "time"
 
-const (
-	DashboardDataType  MigrateDataType = "DASHBOARD"
-	DatasourceDataType MigrateDataType = "DATASOURCE"
-	FolderDataType     MigrateDataType = "FOLDER"
-)
+type MigrateDataType string
 
 type MigrateDataRequestDTO struct {
 	Items []MigrateDataRequestItemDTO `json:"items"`
@@ -45,3 +40,37 @@ type MigrateDataResponseItemDTO struct {
 	Status ItemStatus `json:"status"`
 	Error  string     `json:"error,omitempty"`
 }
+
+type CreateSnapshotUploadUrlResponseDTO struct {
+	UploadUrl string `json:"uploadUrl"`
+}
+
+type EventRequestDTO struct {
+	LocalID            string         `json:"migrationClientId"`
+	Event              LocalEventType `json:"event"`
+	Error              string         `json:"error"`
+	DurationIfFinished time.Duration  `json:"duration"`
+	UserUID            string         `json:"userUid"`
+}
+
+type LocalEventType string
+
+const (
+	EventConnect                LocalEventType = "connect"
+	EventDisconnect             LocalEventType = "disconnect"
+	EventStartBuildingSnapshot  LocalEventType = "start_building_snapshot"
+	EventDoneBuildingSnapshot   LocalEventType = "done_building_snapshot"
+	EventStartUploadingSnapshot LocalEventType = "start_uploading_snapshot"
+	EventDoneUploadingSnapshot  LocalEventType = "done_uploading_snapshot"
+)
+
+type GMSAPIError struct {
+	Message string `json:"message"`
+}
+
+// Error messages returned from GMS
+var (
+	GMSErrorMessageInstanceUnreachable   = "instance is unreachable"
+	GMSErrorMessageInstanceCheckingError = "checking if instance is reachable"
+	GMSErrorMessageInstanceFetching      = "fetching instance by stack id"
+)

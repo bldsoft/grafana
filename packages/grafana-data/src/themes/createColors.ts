@@ -44,6 +44,11 @@ export interface ThemeColorsBase<TColor> {
     surfacePrimary: string;
     buttonHovered: string;
     surfaceSecondary: string;
+    /**
+     * For popovers and menu backgrounds. This is the same color as primary in most light themes but in dark
+     * themes it has a brighter shade to help give it contrast against the primary background.
+     **/
+    elevated: string;
   };
 
   menu: {
@@ -121,8 +126,8 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
 
   border = {
     weak: `rgba(${this.whiteBase}, 0.12)`,
-    medium: `rgba(${this.whiteBase}, 0.20)`,
-    strong: `rgba(${this.whiteBase}, 0.30)`,
+    medium: `rgba(${this.whiteBase}, 0.2)`,
+    strong: `rgba(${this.whiteBase}, 0.3)`,
     secondary: palette['border_secondary'],
     teriary: palette['border_teriary']
   };
@@ -183,7 +188,8 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     secondary: palette['surface_primary'],
     surfacePrimary: palette['surface_primary'],
     buttonHovered: palette['accent_accent-2'],
-    surfaceSecondary: palette['surface_secondary']
+    surfaceSecondary: palette['surface_secondary'],
+    elevated: palette.gray15,
   };
 
   menu = {
@@ -248,8 +254,8 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
 
   border = {
     weak: `rgba(${this.blackBase}, 0.12)`,
-    medium: `rgba(${this.blackBase}, 0.30)`,
-    strong: `rgba(${this.blackBase}, 0.40)`,
+    medium: `rgba(${this.blackBase}, 0.3)`,
+    strong: `rgba(${this.blackBase}, 0.4)`,
     secondary: palette['border_secondary'],
     teriary: palette['border_teriary']
   };
@@ -291,7 +297,8 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     secondary: palette.gray100,
     surfacePrimary: palette['surface_primary'],
     buttonHovered: palette['accent_accent-2'],
-    surfaceSecondary: palette['surface_secondary']
+    surfaceSecondary: palette['surface_secondary'],
+    elevated: palette.white,
   };
 
   menu = {
@@ -356,7 +363,7 @@ export function createColors(colors: ThemeColorsInput): ThemeColors {
   const getRichColor = ({ color, name }: GetRichColorProps): ThemeRichColor => {
     color = { ...color, name };
     if (!color.main) {
-      throw new Error(`Missing main color for ${name}`);
+      color.main = base[name].main;
     }
     if (!color.text) {
       color.text = color.main;
@@ -397,7 +404,9 @@ export function createColors(colors: ThemeColorsInput): ThemeColors {
   );
 }
 
+type RichColorNames = 'primary' | 'secondary' | 'info' | 'error' | 'success' | 'warning';
+
 interface GetRichColorProps {
   color: Partial<ThemeRichColor>;
-  name: string;
+  name: RichColorNames;
 }

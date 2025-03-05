@@ -1,4 +1,5 @@
-import React, { useEffect } from 'react';
+import { css } from '@emotion/css';
+import { useEffect } from 'react';
 
 import { SelectableValue } from '@grafana/data';
 import { locationService } from '@grafana/runtime';

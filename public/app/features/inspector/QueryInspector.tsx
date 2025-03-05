@@ -1,5 +1,5 @@
 import { css } from '@emotion/css';
-import React, { PureComponent } from 'react';
+import { PureComponent } from 'react';
 import { Subscription } from 'rxjs';
 
 import { LoadingState, PanelData } from '@grafana/data';
@@ -192,11 +192,11 @@ export class QueryInspector extends PureComponent<Props, State> {
     }
 
     const styles = {
-      refId: css`
-        font-weight: ${config.theme.typography.weight.semibold};
-        color: ${config.theme.colors.textBlue};
-        margin-right: 8px;
-      `,
+      refId: css({
+        fontWeight: config.theme.typography.weight.semibold,
+        color: config.theme.colors.textBlue,
+        marginRight: '8px',
+      }),
     };
 
     return (

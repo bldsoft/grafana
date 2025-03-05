@@ -2,12 +2,13 @@ package fake
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
+	"sort"
 	"time"
 
+	"github.com/grafana/grafana/pkg/services/authapi"
 	"github.com/grafana/grafana/pkg/services/cloudmigration"
-	"github.com/grafana/grafana/pkg/services/gcom"
+	"github.com/grafana/grafana/pkg/services/user"
 )
 
 var fixedDate = time.Date(2024, 6, 5, 17, 30, 40, 0, time.UTC)
@@ -19,11 +20,11 @@ type FakeServiceImpl struct {
 
 var _ cloudmigration.Service = (*FakeServiceImpl)(nil)
 
-func (m FakeServiceImpl) GetToken(_ context.Context) (gcom.TokenView, error) {
+func (m FakeServiceImpl) GetToken(_ context.Context) (authapi.TokenView, error) {
 	if m.ReturnError {
-		return gcom.TokenView{}, fmt.Errorf("mock error")
+		return authapi.TokenView{}, fmt.Errorf("mock error")
 	}
-	return gcom.TokenView{ID: "mock_id", DisplayName: "mock_name"}, nil
+	return authapi.TokenView{ID: "mock_id", DisplayName: "mock_name"}, nil
 }
 
 func (m FakeServiceImpl) CreateToken(_ context.Context) (cloudmigration.CreateAccessTokenResponse, error) {
@@ -44,9 +45,9 @@ func (m FakeServiceImpl) DeleteToken(_ context.Context, _ string) error {
 	return nil
 }
 
-func (m FakeServiceImpl) CreateSession(_ context.Context, _ cloudmigration.CloudMigrationSessionRequest) (*cloudmigration.CloudMigrationSessionResponse, error) {
+func (m FakeServiceImpl) CreateSession(_ context.Context, _ *user.SignedInUser, _ cloudmigration.CloudMigrationSessionRequest) (*cloudmigration.CloudMigrationSessionResponse, error) {
 	if m.ReturnError {
-		return nil, fmt.Errorf("mock error")
+		return nil, cloudmigration.ErrSessionCreationFailure
 	}
 	return &cloudmigration.CloudMigrationSessionResponse{
 		UID:     "fake_uid",
@@ -56,21 +57,21 @@ func (m FakeServiceImpl) CreateSession(_ context.Context, _ cloudmigration.Cloud
 	}, nil
 }
 
-func (m FakeServiceImpl) GetSession(_ context.Context, _ string) (*cloudmigration.CloudMigrationSession, error) {
+func (m FakeServiceImpl) GetSession(_ context.Context, _ int64, _ string) (*cloudmigration.CloudMigrationSession, error) {
 	if m.ReturnError {
 		return nil, fmt.Errorf("mock error")
 	}
 	return &cloudmigration.CloudMigrationSession{UID: "fake"}, nil
 }
 
-func (m FakeServiceImpl) DeleteSession(_ context.Context, _ string) (*cloudmigration.CloudMigrationSession, error) {
+func (m FakeServiceImpl) DeleteSession(_ context.Context, _ int64, _ *user.SignedInUser, _ string) (*cloudmigration.CloudMigrationSession, error) {
 	if m.ReturnError {
 		return nil, fmt.Errorf("mock error")
 	}
 	return &cloudmigration.CloudMigrationSession{UID: "fake"}, nil
 }
 
-func (m FakeServiceImpl) GetSessionList(_ context.Context) (*cloudmigration.CloudMigrationSessionListResponse, error) {
+func (m FakeServiceImpl) GetSessionList(_ context.Context, _ int64) (*cloudmigration.CloudMigrationSessionListResponse, error) {
 	if m.ReturnError {
 		return nil, fmt.Errorf("mock error")
 	}
@@ -82,54 +83,87 @@ func (m FakeServiceImpl) GetSessionList(_ context.Context) (*cloudmigration.Clou
 	}, nil
 }
 
-func (m FakeServiceImpl) RunMigration(_ context.Context, _ string) (*cloudmigration.MigrateDataResponse, error) {
+func (m FakeServiceImpl) CreateSnapshot(ctx context.Context, user *user.SignedInUser, sessionUid string) (*cloudmigration.CloudMigrationSnapshot, error) {
 	if m.ReturnError {
 		return nil, fmt.Errorf("mock error")
-	}
-	r := fakeMigrateDataResponseDTO()
-	return &r, nil
-}
-
-func fakeMigrateDataResponseDTO() cloudmigration.MigrateDataResponse {
-	return cloudmigration.MigrateDataResponse{
-		RunUID: "fake_uid",
-		Items: []cloudmigration.MigrateDataResponseItem{
-			{Type: "type", RefID: "make_refid", Status: "ok", Error: "none"},
-		},
-	}
-}
-
-func (m FakeServiceImpl) CreateMigrationRun(ctx context.Context, run cloudmigration.CloudMigrationSnapshot) (string, error) {
-	panic("implement me")
-}
-
-func (m FakeServiceImpl) GetMigrationStatus(_ context.Context, _ string) (*cloudmigration.CloudMigrationSnapshot, error) {
-	if m.ReturnError {
-		return nil, fmt.Errorf("mock error")
-	}
-	result, err := json.Marshal(fakeMigrateDataResponseDTO())
-	if err != nil {
-		return nil, err
 	}
 	return &cloudmigration.CloudMigrationSnapshot{
-		ID:         0,
 		UID:        "fake_uid",
-		SessionUID: "fake_mig_uid",
-		Result:     result,
-		Created:    fixedDate,
-		Updated:    fixedDate,
-		Finished:   fixedDate,
+		SessionUID: sessionUid,
+		Status:     cloudmigration.SnapshotStatusCreating,
 	}, nil
 }
 
-func (m FakeServiceImpl) GetMigrationRunList(_ context.Context, _ string) (*cloudmigration.SnapshotList, error) {
+func (m FakeServiceImpl) GetSnapshot(ctx context.Context, query cloudmigration.GetSnapshotsQuery) (*cloudmigration.CloudMigrationSnapshot, error) {
 	if m.ReturnError {
 		return nil, fmt.Errorf("mock error")
 	}
-	return &cloudmigration.SnapshotList{
-		Runs: []cloudmigration.MigrateDataResponseList{
-			{RunUID: "fake_run_uid_1"},
-			{RunUID: "fake_run_uid_2"},
+	cloudMigrationResources := []cloudmigration.CloudMigrationResource{
+		{
+			Type:       cloudmigration.DashboardDataType,
+			RefID:      "123",
+			Status:     cloudmigration.ItemStatusPending,
+			Name:       "dashboard name",
+			ParentName: "dashboard parent name",
 		},
+		{
+			Type:       cloudmigration.DatasourceDataType,
+			RefID:      "456",
+			Status:     cloudmigration.ItemStatusOK,
+			Name:       "datasource name",
+			ParentName: "dashboard parent name",
+		},
+	}
+
+	return &cloudmigration.CloudMigrationSnapshot{
+		UID:        "fake_uid",
+		SessionUID: "fake_uid",
+		Status:     cloudmigration.SnapshotStatusCreating,
+		Resources:  cloudMigrationResources,
 	}, nil
+}
+
+func (m FakeServiceImpl) GetSnapshotList(ctx context.Context, query cloudmigration.ListSnapshotsQuery) ([]cloudmigration.CloudMigrationSnapshot, error) {
+	if m.ReturnError {
+		return nil, fmt.Errorf("mock error")
+	}
+
+	cloudSnapshots := []cloudmigration.CloudMigrationSnapshot{
+		{
+			UID:        "fake_uid",
+			SessionUID: query.SessionUID,
+			Status:     cloudmigration.SnapshotStatusCreating,
+			Created:    time.Date(2024, 6, 5, 17, 30, 40, 0, time.UTC),
+		},
+		{
+			UID:        "fake_uid",
+			SessionUID: query.SessionUID,
+			Status:     cloudmigration.SnapshotStatusCreating,
+			Created:    time.Date(2024, 6, 5, 18, 30, 40, 0, time.UTC),
+		},
+	}
+
+	if query.Sort == "latest" {
+		sort.Slice(cloudSnapshots, func(first, second int) bool {
+			return cloudSnapshots[first].Created.After(cloudSnapshots[second].Created)
+		})
+	}
+	if query.Limit > 0 {
+		return cloudSnapshots[0:min(len(cloudSnapshots), query.Limit)], nil
+	}
+	return cloudSnapshots, nil
+}
+
+func (m FakeServiceImpl) UploadSnapshot(ctx context.Context, _ int64, _ *user.SignedInUser, sessionUid string, snapshotUid string) error {
+	if m.ReturnError {
+		return fmt.Errorf("mock error")
+	}
+	return nil
+}
+
+func (m FakeServiceImpl) CancelSnapshot(ctx context.Context, sessionUid string, snapshotUid string) error {
+	if m.ReturnError {
+		return fmt.Errorf("mock error")
+	}
+	return nil
 }

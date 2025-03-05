@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/ini.v1"
 
-	"github.com/grafana/grafana/pkg/services/ldap/service"
 	"github.com/grafana/grafana/pkg/setting"
 )
 
@@ -29,8 +28,8 @@ var (
 		"config": map[string]interface{}{
 			"servers": []interface{}{
 				map[string]interface{}{
-					"Host": "127.0.0.1",
-					"Port": int64(3389),
+					"host": "127.0.0.1",
+					"port": int64(3389),
 					"attributes": map[string]interface{}{
 						"email":     "mail",
 						"member_of": "memberOf",
@@ -60,7 +59,20 @@ var (
 						"DC=ldap,DC=goauthentik,DC=io",
 					},
 					"search_filter": "(cn=%s)", "ssl_skip_verify": true,
-					"timeout": int64(10),
+					"timeout":                            int64(10),
+					"client_cert":                        "",
+					"client_cert_value":                  "",
+					"client_key":                         "",
+					"client_key_value":                   "",
+					"group_search_base_dns":              nil,
+					"group_search_filter":                "",
+					"group_search_filter_user_attribute": "",
+					"min_tls_version":                    "",
+					"root_ca_cert":                       "",
+					"root_ca_cert_value":                 nil,
+					"start_tls":                          false,
+					"use_ssl":                            false,
+					"tls_ciphers":                        nil,
 				},
 			},
 		},
@@ -76,9 +88,7 @@ func TestGetLDAPConfig(t *testing.T) {
 	cfg, err := setting.NewCfgFromINIFile(iniFile)
 	require.NoError(t, err)
 
-	ldap := service.ProvideService(cfg)
-
-	strategy := NewLDAPStrategy(cfg, ldap)
+	strategy := NewLDAPStrategy(cfg)
 
 	result, err := strategy.GetProviderConfig(context.Background(), "ldap")
 	require.NoError(t, err)

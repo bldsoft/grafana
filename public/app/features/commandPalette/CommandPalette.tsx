@@ -3,21 +3,22 @@ import { useDialog } from '@react-aria/dialog'
 import { FocusScope } from '@react-aria/focus'
 import { useOverlay } from '@react-aria/overlays'
 import {
-  ActionImpl,
   KBarAnimator,
   KBarPortal,
   KBarPositioner,
   KBarSearch,
-  useKBar,
-  useRegisterActions,
   VisualState,
-} from 'kbar'
-import React, { useEffect, useMemo, useRef } from 'react'
+  useRegisterActions,
+  useKBar,
+  ActionImpl,
+} from 'kbar';
+import { useEffect, useMemo, useRef } from 'react';
 
-import { GrafanaTheme2 } from '@grafana/data'
-import { reportInteraction } from '@grafana/runtime'
-import { EmptyState, Icon, LoadingBar, useStyles2 } from '@grafana/ui'
-import { t } from 'app/core/internationalization'
+import { GrafanaTheme2 } from '@grafana/data';
+import { selectors } from '@grafana/e2e-selectors';
+import { reportInteraction } from '@grafana/runtime';
+import { EmptyState, Icon, LoadingBar, useStyles2 } from '@grafana/ui';
+import { t } from 'app/core/internationalization';
 
 import { KBarResults } from './KBarResults'
 import { ResultItem } from './ResultItem'
@@ -27,7 +28,8 @@ import { CommandPaletteAction } from './types'
 import { useMatches } from './useMatches'
 
 export function CommandPalette() {
-  const styles = useStyles2(getSearchStyles);
+  const lateralSpace = getCommandPalettePosition();
+  const styles = useStyles2(getSearchStyles, lateralSpace);
 
   const { query, showing, searchQuery } = useKBar((state) => ({
     showing: state.visualState === VisualState.showing,
@@ -85,7 +87,8 @@ interface RenderResultsProps {
 
 const RenderResults = ({ isFetchingSearchResults, searchResults }: RenderResultsProps) => {
   const { results: kbarResults, rootActionId } = useMatches();
-  const styles = useStyles2(getSearchStyles);
+  const lateralSpace = getCommandPalettePosition();
+  const styles = useStyles2(getSearchStyles, lateralSpace);
   const dashboardsSectionTitle = t('command-palette.section.dashboard-search-results', 'Dashboards');
   const foldersSectionTitle = t('command-palette.section.folder-search-results', 'Folders');
   // because dashboard search results aren't registered as actions, we need to manually
@@ -119,6 +122,9 @@ const RenderResults = ({ isFetchingSearchResults, searchResults }: RenderResults
   }, [kbarResults, dashboardsSectionTitle, dashboardResultItems, foldersSectionTitle, folderResultItems]);
 
   const showEmptyState = !isFetchingSearchResults && items.length === 0;
+  useEffect(() => {
+    showEmptyState && reportInteraction('grafana_empty_state_shown', { source: 'command_palette' });
+  }, [showEmptyState]);
 
   return showEmptyState ? (
     <EmptyState
@@ -140,6 +146,14 @@ const RenderResults = ({ isFetchingSearchResults, searchResults }: RenderResults
       }}
     />
   );
+};
+
+const getCommandPalettePosition = () => {
+  const input = document.querySelector(`[data-testid="${selectors.components.NavToolbar.commandPaletteTrigger}"]`);
+  const inputRightPosition = input?.getBoundingClientRect().right ?? 0;
+  const screenWidth = document.body.clientWidth;
+  const lateralSpace = screenWidth - inputRightPosition;
+  return lateralSpace;
 };
 
 const getSearchStyles = (theme: GrafanaTheme2) => {

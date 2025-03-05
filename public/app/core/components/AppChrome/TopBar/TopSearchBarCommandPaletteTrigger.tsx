@@ -1,5 +1,4 @@
 import { useKBar, VisualState } from 'kbar';
-import React from 'react';
 
 import { ToolbarButton } from '@grafana/ui';
 import { t } from 'app/core/internationalization';

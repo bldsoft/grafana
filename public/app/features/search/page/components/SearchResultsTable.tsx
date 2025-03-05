@@ -1,5 +1,6 @@
 import { css } from '@emotion/css';
-import React, { useEffect, useMemo, useRef, useCallback, useState, CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useCallback, useState, CSSProperties } from 'react';
+import * as React from 'react';
 import { useTable, Column, TableOptions, Cell } from 'react-table';
 import { FixedSizeList } from 'react-window';
 import InfiniteLoader from 'react-window-infinite-loader';
@@ -13,7 +14,7 @@ import { useTableStyles } from '@grafana/ui/src/components/Table/styles';
 import { useCustomFlexLayout } from 'app/features/browse-dashboards/components/customFlexTableLayout';
 
 import { useSearchKeyboardNavigation } from '../../hooks/useSearchKeyboardSelection';
-import { QueryResponse } from '../../service';
+import { QueryResponse } from '../../service/types';
 import { SelectionChecker, SelectionToggle } from '../selection';
 
 import { generateColumns } from './columns';
@@ -135,9 +136,10 @@ export const SearchResultsTable = React.memo(
         if (rowIndex === highlightIndex.y) {
           className += ' ' + styles.selectedRow;
         }
+        const { key, ...rowProps } = row.getRowProps({ style });
 
         return (
-          <div {...row.getRowProps({ style })} className={className}>
+          <div key={key} {...rowProps} className={className}>
             {row.cells.map((cell: Cell, index: number) => {
               return (
                 <TableCell

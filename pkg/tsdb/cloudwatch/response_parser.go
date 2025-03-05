@@ -18,7 +18,7 @@ import (
 // matches a dynamic label
 var dynamicLabel = regexp.MustCompile(`\$\{.+\}`)
 
-func (e *cloudWatchExecutor) parseResponse(ctx context.Context, startTime time.Time, endTime time.Time, metricDataOutputs []*cloudwatch.GetMetricDataOutput,
+func (e *cloudWatchExecutor) parseResponse(ctx context.Context, metricDataOutputs []*cloudwatch.GetMetricDataOutput,
 	queries []*models.CloudWatchQuery) ([]*responseWrapper, error) {
 	aggregatedResponse := aggregateResponse(metricDataOutputs)
 	queriesById := map[string]*models.CloudWatchQuery{}
@@ -40,7 +40,7 @@ func (e *cloudWatchExecutor) parseResponse(ctx context.Context, startTime time.T
 		}
 
 		var err error
-		dataRes.Frames, err = buildDataFrames(ctx, startTime, endTime, response, queryRow)
+		dataRes.Frames, err = buildDataFrames(ctx, response, queryRow)
 		if err != nil {
 			return nil, err
 		}
@@ -110,6 +110,12 @@ func parseLabels(cloudwatchLabel string, query *models.CloudWatchQuery) (string,
 
 	// set Series to the name of the time series as a fallback
 	labels := data.Labels{"Series": name}
+
+	// do not parse labels for raw queries
+	if query.MetricEditorMode == models.MetricEditorModeRaw {
+		return name, labels
+	}
+
 	for _, dim := range dims {
 		values := query.Dimensions[dim]
 		if isSingleValue(values) {
@@ -158,7 +164,7 @@ func getLabels(cloudwatchLabel string, query *models.CloudWatchQuery, addSeriesL
 	return labels
 }
 
-func buildDataFrames(ctx context.Context, startTime time.Time, endTime time.Time, aggregatedResponse models.QueryRowResponse,
+func buildDataFrames(ctx context.Context, aggregatedResponse models.QueryRowResponse,
 	query *models.CloudWatchQuery) (data.Frames, error) {
 	frames := data.Frames{}
 	hasStaticLabel := query.Label != "" && !dynamicLabel.MatchString(query.Label)
@@ -166,7 +172,7 @@ func buildDataFrames(ctx context.Context, startTime time.Time, endTime time.Time
 	for _, metric := range aggregatedResponse.Metrics {
 		label := *metric.Label
 
-		deepLink, err := query.BuildDeepLink(startTime, endTime)
+		deepLink, err := query.BuildDeepLink(query.StartTime, query.EndTime)
 		if err != nil {
 			return nil, err
 		}

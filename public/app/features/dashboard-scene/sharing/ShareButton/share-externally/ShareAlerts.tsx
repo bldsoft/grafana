@@ -1,5 +1,3 @@
-import React from 'react';
-
 import { contextSrv } from 'app/core/core';
 import { EmailSharingPricingAlert } from 'app/features/dashboard/components/ShareModal/SharePublicDashboard/ModalAlerts/EmailSharingPricingAlert';
 import { UnsupportedDataSourcesAlert } from 'app/features/dashboard/components/ShareModal/SharePublicDashboard/ModalAlerts/UnsupportedDataSourcesAlert';
@@ -12,6 +10,7 @@ import {
 import { AccessControlAction } from 'app/types';
 
 import { NoUpsertPermissionsAlert } from '../../../../dashboard/components/ShareModal/SharePublicDashboard/ModalAlerts/NoUpsertPermissionsAlert';
+import { PublicDashboardAlert } from '../../../../dashboard/components/ShareModal/SharePublicDashboard/ModalAlerts/PublicDashboardAlert';
 import { useShareDrawerContext } from '../../ShareDrawer/ShareDrawerContext';
 import { useUnsupportedDatasources } from '../../public-dashboards/hooks';
 
@@ -31,6 +30,7 @@ export default function ShareAlerts({ publicDashboard }: { publicDashboard?: Pub
       {publicDashboard?.share === PublicDashboardShareType.EMAIL && isEmailSharingEnabled() && (
         <EmailSharingPricingAlert />
       )}
+      {publicDashboard?.share === PublicDashboardShareType.PUBLIC && <PublicDashboardAlert />}
     </>
   );
 }

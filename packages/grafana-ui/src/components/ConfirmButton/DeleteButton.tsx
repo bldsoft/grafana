@@ -1,6 +1,4 @@
-import React from 'react';
-
-import { ComponentSize } from '../../types';
+import { ComponentSize } from '../../types/size';
 
 import { ConfirmButton } from './ConfirmButton';
 import { Icon } from '../Icon/Icon'

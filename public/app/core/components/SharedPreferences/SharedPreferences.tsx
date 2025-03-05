@@ -1,27 +1,31 @@
-import { css } from '@emotion/css'
-import React, { PureComponent } from 'react'
+import { css } from '@emotion/css';
+import { PureComponent } from 'react';
+import * as React from 'react';
 
-import { FeatureState, getBuiltInThemes, SelectableValue, ThemeRegistryItem } from '@grafana/data'
-import { selectors } from '@grafana/e2e-selectors'
-import { config, reportInteraction } from '@grafana/runtime'
-import { Preferences as UserPreferencesDTO } from '@grafana/schema/src/raw/preferences/x/preferences_types.gen'
+import { FeatureState, getBuiltInThemes, ThemeRegistryItem } from '@grafana/data';
+import { selectors } from '@grafana/e2e-selectors';
+import { config, reportInteraction } from '@grafana/runtime';
+import { Preferences as UserPreferencesDTO } from '@grafana/schema/src/raw/preferences/x/preferences_types.gen';
 import {
   Button,
   FeatureBadge,
   Field,
   FieldSet,
   Label,
-  Select,
   stylesFactory,
   TimeZonePicker,
   WeekStartPicker,
-} from '@grafana/ui'
-import { DashboardPicker } from 'app/core/components/Select/DashboardPicker'
-import { t, Trans } from 'app/core/internationalization'
-import { LANGUAGES, PSEUDO_LOCALE } from 'app/core/internationalization/constants'
-import { PreferencesService } from 'app/core/services/PreferencesService'
-import { changeTheme } from 'app/core/services/theme'
-
+  Combobox,
+  ComboboxOption,
+  TextLink,
+  WeekStart,
+  isWeekStart,
+} from '@grafana/ui';
+import { DashboardPicker } from 'app/core/components/Select/DashboardPicker';
+import { t, Trans } from 'app/core/internationalization';
+import { LANGUAGES, PSEUDO_LOCALE } from 'app/core/internationalization/constants';
+import { PreferencesService } from 'app/core/services/PreferencesService';
+import { changeTheme } from 'app/core/services/theme';
 export interface Props {
   resourceUri: string;
   disabled?: boolean;
@@ -29,9 +33,11 @@ export interface Props {
   onConfirm?: () => Promise<boolean>;
 }
 
-export type State = UserPreferencesDTO;
+export type State = UserPreferencesDTO & {
+  isLoading: boolean;
+};
 
-function getLanguageOptions(): Array<SelectableValue<string>> {
+function getLanguageOptions(): ComboboxOption[] {
   const languageOptions = LANGUAGES.map((v) => ({
     value: v.code,
     label: v.name,
@@ -58,21 +64,37 @@ function getLanguageOptions(): Array<SelectableValue<string>> {
 
 export class SharedPreferences extends PureComponent<Props, State> {
   service: PreferencesService;
-  themeOptions: SelectableValue[];
+  themeOptions: ComboboxOption[];
 
   constructor(props: Props) {
     super(props);
 
     this.service = new PreferencesService(props.resourceUri);
     this.state = {
+      isLoading: false,
       theme: '',
       timezone: '',
       weekStart: '',
       language: '',
       queryHistory: { homeTab: '' },
+      navbar: { bookmarkUrls: [] },
     };
 
-    this.themeOptions = getBuiltInThemes(config.featureToggles.extraThemes).map((theme) => ({
+    const allowedExtraThemes = [];
+
+    if (config.featureToggles.extraThemes) {
+      allowedExtraThemes.push('debug');
+    }
+
+    if (config.featureToggles.grafanaconThemes) {
+      allowedExtraThemes.push('desertbloom');
+      allowedExtraThemes.push('gildedgrove');
+      allowedExtraThemes.push('sapphiredusk');
+      allowedExtraThemes.push('tron');
+      allowedExtraThemes.push('gloom');
+    }
+
+    this.themeOptions = getBuiltInThemes(allowedExtraThemes).map((theme) => ({
       value: theme.id,
       label: getTranslatedThemeName(theme),
     }));
@@ -82,15 +104,20 @@ export class SharedPreferences extends PureComponent<Props, State> {
   }
 
   async componentDidMount() {
+    this.setState({
+      isLoading: true,
+    });
     const prefs = await this.service.load();
 
     this.setState({
+      isLoading: false,
       homeDashboardUID: prefs.homeDashboardUID,
       theme: prefs.theme,
       timezone: prefs.timezone,
       weekStart: prefs.weekStart,
       language: prefs.language,
       queryHistory: prefs.queryHistory,
+      navbar: prefs.navbar,
     });
   }
 
@@ -99,14 +126,18 @@ export class SharedPreferences extends PureComponent<Props, State> {
     const confirmationResult = this.props.onConfirm ? await this.props.onConfirm() : true;
 
     if (confirmationResult) {
-      const { homeDashboardUID, theme, timezone, weekStart, language, queryHistory } = this.state;
-      await this.service.update({ homeDashboardUID, theme, timezone, weekStart, language, queryHistory });
+      const { homeDashboardUID, theme, timezone, weekStart, language, queryHistory, navbar } = this.state;
+      await this.service.update({ homeDashboardUID, theme, timezone, weekStart, language, queryHistory, navbar });
       window.location.reload();
     }
   };
 
-  onThemeChanged = (value: SelectableValue<string>) => {
+  onThemeChanged = (value: ComboboxOption<string>) => {
     this.setState({ theme: value.value });
+    reportInteraction('grafana_preferences_theme_changed', {
+      toTheme: value.value,
+      preferenceType: this.props.preferenceType,
+    });
 
     if (value.value) {
       changeTheme(value.value, true);
@@ -120,8 +151,8 @@ export class SharedPreferences extends PureComponent<Props, State> {
     this.setState({ timezone: timezone });
   };
 
-  onWeekStartChanged = (weekStart: string) => {
-    this.setState({ weekStart: weekStart });
+  onWeekStartChanged = (weekStart?: WeekStart) => {
+    this.setState({ weekStart: weekStart ?? '' });
   };
 
   onHomeDashboardChanged = (dashboardUID: string) => {
@@ -138,7 +169,7 @@ export class SharedPreferences extends PureComponent<Props, State> {
   };
 
   render() {
-    const { timezone, weekStart, homeDashboardUID, language } = this.state;
+    const { timezone, weekStart, homeDashboardUID, language, isLoading } = this.state;
     const { disabled } = this.props;
     const styles = getStyles();
     const languages = getLanguageOptions();
@@ -157,6 +188,8 @@ export class SharedPreferences extends PureComponent<Props, State> {
           {/*</Field>*/}
 
           <Field
+            loading={isLoading}
+            disabled={isLoading}
             label={
               <Label htmlFor="home-dashboard-select">
                 <span className={styles.labelText}>
@@ -177,6 +210,8 @@ export class SharedPreferences extends PureComponent<Props, State> {
           </Field>
 
           <Field
+            loading={isLoading}
+            disabled={isLoading}
             label={t('shared-dashboard.fields.timezone-label', 'Timezone')}
             data-testid={selectors.components.TimeZonePicker.containerV2}
           >
@@ -189,17 +224,21 @@ export class SharedPreferences extends PureComponent<Props, State> {
           </Field>
 
           <Field
+            loading={isLoading}
+            disabled={isLoading}
             label={t('shared-preferences.fields.week-start-label', 'Week start')}
             data-testid={selectors.components.WeekStartPicker.containerV2}
           >
             <WeekStartPicker
-              value={weekStart || ''}
+              value={weekStart && isWeekStart(weekStart) ? weekStart : undefined}
               onChange={this.onWeekStartChanged}
-              inputId={'shared-preferences-week-start-picker'}
+              inputId="shared-preferences-week-start-picker"
             />
           </Field>
 
           <Field
+            loading={isLoading}
+            disabled={isLoading}
             label={
               <Label htmlFor="locale-select">
                 <span className={styles.labelText}>
@@ -210,12 +249,12 @@ export class SharedPreferences extends PureComponent<Props, State> {
             }
             data-testid="User preferences language drop down"
           >
-            <Select
-              value={languages.find((lang) => lang.value === language)}
-              onChange={(lang: SelectableValue<string>) => this.onLanguageChanged(lang.value ?? '')}
+            <Combobox
+              value={languages.find((lang) => lang.value === language)?.value || ''}
+              onChange={(lang: ComboboxOption | null) => this.onLanguageChanged(lang?.value ?? '')}
               options={languages}
               placeholder={t('shared-preferences.fields.locale-placeholder', 'Choose language')}
-              inputId="locale-select"
+              id="locale-select"
             />
           </Field>
         </FieldSet>

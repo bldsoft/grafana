@@ -18,6 +18,7 @@ export const getSelectStyles = stylesFactory((theme: GrafanaTheme2) => {
     option: css({
       label: 'grafana-select-option',
       padding: '8px',
+      position: 'relative',
       display: 'flex',
       alignItems: 'center',
       flexDirection: 'row',

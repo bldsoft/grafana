@@ -25,34 +25,6 @@ export function usePluginExtensions(options: GetPluginExtensionsOptions): UsePlu
   return singleton(options);
 }
 
-export function usePluginLinks(options: GetPluginExtensionsOptions): {
-  links: PluginExtensionLink[];
-  isLoading: boolean;
-} {
-  const { extensions, isLoading } = usePluginExtensions(options);
-
-  return useMemo(() => {
-    return {
-      links: extensions.filter(isPluginExtensionLink),
-      isLoading,
-    };
-  }, [extensions, isLoading]);
-}
-
-export function usePluginComponents<Props = {}>(
-  options: GetPluginExtensionsOptions
-): { components: Array<PluginExtensionComponent<Props>>; isLoading: boolean } {
-  const { extensions, isLoading } = usePluginExtensions(options);
-
-  return useMemo(
-    () => ({
-      components: extensions.filter(isPluginExtensionComponent) as Array<PluginExtensionComponent<Props>>,
-      isLoading,
-    }),
-    [extensions, isLoading]
-  );
-}
-
 /**
  * @deprecated Use usePluginLinks() instead.
  */

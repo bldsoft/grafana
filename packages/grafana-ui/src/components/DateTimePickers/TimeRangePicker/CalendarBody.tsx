@@ -1,20 +1,28 @@
 import { css } from '@emotion/css';
-import React, { useCallback } from 'react';
-import Calendar from 'react-calendar';
+import { useCallback } from 'react';
+import Calendar, { CalendarType } from 'react-calendar';
 
 import { GrafanaTheme2, dateTimeParse, DateTime, TimeZone } from '@grafana/data';
 
 import { useStyles2 } from '../../../themes';
 import { t } from '../../../utils/i18n';
 import { Icon } from '../../Icon/Icon';
+import { getWeekStart, WeekStart } from '../WeekStartPicker';
 import { adjustDateForReactCalendar } from '../utils/adjustDateForReactCalendar';
 
 import { TimePickerCalendarProps } from './TimePickerCalendar';
 
-export function Body({ onChange, from, to, timeZone }: TimePickerCalendarProps) {
+const weekStartMap: Record<WeekStart, CalendarType> = {
+  saturday: 'islamic',
+  sunday: 'gregory',
+  monday: 'iso8601',
+};
+
+export function Body({ onChange, from, to, timeZone, weekStart }: TimePickerCalendarProps) {
   const value = inputToValue(from, to, new Date(), timeZone);
   const onCalendarChange = useOnCalendarChange(onChange, timeZone);
   const styles = useStyles2(getBodyStyles);
+  const weekStartValue = getWeekStart(weekStart);
 
   return (
     <Calendar
@@ -30,6 +38,7 @@ export function Body({ onChange, from, to, timeZone }: TimePickerCalendarProps) 
       prevAriaLabel={t('time-picker.calendar.previous-month', 'Previous month')}
       onChange={onCalendarChange}
       locale="en"
+      calendarType={weekStartMap[weekStartValue]}
     />
   );
 }
@@ -90,7 +99,7 @@ export const getBodyStyles = (theme: GrafanaTheme2) => {
       fontSize: theme.typography.size.md,
       border: '1px solid transparent',
 
-      '&:hover': {
+      '&:hover, &:focus': {
         position: 'relative',
       },
 
@@ -148,7 +157,6 @@ export const getBodyStyles = (theme: GrafanaTheme2) => {
         color: theme.colors.text.primary,
         fontWeight: theme.typography.fontWeightMedium,
         background: theme.colors.primary.main,
-        boxShadow: 'none',
         border: '0px',
         paddingTop: '2px',
       },

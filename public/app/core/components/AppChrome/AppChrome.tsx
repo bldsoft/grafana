@@ -1,20 +1,23 @@
 import { css, cx } from '@emotion/css';
 import classNames from 'classnames';
-import React, { PropsWithChildren, useEffect } from 'react';
+import { PropsWithChildren, useEffect } from 'react';
 
 import { GrafanaTheme2 } from '@grafana/data';
 import { locationSearchToObject, locationService } from '@grafana/runtime';
 import { useStyles2, useTheme2 } from '@grafana/ui';
 import { useGrafana } from 'app/core/context/GrafanaContext';
 import { useMediaQueryChange } from 'app/core/hooks/useMediaQueryChange';
+import { Trans } from 'app/core/internationalization';
 import store from 'app/core/store';
 import { CommandPalette } from 'app/features/commandPalette/CommandPalette';
-import { KioskMode } from 'app/types';
+import { ScopesDashboards, useScopesDashboardsState } from 'app/features/scopes';
 
 import { DOCKED_LOCAL_STORAGE_KEY, DOCKED_MENU_OPEN_LOCAL_STORAGE_KEY } from './AppChromeService';
-import { MegaMenu } from './MegaMenu/MegaMenu';
+import { MegaMenu, MENU_WIDTH } from './MegaMenu/MegaMenu';
+import { useMegaMenuFocusHelper } from './MegaMenu/utils';
 import { ReturnToPrevious } from './ReturnToPrevious/ReturnToPrevious';
-import { TopSearchBar } from './TopBar/TopSearchBar';
+import { SingleTopBar } from './TopBar/SingleTopBar';
+import { SingleTopBarActions } from './TopBar/SingleTopBarActions';
 import { TOP_BAR_LEVEL_HEIGHT } from './types';
 
 export interface Props extends PropsWithChildren<{}> {}
@@ -22,12 +25,16 @@ export interface Props extends PropsWithChildren<{}> {}
 export function AppChrome({ children }: Props) {
   const { chrome } = useGrafana();
   const state = chrome.useState();
-  const searchBarHidden = state.searchBarHidden || state.kioskMode === KioskMode.TV;
   const theme = useTheme2();
   const styles = useStyles2(getStyles, state.megaMenuOpen);
 
   const dockedMenuBreakpoint = theme.breakpoints.values.xl;
   const dockedMenuLocalStorageState = store.getBool(DOCKED_LOCAL_STORAGE_KEY, true);
+  const menuDockedAndOpen = !state.chromeless && state.megaMenuDocked && state.megaMenuOpen;
+  const scopesDashboardsState = useScopesDashboardsState();
+  const isScopesDashboardsOpen = Boolean(
+    scopesDashboardsState?.isEnabled && scopesDashboardsState?.isPanelOpened && !scopesDashboardsState?.isReadOnly
+  );
   useMediaQueryChange({
     breakpoint: dockedMenuBreakpoint,
     onChange: (e) => {
@@ -39,10 +46,10 @@ export function AppChrome({ children }: Props) {
       }
     },
   });
+  useMegaMenuFocusHelper(state.megaMenuOpen, state.megaMenuDocked);
 
   const contentClass = cx({
     [styles.content]: true,
-    [styles.contentNoSearchBar]: searchBarHidden,
     [styles.contentChromeless]: state.chromeless,
   });
 
@@ -71,7 +78,6 @@ export function AppChrome({ children }: Props) {
   return (
     <div
       className={classNames('main-view', {
-        'main-view--search-bar-hidden': searchBarHidden && !state.chromeless,
         'main-view--chrome-hidden': state.chromeless,
       })}
     >
@@ -106,10 +112,7 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
       display: 'flex',
       flexDirection: 'row',
       flexGrow: 1,
-      height: '100%',
-    }),
-    contentNoSearchBar: css({
-      paddingTop: TOP_BAR_LEVEL_HEIGHT,
+      height: 'auto',
     }),
     contentChromeless: css({
       paddingTop: 0,
@@ -118,6 +121,14 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
       background: theme.colors.background.constPrimary,
       display: 'block',
       width: megaMenuOpen ? 240 : 68,
+    }),
+    scopesDashboardsContainer: css({
+      position: 'fixed',
+      height: `calc(100% - ${TOP_BAR_LEVEL_HEIGHT}px)`,
+      zIndex: 1,
+    }),
+    scopesDashboardsContainerDocked: css({
+      left: MENU_WIDTH,
     }),
     topNav: css({
       display: 'flex',
@@ -157,7 +168,7 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
       },
     }),
     skipLink: css({
-      position: 'absolute',
+      position: 'fixed',
       top: -1000,
 
       ':focus': {

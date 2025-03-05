@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import { ReactNode, useCallback } from 'react';
 
 import { DataFrameView, toDataFrame } from '@grafana/data';
 import { Button, EmptyState } from '@grafana/ui';
@@ -17,9 +17,10 @@ interface SearchViewProps {
   canSelect: boolean;
   searchState: SearchState;
   searchStateManager: SearchStateManager;
+  emptyState?: ReactNode;
 }
 
-const NUM_PLACEHOLDER_ROWS = 50;
+const NUM_PLACEHOLDER_ROWS = 25;
 const initialLoadingView = {
   view: new DataFrameView(
     toDataFrame({
@@ -49,6 +50,7 @@ export function SearchView({
   canSelect,
   searchState,
   searchStateManager: stateManager,
+  emptyState: emptyStateProp,
 }: SearchViewProps) {
   const dispatch = useDispatch();
   const selectedItems = useSelector((wholeState) => wholeState.browseDashboards.selectedItems);

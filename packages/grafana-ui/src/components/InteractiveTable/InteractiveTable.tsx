@@ -1,6 +1,6 @@
 import { css, cx } from '@emotion/css';
 import { uniqueId } from 'lodash';
-import React, { Fragment, ReactNode, useCallback, useEffect, useMemo } from 'react';
+import { Fragment, ReactNode, useCallback, useEffect, useMemo } from 'react';
 import {
   HeaderGroup,
   PluginHook,
@@ -152,6 +152,10 @@ interface BaseProps<TableData extends object> {
    * re-renders of the table.
    */
   fetchData?: FetchDataFunc<TableData>;
+  /**
+   * Optional way to set how the table is sorted from the beginning. Must be memoized.
+   */
+  initialSortBy?: Array<SortingRule<TableData>>;
 }
 
 interface WithExpandableRow<TableData extends object> extends BaseProps<TableData> {
@@ -183,6 +187,7 @@ export function InteractiveTable<TableData extends object>({
   renderExpandedRow,
   showExpandAll = false,
   fetchData,
+  initialSortBy = [],
 }: Props<TableData>) {
   const styles = useStyles2(getStyles);
   const tableColumns = useMemo(() => {
@@ -223,6 +228,7 @@ export function InteractiveTable<TableData extends object>({
             .map((c) => c.id)
             .filter(isTruthy),
         ].filter(isTruthy),
+        sortBy: initialSortBy,
       },
     },
     ...tableHooks

@@ -2,18 +2,14 @@ package promlib
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/datasource"
 	sdkhttpclient "github.com/grafana/grafana-plugin-sdk-go/backend/httpclient"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/instancemgmt"
 	"github.com/grafana/grafana-plugin-sdk-go/backend/log"
-	"github.com/patrickmn/go-cache"
-	apiv1 "github.com/prometheus/client_golang/api/prometheus/v1"
 
 	"github.com/grafana/grafana/pkg/promlib/client"
 	"github.com/grafana/grafana/pkg/promlib/instrumentation"
@@ -27,12 +23,11 @@ type Service struct {
 }
 
 type instance struct {
-	queryData    *querydata.QueryData
-	resource     *resource.Resource
-	versionCache *cache.Cache
+	queryData *querydata.QueryData
+	resource  *resource.Resource
 }
 
-type ExtendOptions func(ctx context.Context, settings backend.DataSourceInstanceSettings, clientOpts *sdkhttpclient.Options) error
+type ExtendOptions func(ctx context.Context, settings backend.DataSourceInstanceSettings, clientOpts *sdkhttpclient.Options, log log.Logger) error
 
 func NewService(httpClientProvider *sdkhttpclient.Provider, plog log.Logger, extendOptions ExtendOptions) *Service {
 	if httpClientProvider == nil {
@@ -44,6 +39,14 @@ func NewService(httpClientProvider *sdkhttpclient.Provider, plog log.Logger, ext
 	}
 }
 
+// Dispose here tells plugin SDK that plugin wants to clean up resources when a new instance
+// created. As soon as datasource settings change detected by SDK old datasource instance will
+// be disposed and a new one will be created using NewSampleDatasource factory function.
+func (s *Service) Dispose() {
+	// Clean up datasource instance resources.
+	s.logger.Debug("Disposing the instance...")
+}
+
 func newInstanceSettings(httpClientProvider *sdkhttpclient.Provider, log log.Logger, extendOptions ExtendOptions) datasource.InstanceFactoryFunc {
 	return func(ctx context.Context, settings backend.DataSourceInstanceSettings) (instancemgmt.Instance, error) {
 		// Creates a http roundTripper.
@@ -53,7 +56,7 @@ func newInstanceSettings(httpClientProvider *sdkhttpclient.Provider, log log.Log
 		}
 
 		if extendOptions != nil {
-			err = extendOptions(ctx, settings, opts)
+			err = extendOptions(ctx, settings, opts, log)
 			if err != nil {
 				return nil, fmt.Errorf("error extending transport options: %v", err)
 			}
@@ -77,9 +80,8 @@ func newInstanceSettings(httpClientProvider *sdkhttpclient.Provider, log log.Log
 		}
 
 		return instance{
-			queryData:    qd,
-			resource:     r,
-			versionCache: cache.New(time.Minute*1, time.Minute*5),
+			queryData: qd,
+			resource:  r,
 		}, nil
 	}
 }
@@ -109,18 +111,13 @@ func (s *Service) CallResource(ctx context.Context, req *backend.CallResourceReq
 		return err
 	}
 
-	if strings.EqualFold(req.Path, "version-detect") {
-		versionObj, found := i.versionCache.Get("version")
-		if found {
-			return sender.Send(versionObj.(*backend.CallResourceResponse))
-		}
-
-		vResp, err := i.resource.DetectVersion(ctx, req)
+	switch {
+	case strings.EqualFold(req.Path, "suggestions"):
+		resp, err := i.resource.GetSuggestions(ctx, req)
 		if err != nil {
 			return err
 		}
-		i.versionCache.Set("version", vResp, cache.DefaultExpiration)
-		return sender.Send(vResp)
+		return sender.Send(resp)
 	}
 
 	resp, err := i.resource.Execute(ctx, req)
@@ -138,19 +135,4 @@ func (s *Service) getInstance(ctx context.Context, pluginCtx backend.PluginConte
 	}
 	in := i.(instance)
 	return &in, nil
-}
-
-// IsAPIError returns whether err is or wraps a Prometheus error.
-func IsAPIError(err error) bool {
-	// Check if the right error type is in err's chain.
-	var e *apiv1.Error
-	return errors.As(err, &e)
-}
-
-func ConvertAPIError(err error) error {
-	var e *apiv1.Error
-	if errors.As(err, &e) {
-		return fmt.Errorf("%s: %s", e.Msg, e.Detail)
-	}
-	return err
 }

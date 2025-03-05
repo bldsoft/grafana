@@ -1,7 +1,7 @@
 import { css } from '@emotion/css';
 import { DOMAttributes } from '@react-types/shared';
-import React, { forwardRef } from 'react';
-import { useLocation } from 'react-router-dom';
+import { memo, forwardRef, useCallback } from 'react';
+import { useLocation } from 'react-router-dom-v5-compat';
 
 import { GrafanaTheme2, locationUtil, textUtil } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
@@ -22,7 +22,7 @@ export interface Props extends DOMAttributes {
   onClose: () => void;
 }
 
-export const MegaMenu = React.memo(
+export const MegaMenu = memo(
   forwardRef<HTMLDivElement, Props>(({ onClose, ...restProps }, ref) => {
     const navTree = useSelector((state) => state.navBarTree);
     const location = useLocation();

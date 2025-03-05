@@ -3,6 +3,7 @@ package expr
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
@@ -22,7 +23,6 @@ type ResultConverter struct {
 func (c *ResultConverter) Convert(ctx context.Context,
 	datasourceType string,
 	frames data.Frames,
-	allowLongFrames bool,
 ) (string, mathexp.Results, error) {
 	if len(frames) == 0 {
 		return "no-data", mathexp.Results{Values: mathexp.Values{mathexp.NewNoData()}}, nil
@@ -79,7 +79,7 @@ func (c *ResultConverter) Convert(ctx context.Context,
 			continue
 		}
 
-		if schema.Type != data.TimeSeriesTypeWide && !allowLongFrames {
+		if schema.Type != data.TimeSeriesTypeWide {
 			return "", mathexp.Results{}, fmt.Errorf("%w but got type %s (input refid)", ErrSeriesMustBeWide, schema.Type)
 		}
 		filtered = append(filtered, frame)
@@ -295,10 +295,14 @@ func WideToMany(frame *data.Frame, fixSeries func(series mathexp.Series, valueFi
 
 // checkIfSeriesNeedToBeFixed scans all value fields of all provided frames and determines whether the resulting mathexp.Series
 // needs to be updated so each series could be identifiable by labels.
-// NOTE: applicable only to only datasources.DS_GRAPHITE and datasources.DS_TESTDATA data sources
+// NOTE: applicable only to some datas ources (datasources.DS_GRAPHITE, datasources.DS_TESTDATA, etc.); a more general solution should be investigated
 // returns a function that patches the mathexp.Series with information from data.Field from which it was created if the all series need to be fixed. Otherwise, returns nil
 func checkIfSeriesNeedToBeFixed(frames []*data.Frame, datasourceType string) func(series mathexp.Series, valueField *data.Field) {
-	if !(datasourceType == datasources.DS_GRAPHITE || datasourceType == datasources.DS_TESTDATA) {
+	supportedDatasources := []string{datasources.DS_GRAPHITE, datasources.DS_TESTDATA, datasources.DS_DYNATRACE, datasources.DS_INFLUXDB}
+	checkdatasourceType := func(ds string) bool {
+		return datasourceType == ds
+	}
+	if !slices.ContainsFunc(supportedDatasources, checkdatasourceType) {
 		return nil
 	}
 

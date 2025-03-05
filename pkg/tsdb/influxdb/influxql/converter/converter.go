@@ -1,14 +1,15 @@
 package converter
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/grafana/grafana-plugin-sdk-go/backend"
 	"github.com/grafana/grafana-plugin-sdk-go/data"
 	sdkjsoniter "github.com/grafana/grafana-plugin-sdk-go/data/utils/jsoniter"
+	"github.com/influxdata/influxql"
 	jsoniter "github.com/json-iterator/go"
 
 	"github.com/grafana/grafana/pkg/tsdb/influxdb/influxql/util"
@@ -34,18 +35,40 @@ l1Fields:
 			if rsp.Error != nil {
 				return rsp
 			}
-		case "":
+		case "error":
+			v, err := iter.ReadString()
+			if err != nil {
+				rsp.Error = err
+			} else {
+				rsp.Error = errors.New(v)
+			}
+			return rsp
+		case "code":
+			// we only care of the message
+			_, err := iter.Read()
 			if err != nil {
 				return rspErr(err)
 			}
+		case "message":
+			v, err := iter.Read()
+			if err != nil {
+				return rspErr(err)
+			}
+			return rspErr(fmt.Errorf("%s", v))
+		case "":
 			break l1Fields
 		default:
 			v, err := iter.Read()
-			if err != nil {
-				rsp.Error = err
-				return rsp
-			}
+			// TODO: log this properly
 			fmt.Printf("[ROOT] unsupported key: %s / %v\n\n", l1Field, v)
+			if err != nil {
+				if rsp != nil {
+					rsp.Error = err
+					return rsp
+				} else {
+					return rspErr(err)
+				}
+			}
 		}
 	}
 
@@ -359,8 +382,13 @@ func handleTimeSeriesFormatWithTimeColumn(valueFields data.Fields, tags map[stri
 }
 
 func handleTimeSeriesFormatWithoutTimeColumn(valueFields data.Fields, columns []string, measurement string, query *models.Query) *data.Frame {
-	// Frame without time column
-	if strings.Contains(strings.ToLower(query.RawQuery), strings.ToLower("CARDINALITY")) {
+	switch query.Statement.(type) {
+	case *influxql.ShowMeasurementCardinalityStatement,
+		*influxql.ShowSeriesCardinalityStatement,
+		*influxql.ShowFieldKeyCardinalityStatement,
+		*influxql.ShowTagValuesCardinalityStatement,
+		*influxql.ShowTagKeyCardinalityStatement:
+		// Handle all CARDINALITY queries
 		var stringArray []*string
 		for _, v := range valueFields {
 			if f, ok := v.At(0).(*float64); ok {
@@ -371,14 +399,15 @@ func handleTimeSeriesFormatWithoutTimeColumn(valueFields data.Fields, columns []
 			}
 		}
 		return data.NewFrame(measurement, data.NewField("Value", nil, stringArray))
-	}
-	if len(columns) >= 2 && strings.Contains(strings.ToLower(query.RawQuery), strings.ToLower("SHOW TAG VALUES")) {
+
+	case *influxql.ShowTagValuesStatement:
+		// Handle SHOW TAG VALUES (non-CARDINALITY)
 		return data.NewFrame(measurement, valueFields[1])
-	}
-	if len(columns) >= 1 {
+
+	default:
+		// Handle generic queries with at least one column
 		return data.NewFrame(measurement, valueFields[0])
 	}
-	return nil
 }
 
 func handleTableFormatFirstFrame(rsp *backend.DataResponse, measurement string, query *models.Query) {

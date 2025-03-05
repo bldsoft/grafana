@@ -1,11 +1,12 @@
-import React from 'react';
-
-import { selectors } from '@grafana/e2e-selectors/src'
+import { selectors as e2eSelectors } from '@grafana/e2e-selectors/src';
 import { locationService } from '@grafana/runtime';
 import { ToolbarButton } from '@grafana/ui'
+import { DashboardModel } from 'app/features/dashboard/state/DashboardModel';
 import { DashboardInteractions } from 'app/features/dashboard-scene/utils/interactions';
 
-export const ShareButton = () => {
+import { shareDashboardType } from '../ShareModal/utils';
+
+export const ShareButton = ({ dashboard }: { dashboard: DashboardModel }) => {
   return (
     <ToolbarButton
       tooltip={'Share'}
@@ -13,7 +14,7 @@ export const ShareButton = () => {
       data-testid={selectors.pages.Dashboard.DashNav.shareButton}
       onClick={() => {
         DashboardInteractions.toolbarShareClick();
-        locationService.partial({ shareView: 'link' });
+        locationService.partial({ shareView: shareDashboardType.link });
       }}
     >
     </ToolbarButton>

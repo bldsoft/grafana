@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 
 import { Dropdown, ToolbarButton } from '@grafana/ui'
 import { DashboardModel } from 'app/features/dashboard/state';

@@ -6,9 +6,9 @@ import (
 
 	"k8s.io/apiserver/pkg/authorization/authorizer"
 
-	"github.com/grafana/grafana/pkg/infra/appcontext"
+	claims "github.com/grafana/authlib/types"
+	"github.com/grafana/grafana/pkg/apimachinery/identity"
 	"github.com/grafana/grafana/pkg/infra/log"
-	grafanarequest "github.com/grafana/grafana/pkg/services/apiserver/endpoints/request"
 	"github.com/grafana/grafana/pkg/services/org"
 )
 
@@ -27,12 +27,12 @@ func newOrgIDAuthorizer(orgService org.Service) *orgIDAuthorizer {
 }
 
 func (auth orgIDAuthorizer) Authorize(ctx context.Context, a authorizer.Attributes) (authorized authorizer.Decision, reason string, err error) {
-	signedInUser, err := appcontext.User(ctx)
+	signedInUser, err := identity.GetRequester(ctx)
 	if err != nil {
 		return authorizer.DecisionDeny, fmt.Sprintf("error getting signed in user: %v", err), nil
 	}
 
-	info, err := grafanarequest.ParseNamespace(a.GetNamespace())
+	info, err := claims.ParseNamespace(a.GetNamespace())
 	if err != nil {
 		return authorizer.DecisionDeny, fmt.Sprintf("error reading namespace: %v", err), nil
 	}
@@ -42,21 +42,36 @@ func (auth orgIDAuthorizer) Authorize(ctx context.Context, a authorizer.Attribut
 		return authorizer.DecisionNoOpinion, "", nil
 	}
 
+	// Grafana super admins can see things in every org
+	if signedInUser.GetIsGrafanaAdmin() {
+		return authorizer.DecisionNoOpinion, "", nil
+	}
+
 	if info.OrgID == -1 {
 		return authorizer.DecisionDeny, "org id is required", nil
 	}
 
-	if info.StackID != "" {
+	if info.StackID != 0 {
 		return authorizer.DecisionDeny, "using a stack namespace requires deployment with a fixed stack id", nil
 	}
 
 	// Quick check that the same org is used
-	if signedInUser.OrgID == info.OrgID {
+	if signedInUser.GetOrgID() == info.OrgID {
+		return authorizer.DecisionNoOpinion, "", nil
+	}
+
+	// If we have an anonymous user, let the next authorizers decide.
+	if signedInUser.GetIdentityType() == claims.TypeAnonymous {
 		return authorizer.DecisionNoOpinion, "", nil
 	}
 
 	// Check if the user has access to the specified org
-	query := org.GetUserOrgListQuery{UserID: signedInUser.UserID}
+	// nolint:staticcheck
+	userId, err := signedInUser.GetInternalID()
+	if err != nil {
+		return authorizer.DecisionDeny, "unable to get userId", err
+	}
+	query := org.GetUserOrgListQuery{UserID: userId}
 	result, err := auth.org.GetUserOrgList(ctx, &query)
 	if err != nil {
 		return authorizer.DecisionDeny, "error getting user org list", err
@@ -68,5 +83,5 @@ func (auth orgIDAuthorizer) Authorize(ctx context.Context, a authorizer.Attribut
 		}
 	}
 
-	return authorizer.DecisionDeny, fmt.Sprintf("user %d is not a member of org %d", signedInUser.UserID, info.OrgID), nil
+	return authorizer.DecisionDeny, fmt.Sprintf("user %d is not a member of org %d", userId, info.OrgID), nil
 }

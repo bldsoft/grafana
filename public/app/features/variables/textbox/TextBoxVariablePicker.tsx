@@ -1,5 +1,4 @@
-import { css } from '@emotion/css';
-import React, { ChangeEvent, KeyboardEvent, ReactElement, useCallback, useEffect, useState } from 'react';
+import { ChangeEvent, KeyboardEvent, ReactElement, useCallback, useEffect, useState } from 'react';
 
 import { TextBoxVariableModel, isEmptyObject } from '@grafana/data'
 import { Input, useStyles2 } from '@grafana/ui'

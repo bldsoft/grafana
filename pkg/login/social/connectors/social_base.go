@@ -35,7 +35,7 @@ type SocialBase struct {
 	log           log.Logger
 	features      featuremgmt.FeatureToggles
 	orgRoleMapper *OrgRoleMapper
-	orgMappingCfg *MappingConfiguration
+	orgMappingCfg MappingConfiguration
 }
 
 func newSocialBase(name string,
@@ -43,7 +43,6 @@ func newSocialBase(name string,
 	info *social.OAuthInfo,
 	features featuremgmt.FeatureToggles,
 	cfg *setting.Cfg,
-
 ) *SocialBase {
 	logger := log.New("oauth." + name)
 
@@ -120,8 +119,11 @@ func (s *SocialBase) getBaseSupportBundleContent(bf *bytes.Buffer) error {
 	bf.WriteString(fmt.Sprintf("role_attribute_path = %v\n", s.info.RoleAttributePath))
 	bf.WriteString(fmt.Sprintf("role_attribute_strict = %v\n", s.info.RoleAttributeStrict))
 	bf.WriteString(fmt.Sprintf("skip_org_role_sync = %v\n", s.info.SkipOrgRoleSync))
+	bf.WriteString(fmt.Sprintf("client_authentication = %v\n", s.info.ClientAuthentication))
 	bf.WriteString(fmt.Sprintf("client_id = %v\n", s.Config.ClientID))
 	bf.WriteString(fmt.Sprintf("client_secret = %v ; issue if empty\n", strings.Repeat("*", len(s.Config.ClientSecret))))
+	bf.WriteString(fmt.Sprintf("managed_identity_client_id = %v\n", s.info.ManagedIdentityClientID))
+	bf.WriteString(fmt.Sprintf("federated_credential_audience = %v\n", s.info.FederatedCredentialAudience))
 	bf.WriteString(fmt.Sprintf("auth_url = %v\n", s.Config.Endpoint.AuthURL))
 	bf.WriteString(fmt.Sprintf("token_url = %v\n", s.Config.Endpoint.TokenURL))
 	bf.WriteString(fmt.Sprintf("auth_style = %v\n", s.Config.Endpoint.AuthStyle))
@@ -259,9 +261,11 @@ func getRoleFromSearch(role string) (org.RoleType, bool) {
 	return org.RoleType(cases.Title(language.Und).String(role)), false
 }
 
-func validateInfo(info *social.OAuthInfo, requester identity.Requester) error {
+func validateInfo(info *social.OAuthInfo, oldInfo *social.OAuthInfo, requester identity.Requester) error {
 	return validation.Validate(info, requester,
 		validation.RequiredValidator(info.ClientId, "Client Id"),
-		validation.AllowAssignGrafanaAdminValidator,
-		validation.SkipOrgRoleSyncAllowAssignGrafanaAdminValidator)
+		validation.AllowAssignGrafanaAdminValidator(info, oldInfo, requester),
+		validation.SkipOrgRoleSyncAllowAssignGrafanaAdminValidator,
+		validation.OrgAttributePathValidator(info, oldInfo, requester),
+		validation.OrgMappingValidator(info, oldInfo, requester))
 }

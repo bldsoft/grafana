@@ -68,6 +68,7 @@ func TestBuilder_EqualResults_Basic(t *testing.T) {
 		{
 			ID:    dashIds[0],
 			Title: "A",
+			OrgID: 1,
 			Slug:  "a",
 			Term:  "templated",
 		},
@@ -320,7 +321,7 @@ func TestBuilder_RBAC(t *testing.T) {
 	for _, tc := range testsCases {
 		t.Run(tc.desc, func(t *testing.T) {
 			if len(tc.userPermissions) > 0 {
-				user.Permissions = map[int64]map[string][]string{1: accesscontrol.GroupScopesByAction(tc.userPermissions)}
+				user.Permissions = map[int64]map[string][]string{1: accesscontrol.GroupScopesByActionContext(context.Background(), tc.userPermissions)}
 			}
 
 			builder := &searchstore.Builder{

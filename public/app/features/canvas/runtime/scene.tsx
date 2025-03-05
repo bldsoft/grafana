@@ -1,6 +1,6 @@
 import { css } from '@emotion/css';
 import Moveable from 'moveable';
-import React, { createRef, CSSProperties, RefObject } from 'react';
+import { createRef, CSSProperties, RefObject } from 'react';
 import { ReactZoomPanPinchContentRef } from 'react-zoom-pan-pinch';
 import { BehaviorSubject, ReplaySubject, Subject, Subscription } from 'rxjs';
 import Selecto from 'selecto';
@@ -96,6 +96,8 @@ export class Scene {
   tooltip?: CanvasTooltipPayload;
 
   moveableActionCallback?: (moved: boolean) => void;
+
+  actionConfirmationCallback?: () => void;
 
   readonly editModeEnabled = new BehaviorSubject<boolean>(false);
   subscription: Subscription;
@@ -281,7 +283,10 @@ export class Scene {
   };
 
   render() {
-    const isTooltipValid = (this.tooltip?.element?.data?.links?.length ?? 0) > 0;
+    const hasDataLinks = this.tooltip?.element?.getLinks && this.tooltip.element.getLinks({}).length > 0;
+    const hasActions = this.tooltip?.element?.options.actions && this.tooltip.element.options.actions.length > 0;
+
+    const isTooltipValid = hasDataLinks || hasActions || this.tooltip?.element?.data?.field;
     const canShowElementTooltip = !this.isEditingEnabled && isTooltipValid;
 
     const sceneDiv = (

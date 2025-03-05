@@ -1,5 +1,6 @@
 import { css, cx } from '@emotion/css';
-import React, { HTMLProps, useCallback } from 'react';
+import { HTMLProps, useCallback } from 'react';
+import * as React from 'react';
 
 import { GrafanaTheme2 } from '@grafana/data';
 
@@ -112,7 +113,7 @@ export const getCheckboxStyles = (theme: GrafanaTheme2, invalid = false) => {
           content: '""',
           position: 'absolute',
           zIndex: 2,
-          left: '4px',
+          left: theme.spacing(0.5),
           top: 0,
           width: '6px',
           height: '12px',

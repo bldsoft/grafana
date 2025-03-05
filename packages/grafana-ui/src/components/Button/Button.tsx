@@ -1,5 +1,6 @@
 import { css, cx } from '@emotion/css';
-import React, { AnchorHTMLAttributes, ButtonHTMLAttributes } from 'react';
+import { AnchorHTMLAttributes, ButtonHTMLAttributes } from 'react';
+import * as React from 'react';
 
 import { GrafanaTheme2, ThemeRichColor, IconName } from '@grafana/data';
 
@@ -418,6 +419,7 @@ export const clearLinkButtonStyles = () => {
     fontFamily: 'inherit',
     color: 'inherit',
     height: '100%',
+    cursor: 'context-menu',
     '&:hover': {
       background: 'transparent',
       color: 'inherit',

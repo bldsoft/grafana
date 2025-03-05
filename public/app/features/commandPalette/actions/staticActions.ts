@@ -7,7 +7,7 @@ import { ACTIONS_PRIORITY, DEFAULT_PRIORITY } from '../values';
 
 // TODO: Clean this once ID is mandatory on nav items
 function idForNavItem(navItem: NavModelItem) {
-  return 'navModel.' + navItem.id ?? navItem.url ?? navItem.text ?? navItem.subTitle;
+  return 'navModel.' + (navItem.id ?? navItem.url ?? navItem.text ?? navItem.subTitle);
 }
 
 function navTreeToActions(navTree: NavModelItem[], parents: NavModelItem[] = []): CommandPaletteAction[] {

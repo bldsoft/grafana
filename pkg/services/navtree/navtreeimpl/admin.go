@@ -4,15 +4,17 @@ import (
 	"github.com/grafana/grafana/pkg/login/social"
 	ac "github.com/grafana/grafana/pkg/services/accesscontrol"
 	"github.com/grafana/grafana/pkg/services/accesscontrol/ssoutils"
+	"github.com/grafana/grafana/pkg/services/cloudmigration"
 	contextmodel "github.com/grafana/grafana/pkg/services/contexthandler/model"
 	"github.com/grafana/grafana/pkg/services/correlations"
 	"github.com/grafana/grafana/pkg/services/featuremgmt"
 	"github.com/grafana/grafana/pkg/services/navtree"
-	"github.com/grafana/grafana/pkg/services/org"
 	"github.com/grafana/grafana/pkg/services/pluginsintegration/pluginaccesscontrol"
 	"github.com/grafana/grafana/pkg/services/serviceaccounts"
+	"github.com/grafana/grafana/pkg/setting"
 )
 
+// nolint: gocyclo
 func (s *ServiceImpl) getAdminNode(c *contextmodel.ReqContext) (*navtree.NavLink, error) {
 	var configNodes []*navtree.NavLink
 	ctx := c.Req.Context()
@@ -43,7 +45,7 @@ func (s *ServiceImpl) getAdminNode(c *contextmodel.ReqContext) (*navtree.NavLink
 	}
 	if s.features.IsEnabled(ctx, featuremgmt.FlagFeatureToggleAdminPage) && hasAccess(ac.EvalPermission(ac.ActionFeatureManagementRead)) {
 		generalNodeLinks = append(generalNodeLinks, &navtree.NavLink{
-			Text:     "Feature Toggles",
+			Text:     "Feature toggles",
 			SubTitle: "View and edit feature toggles",
 			Id:       "feature-toggles",
 			Url:      s.cfg.AppSubURL + "/admin/featuretoggles",
@@ -59,7 +61,7 @@ func (s *ServiceImpl) getAdminNode(c *contextmodel.ReqContext) (*navtree.NavLink
 			Url:      s.cfg.AppSubURL + "/admin/storage",
 		})
 	}
-	if s.features.IsEnabled(ctx, featuremgmt.FlagOnPremToCloudMigrations) && c.SignedInUser.HasRole(org.RoleAdmin) {
+	if hasAccess(cloudmigration.MigrationAssistantAccess) && s.features.IsEnabled(ctx, featuremgmt.FlagOnPremToCloudMigrations) {
 		generalNodeLinks = append(generalNodeLinks, &navtree.NavLink{
 			Text:     "Migrate to Grafana Cloud",
 			Id:       "migrate-to-cloud",
@@ -100,6 +102,16 @@ func (s *ServiceImpl) getAdminNode(c *contextmodel.ReqContext) (*navtree.NavLink
 			SubTitle: "Add and configure correlations",
 			Id:       "correlations",
 			Url:      s.cfg.AppSubURL + "/datasources/correlations",
+		})
+	}
+
+	if (s.cfg.Env == setting.Dev) || s.features.IsEnabled(ctx, featuremgmt.FlagEnableExtensionsAdminPage) && hasAccess(pluginaccesscontrol.AdminAccessEvaluator) {
+		pluginsNodeLinks = append(pluginsNodeLinks, &navtree.NavLink{
+			Text:     "Extensions",
+			Icon:     "plug",
+			SubTitle: "Extend the UI of plugins and Grafana",
+			Id:       "extensions",
+			Url:      s.cfg.AppSubURL + "/admin/extensions",
 		})
 	}
 
@@ -154,6 +166,21 @@ func (s *ServiceImpl) getAdminNode(c *contextmodel.ReqContext) (*navtree.NavLink
 		})
 	}
 
+	if s.license.FeatureEnabled("groupsync") &&
+		s.features.IsEnabled(ctx, featuremgmt.FlagGroupAttributeSync) &&
+		hasAccess(ac.EvalAny(
+			ac.EvalPermission("groupsync.mappings:read"),
+			ac.EvalPermission("groupsync.mappings:write"),
+		)) {
+		accessNodeLinks = append(accessNodeLinks, &navtree.NavLink{
+			Text:     "External group sync",
+			Id:       "groupsync",
+			SubTitle: "Manage mappings of Identity Provider groups to Grafana Roles",
+			Icon:     "",
+			Url:      s.cfg.AppSubURL + "/admin/access/groupsync",
+		})
+	}
+
 	usersNode := &navtree.NavLink{
 		Text:     "Users and access",
 		SubTitle: "Configure access for individual users, teams, and service accounts",
@@ -163,9 +190,8 @@ func (s *ServiceImpl) getAdminNode(c *contextmodel.ReqContext) (*navtree.NavLink
 		Children: accessNodeLinks,
 	}
 
-	if len(usersNode.Children) > 0 {
-		configNodes = append(configNodes, usersNode)
-	}
+	// Always append admin access as it's injected by grafana-auth-app.
+	configNodes = append(configNodes, usersNode)
 
 	if authConfigUIAvailable && hasAccess(ssoutils.EvalAuthenticationSettings(s.cfg)) ||
 		(hasAccess(ssoutils.OauthSettingsEvaluator(s.cfg)) && s.features.IsEnabled(ctx, featuremgmt.FlagSsoSettingsApi)) {

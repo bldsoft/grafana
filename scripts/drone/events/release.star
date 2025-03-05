@@ -8,6 +8,12 @@ load(
     "integration_test_services_volumes",
 )
 load(
+    "scripts/drone/steps/github.star",
+    "github_app_generate_token_step",
+    "github_app_pipeline_volumes",
+    "github_app_step_volumes",
+)
+load(
     "scripts/drone/steps/lib.star",
     "compile_build_cmd",
     "download_grabpl_step",
@@ -21,6 +27,7 @@ load(
     "remote_alertmanager_integration_tests_steps",
     "verify_gen_cue_step",
     "verify_gen_jsonnet_step",
+    "verify_grafanacom_step",
     "wire_install_step",
     "yarn_install_step",
 )
@@ -66,14 +73,12 @@ def release_pr_step(depends_on = []):
         "image": images["curl"],
         "depends_on": depends_on,
         "environment": {
-            "GITHUB_TOKEN": from_secret("github_token"),
             "GH_CLI_URL": "https://github.com/cli/cli/releases/download/v2.50.0/gh_2.50.0_linux_amd64.tar.gz",
         },
         "commands": [
+            "export GITHUB_TOKEN=$(cat /github-app/token)",
             "apk add perl",
             "v_target=`echo $${{TAG}} | perl -pe 's/{}/v\\1.\\2.x/'`".format(semver_regex),
-            "default_target=`if [[ -n $$LATEST ]]; then echo 'main'; else echo $$v_target; fi`",
-            "backport=`if [[ -n $$LATEST ]]; then echo $$v_target; fi`",
             # Install gh CLI
             "curl -L $${GH_CLI_URL} | tar -xz --strip-components=1 -C /usr",
             # Run the release-pr workflow
@@ -81,11 +86,11 @@ def release_pr_step(depends_on = []):
             "-f dry_run=$${DRY_RUN} " +
             "-f version=$${TAG} " +
             # If the submitter has set a target branch, then use that, otherwise use the default
-            "-f target=$${TARGET:-$default_target} " +
-            # If the submitter has set a backport branch, then use that, otherwise use the default
-            "-f backport=$${BACKPORT:-$default_backport} " +
+            "-f target=$${v_target} " +
+            "-f latest=$${LATEST} " +
             "--repo=grafana/grafana release-pr.yml",
         ],
+        "volumes": github_app_step_volumes(),
     }
 
 def release_npm_packages_step():
@@ -112,22 +117,7 @@ def publish_artifacts_step():
             "PRERELEASE_BUCKET": from_secret("prerelease_bucket"),
         },
         "commands": [
-            "./bin/build artifacts packages --tag $${DRONE_TAG} --src-bucket $${PRERELEASE_BUCKET}",
-        ],
-        "depends_on": ["compile-build-cmd"],
-    }
-
-def publish_static_assets_step():
-    return {
-        "name": "publish-static-assets",
-        "image": images["publish"],
-        "environment": {
-            "GCP_KEY": from_secret(gcp_grafanauploads_base64),
-            "PRERELEASE_BUCKET": from_secret("prerelease_bucket"),
-            "STATIC_ASSET_EDITIONS": from_secret("static_asset_editions"),
-        },
-        "commands": [
-            "./bin/build artifacts static-assets --tag ${DRONE_TAG} --static-asset-editions=grafana-oss",
+            "./bin/build artifacts packages --artifacts-editions=oss --tag $${DRONE_TAG} --src-bucket $${PRERELEASE_BUCKET}",
         ],
         "depends_on": ["compile-build-cmd"],
     }
@@ -163,9 +153,9 @@ def publish_artifacts_pipelines(mode):
     steps = [
         compile_build_cmd(),
         publish_artifacts_step(),
-        publish_static_assets_step(),
         publish_storybook_step(),
-        release_pr_step(depends_on = ["publish-artifacts", "publish-static-assets"]),
+        github_app_generate_token_step(),
+        release_pr_step(depends_on = ["publish-artifacts", github_app_generate_token_step()["name"]]),
     ]
 
     return [
@@ -178,12 +168,14 @@ def publish_artifacts_pipelines(mode):
             steps = [
                 release_pr_step(),
             ],
+            volumes = github_app_pipeline_volumes(),
         ),
         pipeline(
             name = "publish-artifacts-{}".format(mode),
             trigger = trigger,
             steps = steps,
             environment = {"EDITION": "oss"},
+            volumes = github_app_pipeline_volumes(),
         ),
     ]
 
@@ -203,6 +195,7 @@ def publish_packages_pipeline():
         publish_linux_packages_step(package_manager = "deb"),
         publish_linux_packages_step(package_manager = "rpm"),
         publish_grafanacom_step(ver_mode = "release"),
+        verify_grafanacom_step(),
     ]
 
     deps = [
@@ -212,11 +205,32 @@ def publish_packages_pipeline():
 
     return [
         pipeline(
+            name = "verify-grafanacom-artifacts",
+            trigger = {
+                "event": ["promote"],
+                "target": "verify-grafanacom-artifacts",
+            },
+            steps = [
+                verify_grafanacom_step(depends_on = []),
+            ],
+        ),
+        pipeline(
             name = "publish-packages",
             trigger = trigger,
             steps = oss_steps,
             depends_on = deps,
             environment = {"EDITION": "oss"},
+        ),
+        pipeline(
+            name = "publish-grafanacom",
+            trigger = {
+                "event": ["promote"],
+                "target": "publish-grafanacom",
+            },
+            steps = [
+                compile_build_cmd(),
+                publish_grafanacom_step(ver_mode = "release", depends_on = ["compile-build-cmd"]),
+            ],
         ),
     ]
 
@@ -259,7 +273,6 @@ def integration_test_pipelines():
     pipelines = []
     volumes = integration_test_services_volumes()
     integration_test_steps = postgres_integration_tests_steps() + \
-                             mysql_integration_tests_steps("mysql57", "5.7") + \
                              mysql_integration_tests_steps("mysql80", "8.0") + \
                              redis_integration_tests_steps() + \
                              memcached_integration_tests_steps() + \
@@ -291,7 +304,6 @@ def verify_release_pipeline(
         trigger = {},
         depends_on = [
             "release-build-e2e-publish",
-            "release-windows",
         ]):
     """
     Runs a script that 'gsutil stat's every artifact that should have been produced by the pre-release process.

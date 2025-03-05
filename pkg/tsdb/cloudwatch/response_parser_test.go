@@ -188,6 +188,8 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 		}
 
 		query := &models.CloudWatchQuery{
+			StartTime:  startTime,
+			EndTime:    endTime,
 			RefId:      "refId1",
 			Region:     "us-east-1",
 			Namespace:  "AWS/ApplicationELB",
@@ -202,7 +204,7 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 			MetricEditorMode: models.MetricEditorModeBuilder,
 			MatchExact:       true,
 		}
-		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), startTime, endTime, *response, query)
+		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), *response, query)
 		require.NoError(t, err)
 
 		frame1 := frames[0]
@@ -256,6 +258,8 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 		}
 
 		query := &models.CloudWatchQuery{
+			StartTime:  startTime,
+			EndTime:    endTime,
 			RefId:      "refId1",
 			Region:     "us-east-1",
 			Namespace:  "AWS/ApplicationELB",
@@ -270,7 +274,7 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 			MetricQueryType:  models.MetricQueryTypeSearch,
 			MetricEditorMode: models.MetricEditorModeBuilder,
 		}
-		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), startTime, endTime, *response, query)
+		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), *response, query)
 		require.NoError(t, err)
 
 		assert.Equal(t, "some label lb3", frames[0].Name)
@@ -305,6 +309,8 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 			},
 		}
 		query := &models.CloudWatchQuery{
+			StartTime:  startTime,
+			EndTime:    endTime,
 			RefId:      "refId1",
 			Region:     "us-east-1",
 			Namespace:  "AWS/ApplicationELB",
@@ -317,7 +323,7 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 			MetricQueryType:  models.MetricQueryTypeSearch,
 			MetricEditorMode: models.MetricEditorModeBuilder,
 		}
-		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), startTime, endTime, *response, query)
+		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), *response, query)
 		require.NoError(t, err)
 
 		assert.Len(t, frames, 2)
@@ -347,6 +353,8 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 		}
 
 		query := &models.CloudWatchQuery{
+			StartTime:  startTime,
+			EndTime:    endTime,
 			RefId:      "refId1",
 			Region:     "us-east-1",
 			Namespace:  "AWS/ApplicationELB",
@@ -361,7 +369,7 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 			MetricQueryType:  models.MetricQueryTypeSearch,
 			MetricEditorMode: models.MetricEditorModeBuilder,
 		}
-		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), startTime, endTime, *response, query)
+		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), *response, query)
 		require.NoError(t, err)
 
 		assert.Len(t, frames, 2)
@@ -393,6 +401,8 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 		}
 
 		query := &models.CloudWatchQuery{
+			StartTime:  startTime,
+			EndTime:    endTime,
 			RefId:      "refId1",
 			Region:     "us-east-1",
 			Namespace:  "AWS/ApplicationELB",
@@ -405,9 +415,9 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 			Statistic:        "Average",
 			Period:           60,
 			MetricQueryType:  models.MetricQueryTypeSearch,
-			MetricEditorMode: models.MetricEditorModeRaw,
+			MetricEditorMode: models.MetricEditorModeBuilder,
 		}
-		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), startTime, endTime, *response, query)
+		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), *response, query)
 		require.NoError(t, err)
 
 		assert.Equal(t, "some label", frames[0].Name)
@@ -433,6 +443,8 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 		}
 
 		query := &models.CloudWatchQuery{
+			StartTime:  startTime,
+			EndTime:    endTime,
 			RefId:      "refId1",
 			Region:     "us-east-1",
 			Namespace:  "AWS/ApplicationELB",
@@ -448,7 +460,7 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 			MetricEditorMode: models.MetricEditorModeBuilder,
 			Label:            "set ${AVG} label",
 		}
-		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), startTime, endTime, *response, query)
+		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), *response, query)
 		require.NoError(t, err)
 
 		assert.Equal(t, "some label", frames[0].Name)
@@ -474,6 +486,8 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 		}
 
 		query := &models.CloudWatchQuery{
+			StartTime:  startTime,
+			EndTime:    endTime,
 			RefId:      "refId1",
 			Region:     "us-east-1",
 			Namespace:  "AWS/ApplicationELB",
@@ -489,7 +503,7 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 			MetricEditorMode: models.MetricEditorModeBuilder,
 			Label:            "actual",
 		}
-		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), startTime, endTime, *response, query)
+		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), *response, query)
 		require.NoError(t, err)
 
 		assert.Equal(t, "actual", frames[0].Name)
@@ -515,6 +529,8 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 		}
 
 		query := &models.CloudWatchQuery{
+			StartTime:        startTime,
+			EndTime:          endTime,
 			RefId:            "refId1",
 			Region:           "us-east-1",
 			Namespace:        "",
@@ -527,7 +543,7 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 			MetricEditorMode: models.MetricEditorModeRaw,
 			Label:            "actual",
 		}
-		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), startTime, endTime, *response, query)
+		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), *response, query)
 		require.NoError(t, err)
 
 		assert.Equal(t, "actual", frames[0].Name)
@@ -560,6 +576,8 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 		}
 
 		query := &models.CloudWatchQuery{
+			StartTime:        startTime,
+			EndTime:          endTime,
 			RefId:            "refId1",
 			Region:           "us-east-1",
 			Statistic:        "Average",
@@ -569,7 +587,7 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 			Dimensions:       map[string][]string{"Service": {"EC2", "Elastic Loading Balancing"}, "Resource": {"vCPU", "ApplicationLoadBalancersPerRegion"}},
 			SqlExpression:    "SELECT AVG(ResourceCount) FROM SCHEMA(\"AWS/Usage\", Class, Resource, Service, Type) GROUP BY Service, Resource",
 		}
-		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), startTime, endTime, *response, query)
+		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), *response, query)
 		require.NoError(t, err)
 
 		assert.Equal(t, "EC2 vCPU", frames[0].Name)
@@ -597,6 +615,8 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 		}
 
 		query := &models.CloudWatchQuery{
+			StartTime:        startTime,
+			EndTime:          endTime,
 			RefId:            "refId1",
 			Region:           "us-east-1",
 			Statistic:        "Average",
@@ -605,11 +625,51 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 			MetricEditorMode: models.MetricEditorModeBuilder,
 			SqlExpression:    "SELECT AVG(ResourceCount) FROM SCHEMA(\"AWS/Usage\", Class, Resource, Service, Type)",
 		}
-		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), startTime, endTime, *response, query)
+		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), *response, query)
 		require.NoError(t, err)
 
 		assert.Equal(t, "cloudwatch-default-label", frames[0].Name)
 		assert.Equal(t, "cloudwatch-default-label", frames[0].Fields[1].Labels["Series"])
+	})
+
+	t.Run("ignore dimensions for raw mode query", func(t *testing.T) {
+		timestamp := time.Unix(0, 0)
+		response := &models.QueryRowResponse{
+			Metrics: []*cloudwatch.MetricDataResult{
+				{
+					Id:    aws.String("lb3"),
+					Label: aws.String("some label"),
+					Timestamps: []*time.Time{
+						aws.Time(timestamp),
+					},
+					Values:     []*float64{aws.Float64(23)},
+					StatusCode: aws.String("Complete"),
+				},
+			},
+		}
+
+		query := &models.CloudWatchQuery{
+			StartTime:  startTime,
+			EndTime:    endTime,
+			RefId:      "refId1",
+			Region:     "us-east-1",
+			Namespace:  "AWS/ApplicationELB",
+			MetricName: "TargetResponseTime",
+			Dimensions: map[string][]string{
+				"LoadBalancer": {"*"},
+			},
+			Expression:       "SEARCH('MetricName=\"ResourceCount\" AND (\"AWS/Usage\") AND Resource=TargetsPer NOT QueueName=TargetsPerNetworkLoadBalancer', 'Average')",
+			Statistic:        "Average",
+			Period:           60,
+			MetricQueryType:  models.MetricQueryTypeSearch,
+			MetricEditorMode: models.MetricEditorModeRaw,
+		}
+		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), *response, query)
+		require.NoError(t, err)
+
+		assert.Equal(t, "some label", frames[0].Name)
+		assert.Len(t, frames[0].Fields[1].Labels, 1)
+		assert.Equal(t, "some label", frames[0].Fields[1].Labels["Series"])
 	})
 
 	t.Run("Parse cloudwatch response", func(t *testing.T) {
@@ -635,6 +695,8 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 		}
 
 		query := &models.CloudWatchQuery{
+			StartTime:  startTime,
+			EndTime:    endTime,
 			RefId:      "refId1",
 			Region:     "us-east-1",
 			Namespace:  "AWS/ApplicationELB",
@@ -648,7 +710,7 @@ func Test_buildDataFrames_parse_label_to_name_and_labels(t *testing.T) {
 			MetricQueryType:  models.MetricQueryTypeSearch,
 			MetricEditorMode: models.MetricEditorModeBuilder,
 		}
-		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), startTime, endTime, *response, query)
+		frames, err := buildDataFrames(contextWithFeaturesEnabled(features.FlagCloudWatchNewLabelParsing), *response, query)
 		require.NoError(t, err)
 
 		frame := frames[0]
