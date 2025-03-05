@@ -7,17 +7,13 @@ import { locationSearchToObject, locationService } from '@grafana/runtime';
 import { useStyles2, useTheme2 } from '@grafana/ui';
 import { useGrafana } from 'app/core/context/GrafanaContext';
 import { useMediaQueryChange } from 'app/core/hooks/useMediaQueryChange';
-import { Trans } from 'app/core/internationalization';
 import store from 'app/core/store';
 import { CommandPalette } from 'app/features/commandPalette/CommandPalette';
-import { ScopesDashboards, useScopesDashboardsState } from 'app/features/scopes';
 
 import { DOCKED_LOCAL_STORAGE_KEY, DOCKED_MENU_OPEN_LOCAL_STORAGE_KEY } from './AppChromeService';
 import { MegaMenu, MENU_WIDTH } from './MegaMenu/MegaMenu';
 import { useMegaMenuFocusHelper } from './MegaMenu/utils';
 import { ReturnToPrevious } from './ReturnToPrevious/ReturnToPrevious';
-import { SingleTopBar } from './TopBar/SingleTopBar';
-import { SingleTopBarActions } from './TopBar/SingleTopBarActions';
 import { TOP_BAR_LEVEL_HEIGHT } from './types';
 
 export interface Props extends PropsWithChildren<{}> {}
@@ -30,11 +26,6 @@ export function AppChrome({ children }: Props) {
 
   const dockedMenuBreakpoint = theme.breakpoints.values.xl;
   const dockedMenuLocalStorageState = store.getBool(DOCKED_LOCAL_STORAGE_KEY, true);
-  const menuDockedAndOpen = !state.chromeless && state.megaMenuDocked && state.megaMenuOpen;
-  const scopesDashboardsState = useScopesDashboardsState();
-  const isScopesDashboardsOpen = Boolean(
-    scopesDashboardsState?.isEnabled && scopesDashboardsState?.isPanelOpened && !scopesDashboardsState?.isReadOnly
-  );
   useMediaQueryChange({
     breakpoint: dockedMenuBreakpoint,
     onChange: (e) => {
@@ -88,11 +79,6 @@ export function AppChrome({ children }: Props) {
           )}
           <main className={styles.pageContainer} id="pageContent">
             {!state.chromeless && <header className={cx(styles.topNav)}>
-              <TopSearchBar
-                sectionNav={state.sectionNav.node}
-                pageNav={state.pageNav}
-                actions={state.actions}
-              />
             </header>}
             {children}
           </main>

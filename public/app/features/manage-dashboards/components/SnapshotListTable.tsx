@@ -45,6 +45,7 @@ export const SnapshotListTable = () => {
   if (!isFetching && snapshots.length === 0) {
     return (
       <EmptyState
+        variant="call-to-action"
         message={t('snapshot.empty-state.message', "You haven't created any snapshots yet")}
       >
         <Trans i18nKey="snapshot.empty-state.more-info">

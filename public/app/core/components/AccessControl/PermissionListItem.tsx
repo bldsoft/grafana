@@ -1,7 +1,7 @@
 import { css } from '@emotion/css';
 
 import { GrafanaTheme2 } from '@grafana/data';
-import { Box, Icon, Select, Tooltip, useStyles2 } from '@grafana/ui';
+import { Box, Icon, Select, Tooltip, useStyles2, IconButton } from '@grafana/ui';
 import { Trans } from 'app/core/internationalization';
 
 import { ResourcePermission } from './types';
@@ -46,11 +46,11 @@ export const PermissionListItem = ({ item, permissionLevels, canSet, onRemove, o
               </>
             }
           >
-            <Icon name="exclamation-triangle" className={styles.warning} />
+            <Icon name="exclamation-triangle" className={styles.warning}/>
           </Tooltip>
         ) : (
           <Tooltip content={getPermissionInfo(item)}>
-            <Icon name="info-circle" />
+            <Icon name="info-circle"/>
           </Tooltip>
         )}
       </td>
@@ -67,12 +67,12 @@ export const PermissionListItem = ({ item, permissionLevels, canSet, onRemove, o
           </div>
         ) : (
           <Tooltip content={item.isInherited ? 'Inherited Permission' : 'Provisioned Permission'}>
-            <Icon name="lock" size="lg" />
+            <Icon name="lock" size="lg"/>
           </Tooltip>
         )}
       </td>
     </tr>
-  );
+  )
 };
 
 const getAvatar = (item: ResourcePermission) => {

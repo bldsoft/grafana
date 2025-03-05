@@ -1,6 +1,7 @@
 import { selectors as e2eSelectors } from '@grafana/e2e-selectors/src';
 import { locationService } from '@grafana/runtime';
-import { ToolbarButton } from '@grafana/ui'
+import { Button } from '@grafana/ui';
+import { Trans } from 'app/core/internationalization';
 import { DashboardModel } from 'app/features/dashboard/state/DashboardModel';
 import { DashboardInteractions } from 'app/features/dashboard-scene/utils/interactions';
 
@@ -8,15 +9,16 @@ import { shareDashboardType } from '../ShareModal/utils';
 
 export const ShareButton = ({ dashboard }: { dashboard: DashboardModel }) => {
   return (
-    <ToolbarButton
-      tooltip={'Share'}
-      icon="share"
-      data-testid={selectors.pages.Dashboard.DashNav.shareButton}
+    <Button
+      data-testid={e2eSelectors.pages.Dashboard.DashNav.shareButton}
+      variant="primary"
+      size="sm"
       onClick={() => {
         DashboardInteractions.toolbarShareClick();
         locationService.partial({ shareView: shareDashboardType.link });
       }}
     >
-    </ToolbarButton>
+      <Trans i18nKey="dashboard.toolbar.share-button">Share</Trans>
+    </Button>
   );
 };

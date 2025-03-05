@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
+import { selectors } from '@grafana/e2e-selectors'
 
 import { Dropdown, ToolbarButton } from '@grafana/ui'
-import { DashboardModel } from 'app/features/dashboard/state';
+import { DashboardModel } from 'app/features/dashboard/state/DashboardModel';
 
 import AddPanelMenu from './AddPanelMenu';
-import { selectors } from '@grafana/e2e-selectors'
 
 export interface Props {
   dashboard: DashboardModel;

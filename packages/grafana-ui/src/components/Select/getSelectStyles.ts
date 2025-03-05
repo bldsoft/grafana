@@ -13,7 +13,7 @@ export const getSelectStyles = stylesFactory((theme: GrafanaTheme2) => {
       position: 'relative',
       minWidth: '100%',
       zIndex: 1,
-      borderRadius: 10
+      borderRadius: theme.shape.radius.default
     }),
     option: css({
       label: 'grafana-select-option',
@@ -159,6 +159,12 @@ export const getSelectStyles = stylesFactory((theme: GrafanaTheme2) => {
       ':has(+ [role="option"])': {
         borderBottom: `1px solid ${theme.colors.border.weak}`,
       },
+    }),
+    toggleAllButton: css({
+      width: '100%',
+      border: 0,
+      padding: 0,
+      textAlign: 'left',
     }),
   };
 });

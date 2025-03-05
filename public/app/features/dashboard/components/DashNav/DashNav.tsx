@@ -339,7 +339,7 @@ export const DashNav = memo<Props>((props) => {
     }
 
     if (canShare) {
-      buttons.push(<ShareButton key="button-share"/>);
+      buttons.push(<ShareButton key="button-share" dashboard={dashboard} />);
     }
 
     // if the timepicker is hidden, we don't need to add this separator

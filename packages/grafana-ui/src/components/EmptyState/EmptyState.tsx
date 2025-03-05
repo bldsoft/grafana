@@ -1,7 +1,6 @@
 import { css } from '@emotion/css';
 import { AriaRole, ReactNode } from 'react';
 import * as React from 'react';
-import SVG from 'react-inlinesvg';
 
 import { GrafanaTheme2 } from '@grafana/data';
 
@@ -27,7 +26,7 @@ interface Props {
   /**
    * Which variant to use. Affects the default image shown.
    */
-  variant: 'call-to-action' | 'not-found' | 'completed';
+  variant?: 'call-to-action' | 'not-found' | 'completed';
   /**
    * Use to set `alert` when needed. See documentation for the use case
    */
@@ -37,10 +36,7 @@ interface Props {
 export const EmptyState = ({
   button,
   children,
-  image,
   message,
-  hideImage = true,
-  variant,
   role,
 }: React.PropsWithChildren<Props>) => {
   const styles = useStyles2(getStyles);

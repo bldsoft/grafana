@@ -3,6 +3,7 @@ import { css } from '@emotion/css';
 
 // Components
 import { GrafanaTheme2 } from '@grafana/data';
+import { config } from '@grafana/runtime';
 import { Alert, Stack, useStyles2 } from '@grafana/ui';
 import { Branding } from 'app/core/components/Branding/Branding';
 

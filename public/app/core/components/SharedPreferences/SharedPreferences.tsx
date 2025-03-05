@@ -17,7 +17,6 @@ import {
   WeekStartPicker,
   Combobox,
   ComboboxOption,
-  TextLink,
   WeekStart,
   isWeekStart,
 } from '@grafana/ui';

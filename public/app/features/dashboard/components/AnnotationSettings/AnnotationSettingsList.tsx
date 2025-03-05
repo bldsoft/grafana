@@ -7,7 +7,7 @@ import { getDataSourceSrv } from '@grafana/runtime';
 import { Button, DeleteButton, EmptyState, IconButton, Stack, TextLink, useStyles2 } from '@grafana/ui';
 import { Trans, t } from 'app/core/internationalization';
 
-import { DashboardModel } from '../../state';
+import { DashboardModel } from '../../state/DashboardModel';
 import { ListNewButton } from '../DashboardSettings/ListNewButton';
 
 type Props = {
@@ -110,6 +110,7 @@ export const AnnotationSettingsList = ({ dashboard, onNew, onEdit }: Props) => {
       {showEmptyListCTA && (
         <Stack direction="column">
           <EmptyState
+            variant="call-to-action"
             button={
               <Button
                 data-testid={selectors.components.CallToActionCard.buttonV2('Add annotation query')}
