@@ -65,19 +65,23 @@ export const MegaMenu = React.memo(
               ))}
             </ul>
           </CustomScrollbar>
-          <IconButton
-            id="dock-menu-button"
-            size="xl"
-            className={styles.dockMenuButton}
-            tooltip={
-              state.megaMenuOpen
-                ? t('navigation.megamenu.close', 'Open menu')
-                : t('navigation.megamenu.open', 'Close menu')
-            }
-            name={state.megaMenuOpen ? 'angle-left' : 'angle-right'}
-            onClick={handleOpenMenu}
-            variant="secondary"
-          />
+          <div className={styles.sidebarBottom}>
+            <div className={styles.productText}>A <img src={'public/img/Setplex_logo.svg'} alt="Setplex" /> product. Supported by <a href="https://grafana.com/grafana" className={styles.grafanaText} target="_blank" rel="noreferrer">Grafana</a>.</div>
+
+            <IconButton
+              id="dock-menu-button"
+              size="xl"
+              className={styles.dockMenuButton}
+              tooltip={
+                state.megaMenuOpen
+                  ? t('navigation.megamenu.close', 'Open menu')
+                  : t('navigation.megamenu.open', 'Close menu')
+              }
+              name={state.megaMenuOpen ? 'angle-left' : 'angle-right'}
+              onClick={handleOpenMenu}
+              variant="secondary"
+            />
+          </div>
         </nav>
       </div>
     );
@@ -116,7 +120,6 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     display: 'inline-flex',
     width: 'fit-content',
     alignSelf: 'end',
-    marginRight: 19
   }),
   img: css({
     height: 42,
@@ -127,5 +130,23 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     marginBottom: 22,
     display: 'flex',
     justifyContent: 'center'
+  }),
+  sidebarBottom: css({
+    display: 'flex',
+    justifyContent: megaMenuOpen ? 'space-between' : 'right',
+    padding: '16px'
+  }),
+  productText: css({
+    fontSize: '12px',
+    lineHeight: '16px',
+    fontWeight: '500',
+    color: theme.colors.text.icon3,
+    width: '150px',
+    textAlign: 'left',
+    display: megaMenuOpen ? 'block' : 'none'
+  }),
+  grafanaText: css({
+    color: '#40B041',
+    position: 'relative'
   }),
 });

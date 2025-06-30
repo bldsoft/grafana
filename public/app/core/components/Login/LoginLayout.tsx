@@ -54,7 +54,7 @@ export const LoginLayout = ({ children, branding, isChangingPassword }: React.Pr
           </div>
           <div className={loginStyles.loginOuterBox}>{children}</div>
         </div>
-        <div className={loginStyles.productText}>A <img src={'public/img/setplex.png'} alt="Setplex" /> product. Supported by <a href="https://grafana.com/grafana" className={loginStyles.grafanaText} target="_blank" rel="noreferrer">Grafana</a>.</div>
+        <div className={loginStyles.productText}>A <img src={'public/img/Setplex_logo.svg'} alt="Setplex" /> product. Supported by <a href="https://grafana.com/grafana" className={loginStyles.grafanaText} target="_blank" rel="noreferrer">Grafana</a>.</div>
       </div>
     </Branding.LoginBackground>
   );
