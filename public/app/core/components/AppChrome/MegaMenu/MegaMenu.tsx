@@ -74,19 +74,21 @@ export const MegaMenu = memo(
               .
             </div>
 
-            <IconButton
-              id="dock-menu-button"
-              size="xl"
-              className={styles.dockMenuButton}
-              tooltip={
-                state.megaMenuOpen
-                  ? t('navigation.megamenu.close', 'Close menu')
-                  : t('navigation.megamenu.open', 'Open menu')
-              }
-              name={state.megaMenuOpen ? 'angle-left' : 'angle-right'}
-              onClick={handleOpenMenu}
-              variant="secondary"
-            />
+            {state.megaMenuDocked && (
+              <IconButton
+                id="dock-menu-button"
+                size="xl"
+                className={styles.dockMenuButton}
+                tooltip={
+                  state.megaMenuOpen
+                    ? t('navigation.megamenu.close', 'Close menu')
+                    : t('navigation.megamenu.open', 'Open menu')
+                }
+                name={state.megaMenuOpen ? 'angle-left' : 'angle-right'}
+                onClick={handleOpenMenu}
+                variant="secondary"
+              />
+            )}
           </div>
         </nav>
       </div>
@@ -120,7 +122,7 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
     flexDirection: 'column',
     listStyleType: 'none',
     padding: theme.spacing(1, 1.5, 2, 1.5),
-    width: megaMenuOpen ? 240 : 68,
+    width: megaMenuOpen ? '100%' : 68,
   }),
   dockMenuButton: css({
     display: 'inline-flex',

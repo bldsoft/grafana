@@ -3,14 +3,17 @@ import classNames from 'classnames';
 import { Resizable } from 're-resizable';
 import { PropsWithChildren, useEffect } from 'react';
 
-import { GrafanaTheme2 } from '@grafana/data';
+import { GrafanaTheme2, store } from '@grafana/data';
 import { Trans } from '@grafana/i18n';
 import { locationSearchToObject, locationService, useScopes } from '@grafana/runtime';
 import { ErrorBoundaryAlert, floatingUtils, getDragStyles, LinkButton, useStyles2 } from '@grafana/ui';
 import { useGrafana } from 'app/core/context/GrafanaContext';
+import { useMediaQueryMinWidth } from 'app/core/hooks/useMediaQueryMinWidth';
 import { CommandPalette } from 'app/features/commandPalette/CommandPalette';
 import { ScopesDashboards } from 'app/features/scopes/dashboards/ScopesDashboards';
 
+import { AppChromeMenu } from './AppChromeMenu';
+import { AppChromeService, DOCKED_MENU_OPEN_LOCAL_STORAGE_KEY } from './AppChromeService';
 import {
   ExtensionSidebar,
   MAX_EXTENSION_SIDEBAR_WIDTH,
@@ -40,6 +43,7 @@ export function AppChrome({ children }: Props) {
   const contentSizeStyles = useStyles2(getContentSizeStyles, extensionSidebarWidth);
   const dragStyles = useStyles2(getDragStyles);
 
+  useResponsiveDockedMegaMenu(chrome);
   useMegaMenuFocusHelper(state.megaMenuOpen, state.megaMenuDocked);
 
   const contentClass = cx({
@@ -91,7 +95,7 @@ export function AppChrome({ children }: Props) {
       )}
       <div className={contentClass}>
         <div className={cx(styles.panes, { [styles.panesWithSidebar]: isExtensionSidebarOpen })}>
-          {!state.chromeless && (
+          {!state.chromeless && state.megaMenuDocked && (
             <MegaMenu className={styles.dockedMegaMenu} onClose={() => chrome.setMegaMenuOpen(false)} />
           )}
           {!state.chromeless && (
@@ -138,12 +142,32 @@ export function AppChrome({ children }: Props) {
           )}
         </div>
       </div>
+      {!state.chromeless && !state.megaMenuDocked && <AppChromeMenu />}
       {!state.chromeless && <CommandPalette />}
       {shouldShowReturnToPrevious && state.returnToPrevious && (
         <ReturnToPrevious href={state.returnToPrevious.href} title={state.returnToPrevious.title} />
       )}
     </div>
   );
+}
+
+/**
+ * The mega menu is a permanent docked sidebar on desktop (>= md) and an overlay drawer
+ * with a hamburger trigger in the top bar on smaller screens.
+ */
+function useResponsiveDockedMegaMenu(chrome: AppChromeService) {
+  const isDesktop = useMediaQueryMinWidth('md');
+
+  useEffect(() => {
+    const state = chrome.state.getValue();
+    if (isDesktop && !state.megaMenuDocked) {
+      chrome.setMegaMenuDocked(true, false);
+      chrome.setMegaMenuOpen(store.getBool(DOCKED_MENU_OPEN_LOCAL_STORAGE_KEY, true));
+    } else if (!isDesktop && state.megaMenuDocked) {
+      chrome.setMegaMenuDocked(false, false);
+      chrome.setMegaMenuOpen(false);
+    }
+  }, [isDesktop, chrome]);
 }
 
 const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
@@ -167,6 +191,10 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
       display: 'block',
       flexShrink: 0,
       width: megaMenuOpen ? 240 : 68,
+
+      [theme.breakpoints.down('md')]: {
+        display: 'none',
+      },
     }),
     topNav: css({
       display: 'flex',

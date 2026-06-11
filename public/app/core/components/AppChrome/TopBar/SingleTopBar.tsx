@@ -3,8 +3,10 @@ import React, { memo } from 'react';
 
 import { GrafanaTheme2, NavModelItem } from '@grafana/data';
 import { Components } from '@grafana/e2e-selectors';
+import { t } from '@grafana/i18n';
 import { ScopesContextValue } from '@grafana/runtime';
-import { Stack, useStyles2 } from '@grafana/ui';
+import { Icon, Stack, ToolbarButton, useStyles2 } from '@grafana/ui';
+import { MEGA_MENU_TOGGLE_ID } from 'app/core/constants';
 import { useGrafana } from 'app/core/context/GrafanaContext';
 import { useMediaQueryMinWidth } from 'app/core/hooks/useMediaQueryMinWidth';
 import { HOME_NAV_ID } from 'app/core/reducers/navModel';
@@ -35,6 +37,7 @@ interface Props {
 }
 
 export const SingleTopBar = memo(function SingleTopBar({
+  onToggleMegaMenu,
   onToggleKioskMode,
   pageNav,
   sectionNav,
@@ -58,6 +61,19 @@ export const SingleTopBar = memo(function SingleTopBar({
     <>
       <div className={styles.layout}>
         <Stack minWidth={0} gap={0.5} alignItems="center" flex={{ xs: 2, lg: 1 }}>
+          {!state.megaMenuDocked && (
+            <ToolbarButton
+              narrow
+              id={MEGA_MENU_TOGGLE_ID}
+              onClick={onToggleMegaMenu}
+              tooltip={t('navigation.megamenu.open', 'Open menu')}
+              aria-expanded={state.megaMenuOpen}
+            >
+              <Stack gap={0} alignItems="center">
+                <Icon name="bars" size="xl" />
+              </Stack>
+            </ToolbarButton>
+          )}
           <OrganizationSwitcher />
           {topLevelScopes ? <ScopesSelector /> : undefined}
           <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />

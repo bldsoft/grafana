@@ -76,9 +76,18 @@ const setup = (children: ReactNode) => {
 };
 
 describe('AppChrome', () => {
+  const originalInnerWidth = window.innerWidth;
+
   beforeAll(() => {
+    // jsdom's matchMedia mock always reports `matches: false` (mobile mode), so align
+    // window.innerWidth with it to avoid an inconsistent docked/undocked state flip on mount
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: 500 });
     // need to mock out the search service since kbar calls it to fetch recent dashboards
     jest.spyOn(getGrafanaSearcher(), 'search').mockResolvedValue(mockSearchResult);
+  });
+
+  afterAll(() => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: originalInnerWidth });
   });
 
   afterEach(() => {
@@ -96,8 +105,8 @@ describe('AppChrome', () => {
     const skipLink = await screen.findByRole('link', { name: 'Skip to main content' });
     expect(skipLink).toHaveFocus();
     await userEvent.keyboard('{tab}');
-    // The mega menu is a permanent sidebar now, so its logo link is the next focusable element
-    expect(await screen.findByRole('link', { name: 'Go to home' })).toHaveFocus();
+    // On small screens the mega menu is an overlay, so the hamburger toggle is the next focusable element
+    expect(await screen.findByRole('button', { name: 'Open menu' })).toHaveFocus();
   });
 
   it('should move focus to main content on every skip link activation', async () => {
