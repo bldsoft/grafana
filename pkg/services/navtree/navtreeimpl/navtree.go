@@ -152,7 +152,7 @@ func (s *ServiceImpl) GetNavTree(c *contextmodel.ReqContext, prefs *pref.Prefere
 	_, uaIsDisabledForOrg := s.cfg.UnifiedAlerting.DisabledOrgs[c.GetOrgID()]
 	uaVisibleForOrg := s.cfg.UnifiedAlerting.IsEnabled() && !uaIsDisabledForOrg
 
-	if uaVisibleForOrg {
+	if uaVisibleForOrg && c.GetOrgRole() == org.RoleAdmin {
 		if alertingSection := s.buildAlertNavLinks(c); alertingSection != nil {
 			treeRoot.AddSection(alertingSection)
 		}
@@ -162,15 +162,17 @@ func (s *ServiceImpl) GetNavTree(c *contextmodel.ReqContext, prefs *pref.Prefere
 		treeRoot.AddSection(connectionsSection)
 	}
 
-	orgAdminNode, err := s.getAdminNode(c)
+	if c.GetOrgRole() == org.RoleAdmin {
+		orgAdminNode, err := s.getAdminNode(c)
 
-	if orgAdminNode != nil && len(orgAdminNode.Children) > 0 {
-		treeRoot.AddSection(orgAdminNode)
-	} else if err != nil {
-		return nil, err
+		if orgAdminNode != nil && len(orgAdminNode.Children) > 0 {
+			treeRoot.AddSection(orgAdminNode)
+		} else if err != nil {
+			return nil, err
+		}
+
+		s.addHelpLinks(treeRoot, c)
 	}
-
-	s.addHelpLinks(treeRoot, c)
 
 	if err := s.addAppLinks(treeRoot, c); err != nil {
 		return nil, err
@@ -374,13 +376,13 @@ func (s *ServiceImpl) buildDashboardNavLinks(c *contextmodel.ReqContext) []*navt
 	dashboardChildNavs := []*navtree.NavLink{}
 
 	if c.IsSignedIn {
-		if c.HasRole(org.RoleViewer) {
+		if c.HasRole(org.RoleViewer) && c.GetOrgRole() == org.RoleAdmin {
 			dashboardChildNavs = append(dashboardChildNavs, &navtree.NavLink{
 				Text: "Playlists", SubTitle: "Groups of dashboards that are displayed in a sequence", Id: "dashboards/playlists", Url: s.cfg.AppSubURL + "/playlists", Icon: "presentation-play",
 			})
 		}
 
-		if s.cfg.SnapshotEnabled && hasAccess(ac.EvalPermission(dashboards.ActionSnapshotsRead)) {
+		if s.cfg.SnapshotEnabled && c.GetOrgRole() == org.RoleAdmin && hasAccess(ac.EvalPermission(dashboards.ActionSnapshotsRead)) {
 			dashboardChildNavs = append(dashboardChildNavs, &navtree.NavLink{
 				Text:     "Snapshots",
 				SubTitle: "Interactive, publicly available, point-in-time representations of dashboards",
