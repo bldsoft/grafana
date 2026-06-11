@@ -24,9 +24,9 @@ export const palette = {
   // from figma
   lightBorder1: '#e4e7e7',
 
-  blueDarkMain: '#3d71d9', // '#4165F5',
+  blueDarkMain: '#3cb043', // '#4165F5',
   blueDarkText: '#6e9fff', // '#58a6ff', //'#33a2e5', // '#5790FF',
-  redDarkMain: '#d10e5c',
+  redDarkMain: '#e5584d',
   redDarkText: '#ff5286',
   greenDarkMain: '#1a7f4b',
   greenDarkText: '#6ccf8e',
@@ -41,4 +41,28 @@ export const palette = {
   greenLightText: '#0a764e',
   orangeLightMain: '#ff9900',
   orangeLightText: '#b5510d',
+
+  // Analytix design tokens (from figma)
+  'accent_accent-1': '#3CB043',
+  'accent_accent-1-pressed': '#34983A',
+  'accent_accent-1-hovered': '#41BE48',
+  'accent_accent-2': '#4D4D4D',
+  'accent_error': '#E5584D',
+  'accent_error-hovered': '#CE3C31',
+
+  'text-icon_const-primary': '#FFFFFF',
+  'text-icon_const-quaternary': '#CCCCCC',
+  'text-icon_tertiary': '#999999',
+  'text-icon_secondary': '#E6E6E6',
+  'text-icon_text-icon-3': '#797373',
+  'text-icons_secondary': '#6B6B6B',
+
+  'surface_primary': '#262626',
+  'surface_secondary': '#2E2E2E',
+
+  'background_secondary': '#1F1F1F',
+  'background_const-primary': '#262626',
+
+  'border_secondary': '#404040',
+  'border_teriary': '#595959',
 };

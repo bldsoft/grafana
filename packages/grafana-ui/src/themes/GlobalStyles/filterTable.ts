@@ -16,22 +16,35 @@ export function getFilterTableStyles(theme: GrafanaTheme2) {
         'tr:nth-of-type(odd)': {
           background: theme.colors.emphasize(theme.colors.background.primary, 0.02),
         },
+        tr: {
+          borderRadius: '10px',
+          height: '48px',
+        },
       },
 
       th: {
         width: 'auto',
-        padding: theme.spacing(0.5, 1),
+        padding: '16px 24px',
         textAlign: 'left',
-        lineHeight: '30px',
-        height: '30px',
+        lineHeight: '16px',
+        height: '16px',
         whiteSpace: 'nowrap',
       },
 
       td: {
-        padding: theme.spacing(0.5, 1),
-        lineHeight: '30px',
-        height: '30px',
+        padding: '2px 24px',
+        lineHeight: '16px',
+        height: '16px',
         whiteSpace: 'nowrap',
+
+        '&:first-child': {
+          borderBottomLeftRadius: '10px',
+          borderTopLeftRadius: '10px',
+        },
+        '&:last-child': {
+          borderBottomRightRadius: '10px',
+          borderTopRightRadius: '10px',
+        },
       },
 
       '.link-td': {

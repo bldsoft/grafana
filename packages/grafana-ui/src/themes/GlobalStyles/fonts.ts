@@ -32,47 +32,21 @@ export function getFontStyles(theme: GrafanaTheme2) {
       },
     },
     {
-      /*
-    To add new variations/version of Inter, download from https://rsms.me/inter/ and add the
-    web font files to the public/fonts/inter folder. Do not download the fonts from Google Fonts
-    or somewhere else because they don't support the features we require (like tabular numerals).
-
-    If adding additional weights, consider switching to the InterVariable variable font as combined
-    it may take less space than multiple static weights.
-    */
       '@font-face': {
-        fontFamily: 'Inter',
+        fontFamily: 'Product Sans',
         fontStyle: 'normal',
         fontWeight: 400,
         fontDisplay: 'swap',
-        src: `url('${fontRoot}inter/Inter-Regular.woff2') format('woff2')`,
+        src: `url('${fontRoot}productSans/pxifypQkot1TnFhsFMOfGShVEu_vWEpkr1ap.woff2') format('woff2')`,
       },
     },
     {
       '@font-face': {
-        fontFamily: 'Inter',
+        fontFamily: 'Product Sans',
         fontStyle: 'normal',
         fontWeight: 500,
         fontDisplay: 'swap',
-        src: `url('${fontRoot}inter/Inter-Medium.woff2') format('woff2')`,
-      },
-    },
-    {
-      '@font-face': {
-        fontFamily: 'Inter',
-        fontStyle: 'italic',
-        fontWeight: 400,
-        fontDisplay: 'swap',
-        src: `url('${fontRoot}inter/Inter-Italic.woff2') format('woff2')`,
-      },
-    },
-    {
-      '@font-face': {
-        fontFamily: 'Inter',
-        fontStyle: 'italic',
-        fontWeight: 500,
-        fontDisplay: 'swap',
-        src: `url('${fontRoot}inter/Inter-MediumItalic.woff2') format('woff2')`,
+        src: `url('${fontRoot}productSans/pxifypQkot1TnFhsFMOfGShVEu_vWEpkr1ap.woff2') format('woff2')`,
       },
     },
   ]);

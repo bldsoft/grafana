@@ -56,7 +56,7 @@ export const ThemeTypographyInputSchema = z.object({
 
 export type ThemeTypographyInput = z.infer<typeof ThemeTypographyInputSchema>;
 
-const defaultFontFamily = "'Inter', 'Helvetica', 'Arial', sans-serif";
+const defaultFontFamily = "'Product Sans', sans-serif";
 const defaultFontFamilyMonospace = "'Roboto Mono', monospace";
 
 export function createTypography(colors: ThemeColors, typographyInput: ThemeTypographyInput = {}): ThemeTypography {
@@ -121,11 +121,11 @@ export function createTypography(colors: ThemeColors, typographyInput: ThemeTypo
   };
 
   const size = {
-    base: '14px',
+    base: '16px',
     xs: '10px',
     sm: '12px',
-    md: '14px',
-    lg: '18px',
+    md: '16px',
+    lg: '21px',
   };
 
   return {

@@ -22,12 +22,18 @@ const createThemeColorsBaseSchema = <TColor>(color: TColor) =>
       warning: color,
 
       text: z.object({
+        accent1: z.string().optional(),
         primary: z.string().optional(),
         secondary: z.string().optional(),
+        tertiary: z.string().optional(),
+        quaternary: z.string().optional(),
         disabled: z.string().optional(),
         link: z.string().optional(),
         /** Used for auto white or dark text on colored backgrounds */
         maxContrast: z.string().optional(),
+        active: z.string().optional(),
+        icon3: z.string().optional(),
+        iconsSecondary: z.string().optional(),
       }),
 
       background: z.object({
@@ -35,6 +41,7 @@ const createThemeColorsBaseSchema = <TColor>(color: TColor) =>
         canvas: z.string().optional(),
         /** Primary content pane background (panels etc) */
         primary: z.string().optional(),
+        constPrimary: z.string().optional(),
         /** Cards and elements that need to stand out on the primary background */
         secondary: z.string().optional(),
         /**
@@ -42,12 +49,26 @@ const createThemeColorsBaseSchema = <TColor>(color: TColor) =>
          * themes it has a brighter shade to help give it contrast against the primary background.
          **/
         elevated: z.string().optional(),
+        surfacePrimary: z.string().optional(),
+        buttonHovered: z.string().optional(),
+        surfaceSecondary: z.string().optional(),
+      }),
+
+      menu: z.object({
+        active: z.string().optional(),
+        hovered: z.string().optional(),
+        pressed: z.string().optional(),
+        fontColor: z.string().optional(),
+        selectedHovered: z.string().optional(),
+        fontColorHovered: z.string().optional(),
       }),
 
       border: z.object({
         weak: z.string().optional(),
         medium: z.string().optional(),
         strong: z.string().optional(),
+        secondary: z.string().optional(),
+        teriary: z.string().optional(),
       }),
 
       gradients: z.object({
@@ -75,6 +96,11 @@ const createThemeColorsBaseSchema = <TColor>(color: TColor) =>
         disabledText: z.string().optional(),
         /** Disablerd opacity */
         disabledOpacity: z.number().optional(),
+      }),
+
+      custom: z.object({
+        accentAccent1: z.string().optional(),
+        hoverErrorButton: z.string().optional(),
       }),
 
       hoverFactor: z.number(),
@@ -124,19 +150,27 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     weak: `rgba(${this.whiteBase}, 0.12)`,
     medium: `rgba(${this.whiteBase}, 0.2)`,
     strong: `rgba(${this.whiteBase}, 0.30)`,
+    secondary: palette['border_secondary'],
+    teriary: palette['border_teriary'],
   };
 
   text = {
-    primary: `rgb(${this.whiteBase})`,
-    secondary: `rgba(${this.whiteBase}, 0.65)`,
+    accent1: palette['accent_accent-1'],
+    primary: palette['text-icon_secondary'],
+    secondary: palette['text-icon_secondary'],
+    tertiary: palette['text-icon_tertiary'],
+    quaternary: palette['text-icon_const-quaternary'],
     disabled: `rgba(${this.whiteBase}, 0.61)`,
-    link: palette.blueDarkText,
+    link: palette['accent_accent-1'],
     maxContrast: palette.white,
+    active: palette['text-icon_const-primary'],
+    icon3: palette['text-icon_text-icon-3'],
+    iconsSecondary: palette['text-icons_secondary'],
   };
 
   primary = {
     main: palette.blueDarkMain,
-    text: palette.blueDarkText,
+    text: palette['accent_accent-1'],
     border: palette.blueDarkText,
   };
 
@@ -149,11 +183,14 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
     border: `rgba(${this.whiteBase}, 0.08)`,
   };
 
-  info = this.primary;
+  info = {
+    main: palette.redDarkMain,
+    text: palette['text-icon_secondary'],
+  };
 
   error = {
     main: palette.redDarkMain,
-    text: palette.redDarkText,
+    text: palette['accent_error'],
   };
 
   success = {
@@ -167,10 +204,23 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   };
 
   background = {
-    canvas: palette.gray05,
-    primary: palette.gray10,
-    secondary: palette.gray15,
-    elevated: palette.gray15,
+    canvas: palette['background_secondary'],
+    primary: palette['background_secondary'],
+    constPrimary: palette['background_const-primary'],
+    secondary: palette['surface_primary'],
+    elevated: palette['surface_secondary'],
+    surfacePrimary: palette['surface_primary'],
+    buttonHovered: palette['accent_accent-2'],
+    surfaceSecondary: palette['surface_secondary'],
+  };
+
+  menu = {
+    active: palette['accent_accent-1'],
+    hovered: palette['accent_accent-1'],
+    selectedHovered: palette['accent_accent-1-hovered'],
+    pressed: palette['accent_accent-1-pressed'],
+    fontColor: palette['text-icon_const-quaternary'],
+    fontColorHovered: palette['text-icon_const-primary'],
   };
 
   action = {
@@ -187,6 +237,11 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   gradients = {
     brandHorizontal: 'linear-gradient(270deg, #F55F3E 0%, #FF8833 100%)',
     brandVertical: 'linear-gradient(0.01deg, #F55F3E 0.01%, #FF8833 99.99%)',
+  };
+
+  custom = {
+    accentAccent1: palette['accent_accent-1'],
+    hoverErrorButton: palette['accent_error-hovered'],
   };
 
   contrastThreshold = 3;
@@ -206,17 +261,25 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   };
 
   text = {
-    primary: `rgba(${this.blackBase}, 1)`,
-    secondary: `rgba(${this.blackBase}, 0.75)`,
+    accent1: palette['accent_accent-1'],
+    primary: palette['text-icon_secondary'],
+    secondary: palette['text-icon_secondary'],
+    tertiary: palette['text-icon_tertiary'],
+    quaternary: palette['text-icon_const-quaternary'],
     disabled: `rgba(${this.blackBase}, 0.65)`,
     link: this.primary.text,
     maxContrast: palette.black,
+    active: palette['text-icon_const-primary'],
+    icon3: palette['text-icon_text-icon-3'],
+    iconsSecondary: palette['text-icons_secondary'],
   };
 
   border = {
     weak: `rgba(${this.blackBase}, 0.12)`,
     medium: `rgba(${this.blackBase}, 0.3)`,
     strong: `rgba(${this.blackBase}, 0.4)`,
+    secondary: palette['border_secondary'],
+    teriary: palette['border_teriary'],
   };
 
   secondary = {
@@ -235,7 +298,7 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
 
   error = {
     main: palette.redLightMain,
-    text: palette.redLightText,
+    text: palette['accent_error'],
     border: palette.redLightText,
   };
 
@@ -252,8 +315,21 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   background = {
     canvas: palette.gray90,
     primary: palette.white,
+    constPrimary: palette['background_const-primary'],
     secondary: palette.gray100,
     elevated: palette.white,
+    surfacePrimary: palette['surface_primary'],
+    buttonHovered: palette['accent_accent-2'],
+    surfaceSecondary: palette['surface_secondary'],
+  };
+
+  menu = {
+    active: palette['accent_accent-1'],
+    hovered: palette['accent_accent-1'],
+    selectedHovered: palette['accent_accent-1-hovered'],
+    pressed: palette['accent_accent-1-pressed'],
+    fontColor: palette['text-icon_const-quaternary'],
+    fontColorHovered: palette['text-icon_const-primary'],
   };
 
   action = {
@@ -270,6 +346,11 @@ class LightColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   gradients = {
     brandHorizontal: 'linear-gradient(90deg, #FF8833 0%, #F53E4C 100%)',
     brandVertical: 'linear-gradient(0.01deg, #F53E4C -31.2%, #FF8833 113.07%)',
+  };
+
+  custom = {
+    accentAccent1: palette['accent_accent-1'],
+    hoverErrorButton: palette['accent_error-hovered'],
   };
 
   contrastThreshold = 3;
