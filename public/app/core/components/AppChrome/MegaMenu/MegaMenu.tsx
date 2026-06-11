@@ -1,25 +1,22 @@
 import { css } from '@emotion/css';
 import { DOMAttributes } from '@react-types/shared';
-import { memo, forwardRef, useCallback } from 'react';
+import { memo, forwardRef } from 'react';
 import { useLocation } from 'react-router-dom-v5-compat';
 
-import { usePatchUserPreferencesMutation } from '@grafana/api-clients/rtkq/legacy/preferences';
-import { GrafanaTheme2, NavModelItem } from '@grafana/data';
+import { GrafanaTheme2, locationUtil, textUtil } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
 import { t } from '@grafana/i18n';
-import { reportInteraction } from '@grafana/runtime';
-import { ScrollContainer, useStyles2 } from '@grafana/ui';
+import { config } from '@grafana/runtime';
+import { CustomScrollbar, IconButton, useStyles2, Stack } from '@grafana/ui';
 import { useGrafana } from 'app/core/context/GrafanaContext';
-import { setBookmark } from 'app/core/reducers/navBarTree';
-import { useDispatch, useSelector } from 'app/types/store';
+import { useSelector } from 'app/types/store';
 
-import { MegaMenuExtensionPoint } from './MegaMenuExtensionPoint';
-import { MegaMenuHeader } from './MegaMenuHeader';
+import { Branding } from '../../Branding/Branding';
+
 import { MegaMenuItem } from './MegaMenuItem';
-import { usePinnedItems } from './hooks';
-import { enrichWithInteractionTracking, findByUrl, getActiveItem } from './utils';
+import { enrichWithInteractionTracking, getActiveItem } from './utils';
 
-export const MENU_WIDTH = '300px';
+export const MENU_WIDTH = '240px';
 
 export interface Props extends DOMAttributes {
   onClose: () => void;
@@ -28,101 +25,69 @@ export interface Props extends DOMAttributes {
 export const MegaMenu = memo(
   forwardRef<HTMLDivElement, Props>(({ onClose, ...restProps }, ref) => {
     const navTree = useSelector((state) => state.navBarTree);
-    const styles = useStyles2(getStyles);
     const location = useLocation();
     const { chrome } = useGrafana();
-    const dispatch = useDispatch();
     const state = chrome.useState();
-    const [patchPreferences] = usePatchUserPreferencesMutation();
-    const pinnedItems = usePinnedItems();
+    const styles = useStyles2(getStyles, state.megaMenuOpen);
 
-    // Remove profile + help from tree
+    // Remove profile + help + bookmarks from tree
     const navItems = navTree
-      .filter((item) => item.id !== 'profile' && item.id !== 'help')
+      .filter((item) => item.id !== 'profile' && item.id !== 'help' && item.id !== 'bookmarks')
       .map((item) => enrichWithInteractionTracking(item, state.megaMenuDocked));
-
-    const bookmarksItem = navItems.find((item) => item.id === 'bookmarks');
-    if (bookmarksItem) {
-      // Add children to the bookmarks section
-      bookmarksItem.children = pinnedItems.reduce((acc: NavModelItem[], url) => {
-        const item = findByUrl(navItems, url);
-        if (!item) {
-          return acc;
-        }
-        const newItem = {
-          id: item.id,
-          text: item.text,
-          url: item.url,
-          parentItem: { id: 'bookmarks', text: 'Bookmarks' },
-        };
-        acc.push(enrichWithInteractionTracking(newItem, state.megaMenuDocked));
-        return acc;
-      }, []);
-    }
 
     const activeItem = getActiveItem(navItems, state.sectionNav.node, location.pathname);
 
-    const handleDockedMenu = () => {
-      chrome.setMegaMenuDocked(!state.megaMenuDocked);
-      if (state.megaMenuDocked) {
-        chrome.setMegaMenuOpen(false);
-      }
+    const handleOpenMenu = () => {
+      chrome.setMegaMenuOpen(!state.megaMenuOpen);
     };
 
-    const isPinned = useCallback(
-      (url?: string) => {
-        if (!url || !pinnedItems?.length) {
-          return false;
-        }
-        return pinnedItems?.includes(url);
-      },
-      [pinnedItems]
-    );
-
-    const onPinItem = (item: NavModelItem) => {
-      const { url } = item;
-      if (url) {
-        const isSaved = isPinned(url);
-        const newItems = isSaved ? pinnedItems.filter((i) => url !== i) : [...pinnedItems, url];
-        const interactionName = isSaved ? 'grafana_nav_item_unpinned' : 'grafana_nav_item_pinned';
-        reportInteraction(interactionName, {
-          path: url,
-        });
-        patchPreferences({
-          patchPrefsCmd: {
-            navbar: {
-              bookmarkUrls: newItems,
-            },
-          },
-        }).then((data) => {
-          if (!data.error) {
-            dispatch(setBookmark({ item: item, isSaved: !isSaved }));
-          }
-        });
-      }
-    };
+    let homeUrl = config.appSubUrl || '/';
+    if (!config.bootData.user.isSignedIn && !config.anonymousEnabled) {
+      homeUrl = textUtil.sanitizeUrl(locationUtil.getUrlForPartial(location, { forceLogin: 'true' }));
+    }
 
     return (
       <div data-testid={selectors.components.NavMenu.Menu} ref={ref} {...restProps}>
-        <MegaMenuHeader handleDockedMenu={handleDockedMenu} onClose={onClose} />
         <nav className={styles.content}>
-          <ScrollContainer height="100%" overflowX="hidden" showScrollIndicators>
-            <>
-              <ul className={styles.itemList} aria-label={t('navigation.megamenu.list-label', 'Navigation')}>
-                {navItems.map((link, index) => (
+          <a className={styles.logo} href={homeUrl} title="Go to home">
+            <Branding.MenuLogo className={styles.img} menuOpen={state.megaMenuOpen} />
+          </a>
+          <CustomScrollbar showScrollIndicators hideHorizontalTrack>
+            <ul className={styles.itemList} aria-label={t('navigation.megamenu.list-label', 'Navigation')}>
+              {navItems.map((link) => (
+                <Stack key={link.text} alignItems="center">
                   <MegaMenuItem
-                    key={link.text}
                     link={link}
-                    isPinned={isPinned}
                     onClick={state.megaMenuDocked ? undefined : onClose}
                     activeItem={activeItem}
-                    onPin={onPinItem}
                   />
-                ))}
-              </ul>
-              <MegaMenuExtensionPoint />
-            </>
-          </ScrollContainer>
+                </Stack>
+              ))}
+            </ul>
+          </CustomScrollbar>
+          <div className={styles.sidebarBottom}>
+            <div className={styles.productText}>
+              A <img src={'public/img/Setplex_logo.svg'} alt="Setplex" /> product. Supported by{' '}
+              <a href="https://grafana.com/grafana" className={styles.grafanaText} target="_blank" rel="noreferrer">
+                Grafana
+              </a>
+              .
+            </div>
+
+            <IconButton
+              id="dock-menu-button"
+              size="xl"
+              className={styles.dockMenuButton}
+              tooltip={
+                state.megaMenuOpen
+                  ? t('navigation.megamenu.close', 'Close menu')
+                  : t('navigation.megamenu.open', 'Open menu')
+              }
+              name={state.megaMenuOpen ? 'angle-left' : 'angle-right'}
+              onClick={handleOpenMenu}
+              variant="secondary"
+            />
+          </div>
         </nav>
       </div>
     );
@@ -131,43 +96,63 @@ export const MegaMenu = memo(
 
 MegaMenu.displayName = 'MegaMenu';
 
-const getStyles = (theme: GrafanaTheme2) => {
-  return {
-    content: css({
-      display: 'flex',
-      flexDirection: 'column',
-      minHeight: 0,
-      flexGrow: 1,
-      position: 'relative',
-    }),
-    mobileHeader: css({
-      display: 'flex',
-      justifyContent: 'space-between',
-      padding: theme.spacing(1, 1, 1, 2),
-      borderBottom: `1px solid ${theme.colors.border.weak}`,
+const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => ({
+  content: css({
+    display: 'flex',
+    flexDirection: 'column',
+    height: '99%',
+    minHeight: 0,
+    position: 'relative',
+  }),
+  mobileHeader: css({
+    display: 'flex',
+    justifyContent: 'space-between',
+    padding: theme.spacing(1, 1, 1, 2),
+    borderBottom: `1px solid ${theme.colors.border.weak}`,
 
-      [theme.breakpoints.up('md')]: {
-        display: 'none',
-      },
-    }),
-    itemList: css({
-      boxSizing: 'border-box',
-      display: 'flex',
-      flexDirection: 'column',
-      listStyleType: 'none',
-      padding: theme.spacing(1, 1, 2, 0.5),
-      [theme.breakpoints.up('md')]: {
-        width: MENU_WIDTH,
-      },
-    }),
-    dockMenuButton: css({
+    [theme.breakpoints.up('md')]: {
       display: 'none',
-      position: 'relative',
-      top: theme.spacing(1),
-
-      [theme.breakpoints.up('xl')]: {
-        display: 'inline-flex',
-      },
-    }),
-  };
-};
+    },
+  }),
+  itemList: css({
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexDirection: 'column',
+    listStyleType: 'none',
+    padding: theme.spacing(1, 1.5, 2, 1.5),
+    width: megaMenuOpen ? 240 : 68,
+  }),
+  dockMenuButton: css({
+    display: 'inline-flex',
+    width: 'fit-content',
+    alignSelf: 'end',
+  }),
+  img: css({
+    height: 42,
+    width: megaMenuOpen ? 184 : 25,
+  }),
+  logo: css({
+    marginTop: 30,
+    marginBottom: 22,
+    display: 'flex',
+    justifyContent: 'center',
+  }),
+  sidebarBottom: css({
+    display: 'flex',
+    justifyContent: megaMenuOpen ? 'space-between' : 'right',
+    padding: '16px',
+  }),
+  productText: css({
+    fontSize: '12px',
+    lineHeight: '16px',
+    fontWeight: '500',
+    color: theme.colors.text.icon3,
+    width: '150px',
+    textAlign: 'left',
+    display: megaMenuOpen ? 'block' : 'none',
+  }),
+  grafanaText: css({
+    color: '#40B041',
+    position: 'relative',
+  }),
+});

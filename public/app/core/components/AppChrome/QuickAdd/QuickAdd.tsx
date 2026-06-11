@@ -1,8 +1,10 @@
+import { css, cx } from '@emotion/css';
 import { useMemo, useState } from 'react';
 
+import { GrafanaTheme2 } from '@grafana/data';
 import { t } from '@grafana/i18n';
 import { getDataSourceSrv, reportInteraction, config } from '@grafana/runtime';
-import { Menu, Dropdown, ToolbarButton } from '@grafana/ui';
+import { Menu, Dropdown, useStyles2, Button, Icon } from '@grafana/ui';
 import {
   CONTENT_KINDS,
   DashboardLibraryInteractions,
@@ -10,13 +12,12 @@ import {
 } from 'app/features/dashboard/dashgrid/DashboardLibrary/interactions';
 import { useSelector } from 'app/types/store';
 
-import { NavToolbarSeparator } from '../NavToolbar/NavToolbarSeparator';
-
 import { findCreateActions } from './utils';
 
 export interface Props {}
 
 export const QuickAdd = ({}: Props) => {
+  const styles = useStyles2(getStyles);
   const navBarTree = useSelector((state) => state.navBarTree);
   const [isOpen, setIsOpen] = useState(false);
 
@@ -58,7 +59,7 @@ export const QuickAdd = ({}: Props) => {
 
   const MenuActions = () => {
     return (
-      <Menu>
+      <Menu className={styles.menu}>
         {createActions.map((createAction, index) => (
           <Menu.Item
             key={index}
@@ -75,16 +76,44 @@ export const QuickAdd = ({}: Props) => {
   };
 
   return showQuickAdd ? (
-    <>
-      <Dropdown overlay={MenuActions} placement="bottom-end" onVisibleChange={handleVisibleChange}>
-        <ToolbarButton
-          iconOnly
-          icon={'plus'}
-          isOpen={isOpen}
-          aria-label={t('navigation.quick-add.aria-label', 'New')}
-        />
-      </Dropdown>
-      <NavToolbarSeparator />
-    </>
+    <Dropdown overlay={MenuActions} placement="bottom-end" onVisibleChange={handleVisibleChange}>
+      <Button
+        type="button"
+        aria-label={t('navigation.quick-add.aria-label', 'New')}
+        className={cx(styles.addButton, { [styles.addButtonActive]: isOpen })}
+      >
+        <Icon name="plus" size="lg" className={styles.icon} /> Add
+      </Button>
+    </Dropdown>
   ) : null;
 };
+
+const getStyles = (theme: GrafanaTheme2) => ({
+  menu: css({
+    padding: '6px 8px',
+    backgroundColor: theme.colors.background.surfacePrimary,
+    borderRadius: 10,
+    color: theme.colors.text.secondary,
+  }),
+  addButton: css({
+    backgroundColor: theme.colors.background.surfacePrimary,
+    color: theme.colors.text.secondary,
+    height: 44,
+    width: 89,
+    borderRadius: '10px',
+    padding: '10px 16px',
+    justifyContent: 'center',
+    marginLeft: 24,
+    '&:hover': {
+      backgroundColor: theme.colors.background.buttonHovered,
+      color: theme.colors.menu.fontColorHovered,
+    },
+  }),
+  addButtonActive: css({
+    backgroundColor: theme.colors.background.buttonHovered,
+    color: theme.colors.menu.fontColorHovered,
+  }),
+  icon: css({
+    marginRight: 6,
+  }),
+});

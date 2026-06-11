@@ -6,7 +6,6 @@ import { GrafanaTheme2, NavModelItem } from '@grafana/data';
 import { t } from '@grafana/i18n';
 import { config } from '@grafana/runtime';
 import { Dropdown, Menu, MenuItem, ToolbarButton, useStyles2 } from '@grafana/ui';
-import { contextSrv } from 'app/core/services/context_srv';
 
 import { ThemeSelectorDrawer } from '../../ThemeSelector/ThemeSelectorDrawer';
 import { enrichWithInteractionTracking } from '../MegaMenu/utils';
@@ -65,7 +64,7 @@ export function ProfileButton({ profileNode, onToggleKioskMode }: Props) {
       <Dropdown overlay={renderMenu} placement="bottom-end">
         <ToolbarButton
           className={styles.profileButton}
-          imgSrc={contextSrv.user.gravatarUrl}
+          imgSrc="public/img/avatar.png"
           imgAlt="User avatar"
           aria-label={t('navigation.profile.aria-label', 'Profile')}
         />

@@ -3,28 +3,25 @@ import classNames from 'classnames';
 import { Resizable } from 're-resizable';
 import { PropsWithChildren, useEffect } from 'react';
 
-import { GrafanaTheme2, store } from '@grafana/data';
+import { GrafanaTheme2 } from '@grafana/data';
 import { Trans } from '@grafana/i18n';
 import { locationSearchToObject, locationService, useScopes } from '@grafana/runtime';
 import { ErrorBoundaryAlert, floatingUtils, getDragStyles, LinkButton, useStyles2 } from '@grafana/ui';
 import { useGrafana } from 'app/core/context/GrafanaContext';
-import { useMediaQueryMinWidth } from 'app/core/hooks/useMediaQueryMinWidth';
 import { CommandPalette } from 'app/features/commandPalette/CommandPalette';
 import { ScopesDashboards } from 'app/features/scopes/dashboards/ScopesDashboards';
 
-import { AppChromeMenu } from './AppChromeMenu';
-import { AppChromeService, DOCKED_LOCAL_STORAGE_KEY } from './AppChromeService';
 import {
   ExtensionSidebar,
   MAX_EXTENSION_SIDEBAR_WIDTH,
   MIN_EXTENSION_SIDEBAR_WIDTH,
 } from './ExtensionSidebar/ExtensionSidebar';
 import { useExtensionSidebarContext } from './ExtensionSidebar/ExtensionSidebarProvider';
-import { MegaMenu, MENU_WIDTH } from './MegaMenu/MegaMenu';
+import { MegaMenu } from './MegaMenu/MegaMenu';
 import { useMegaMenuFocusHelper } from './MegaMenu/utils';
 import { ReturnToPrevious } from './ReturnToPrevious/ReturnToPrevious';
 import { SingleTopBar } from './TopBar/SingleTopBar';
-import { getChromeHeaderLevelHeight, useChromeHeaderLevels } from './TopBar/useChromeHeaderHeight';
+import { useChromeHeaderLevels } from './TopBar/useChromeHeaderHeight';
 
 export interface Props extends PropsWithChildren<{}> {}
 
@@ -38,17 +35,11 @@ export function AppChrome({ children }: Props) {
   const state = chrome.useState();
   const scopes = useScopes();
 
-  const menuDockedAndOpen = !state.chromeless && state.megaMenuDocked && state.megaMenuOpen;
-  const isScopesDashboardsOpen = Boolean(
-    scopes?.state.enabled && scopes?.state.drawerOpened && !scopes?.state.readOnly
-  );
-
   const headerLevels = useChromeHeaderLevels();
-  const styles = useStyles2(getStyles, headerLevels, getChromeHeaderLevelHeight());
+  const styles = useStyles2(getStyles, state.megaMenuOpen);
   const contentSizeStyles = useStyles2(getContentSizeStyles, extensionSidebarWidth);
   const dragStyles = useStyles2(getDragStyles);
 
-  useResponsiveDockedMegaMenu(chrome);
   useMegaMenuFocusHelper(state.megaMenuOpen, state.megaMenuDocked);
 
   const contentClass = cx({
@@ -56,10 +47,6 @@ export function AppChrome({ children }: Props) {
     [styles.contentChromeless]: state.chromeless,
     [styles.contentWithSidebar]: isExtensionSidebarOpen && !state.chromeless,
   });
-
-  const handleMegaMenu = () => {
-    chrome.setMegaMenuOpen(!state.megaMenuOpen);
-  };
 
   const { pathname, search } = locationService.getLocation();
   const url = pathname + search;
@@ -91,57 +78,49 @@ export function AppChrome({ children }: Props) {
       })}
     >
       {!state.chromeless && (
-        <>
-          <LinkButton
-            className={styles.skipLink}
-            href="#pageContent"
-            onClick={(e) => {
-              e.preventDefault();
-              document.getElementById('pageContent')?.focus();
-            }}
-          >
-            <Trans i18nKey="app-chrome.skip-content-button">Skip to main content</Trans>
-          </LinkButton>
-          {menuDockedAndOpen && (
-            <MegaMenu className={styles.dockedMegaMenu} onClose={() => chrome.setMegaMenuOpen(false)} />
-          )}
-          <header className={cx(styles.topNav, menuDockedAndOpen && styles.topNavMenuDocked)}>
-            <SingleTopBar
-              sectionNav={state.sectionNav.node}
-              pageNav={state.pageNav}
-              onToggleMegaMenu={handleMegaMenu}
-              onToggleKioskMode={chrome.onToggleKioskMode}
-              actions={state.actions}
-              breadcrumbActions={state.breadcrumbActions}
-              scopes={scopes}
-              showToolbarLevel={headerLevels === 2}
-            />
-          </header>
-        </>
+        <LinkButton
+          className={styles.skipLink}
+          href="#pageContent"
+          onClick={(e) => {
+            e.preventDefault();
+            document.getElementById('pageContent')?.focus();
+          }}
+        >
+          <Trans i18nKey="app-chrome.skip-content-button">Skip to main content</Trans>
+        </LinkButton>
       )}
       <div className={contentClass}>
         <div className={cx(styles.panes, { [styles.panesWithSidebar]: isExtensionSidebarOpen })}>
           {!state.chromeless && (
-            <div
-              className={cx(styles.scopesDashboardsContainer, {
-                [styles.scopesDashboardsContainerDocked]: menuDockedAndOpen,
-              })}
-            >
-              <ErrorBoundaryAlert boundaryName="scopes-dashboards">
-                <ScopesDashboards />
-              </ErrorBoundaryAlert>
-            </div>
+            <MegaMenu className={styles.dockedMegaMenu} onClose={() => chrome.setMegaMenuOpen(false)} />
+          )}
+          {!state.chromeless && (
+            <ErrorBoundaryAlert boundaryName="scopes-dashboards">
+              <ScopesDashboards />
+            </ErrorBoundaryAlert>
           )}
           <main
             className={cx(styles.pageContainer, {
-              [styles.pageContainerMenuDocked]: menuDockedAndOpen || isScopesDashboardsOpen,
-              [styles.pageContainerMenuDockedScopes]: menuDockedAndOpen && isScopesDashboardsOpen,
               [styles.pageContainerWithSidebar]: !state.chromeless && isExtensionSidebarOpen,
               [contentSizeStyles.contentWidth]: !state.chromeless && isExtensionSidebarOpen,
             })}
             id="pageContent"
             tabIndex={-1}
           >
+            {!state.chromeless && (
+              <header className={styles.topNav}>
+                <SingleTopBar
+                  sectionNav={state.sectionNav.node}
+                  pageNav={state.pageNav}
+                  onToggleMegaMenu={() => chrome.setMegaMenuOpen(!state.megaMenuOpen)}
+                  onToggleKioskMode={chrome.onToggleKioskMode}
+                  actions={state.actions}
+                  breadcrumbActions={state.breadcrumbActions}
+                  scopes={scopes}
+                  showToolbarLevel={headerLevels === 2}
+                />
+              </header>
+            )}
             {children}
           </main>
           {!state.chromeless && isExtensionSidebarOpen && (
@@ -159,7 +138,6 @@ export function AppChrome({ children }: Props) {
           )}
         </div>
       </div>
-      {!state.chromeless && !state.megaMenuDocked && <AppChromeMenu />}
       {!state.chromeless && <CommandPalette />}
       {shouldShowReturnToPrevious && state.returnToPrevious && (
         <ReturnToPrevious href={state.returnToPrevious.href} title={state.returnToPrevious.title} />
@@ -168,39 +146,14 @@ export function AppChrome({ children }: Props) {
   );
 }
 
-/**
- * When having docked mega menu we automatically undock it on smaller screens
- */
-function useResponsiveDockedMegaMenu(chrome: AppChromeService) {
-  const dockedMenuLocalStorageState = store.getBool(DOCKED_LOCAL_STORAGE_KEY, true);
-  const isLargeScreen = useMediaQueryMinWidth('xl');
-
-  useEffect(() => {
-    // if undocked we do not need to do anything
-    if (!dockedMenuLocalStorageState) {
-      return;
-    }
-
-    const state = chrome.state.getValue();
-    if (isLargeScreen && !state.megaMenuDocked) {
-      chrome.setMegaMenuDocked(true, false);
-      chrome.setMegaMenuOpen(true);
-    } else if (!isLargeScreen && state.megaMenuDocked) {
-      chrome.setMegaMenuDocked(false, false);
-      chrome.setMegaMenuOpen(false);
-    }
-  }, [isLargeScreen, chrome, dockedMenuLocalStorageState]);
-}
-
-const getStyles = (theme: GrafanaTheme2, headerLevels: number, headerHeight: number) => {
+const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
   return {
     content: css({
       label: 'page-content',
       display: 'flex',
-      flexDirection: 'column',
-      paddingTop: headerLevels * headerHeight,
+      flexDirection: 'row',
       flexGrow: 1,
-      height: 'auto',
+      height: '100%',
     }),
     contentWithSidebar: css({
       height: '100vh',
@@ -210,62 +163,50 @@ const getStyles = (theme: GrafanaTheme2, headerLevels: number, headerHeight: num
       paddingTop: 0,
     }),
     dockedMegaMenu: css({
-      background: theme.colors.background.primary,
-      borderRight: `1px solid ${theme.colors.border.weak}`,
-      display: 'none',
-      height: '100%',
-      position: 'fixed',
-      top: 0,
-      width: MENU_WIDTH,
-      zIndex: 2,
-
-      [theme.breakpoints.up('xl')]: {
-        display: 'flex',
-        flexDirection: 'column',
-      },
-    }),
-    scopesDashboardsContainer: css({
-      position: 'fixed',
-      height: `calc(100% - ${headerHeight}px)`,
-      zIndex: 1,
-    }),
-    scopesDashboardsContainerDocked: css({
-      left: MENU_WIDTH,
+      background: theme.colors.background.constPrimary,
+      display: 'block',
+      flexShrink: 0,
+      width: megaMenuOpen ? 240 : 68,
     }),
     topNav: css({
       display: 'flex',
-      position: 'fixed',
-      zIndex: theme.zIndex.navbarFixed,
-      left: 0,
-      right: 0,
       background: theme.colors.background.primary,
       flexDirection: 'column',
-    }),
-    topNavMenuDocked: css({
-      left: MENU_WIDTH,
+      paddingRight: 32,
     }),
     panes: css({
-      display: 'flex',
-      flexDirection: 'column',
-      flexGrow: 1,
       label: 'page-panes',
+      display: 'flex',
+      height: '100%',
+      width: '100%',
+      flexGrow: 1,
+      minHeight: 0,
+      flexDirection: 'column',
+      [theme.breakpoints.up('md')]: {
+        flexDirection: 'row',
+      },
     }),
     panesWithSidebar: css({
       height: '100%',
       overflow: 'hidden',
       position: 'relative',
     }),
-    pageContainerMenuDocked: css({
-      paddingLeft: MENU_WIDTH,
-    }),
-    pageContainerMenuDockedScopes: css({
-      paddingLeft: `calc(${MENU_WIDTH} * 2)`,
-    }),
     pageContainer: css({
       label: 'page-container',
       display: 'flex',
       flexDirection: 'column',
       flexGrow: 1,
+      minHeight: 0,
+      minWidth: 0,
+      overflow: 'auto',
+      '@media print': {
+        overflow: 'visible',
+      },
+      '@page': {
+        margin: 0,
+        size: 'auto',
+        padding: 0,
+      },
     }),
     pageContainerWithSidebar: css({
       overflow: 'auto',
@@ -286,7 +227,7 @@ const getStyles = (theme: GrafanaTheme2, headerLevels: number, headerHeight: num
       // the `Resizeable` component overrides the needed `position` and `height`
       // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
       position: 'fixed !important' as 'fixed',
-      top: headerHeight,
+      top: 0,
       bottom: 0,
       zIndex: theme.zIndex.navbarFixed + 1,
       right: 0,

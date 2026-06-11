@@ -8,7 +8,6 @@ import { useStyles2 } from '@grafana/ui';
 
 import { Branding } from '../Branding/Branding';
 import { BrandingSettings } from '../Branding/types';
-import { Footer } from '../Footer/Footer';
 
 interface InnerBoxProps {
   enterAnimation?: boolean;
@@ -28,10 +27,8 @@ export const LoginLayout = ({ children, branding, isChangingPassword }: React.Pr
   const loginStyles = useStyles2(getLoginStyles);
   const [startAnim, setStartAnim] = useState(false);
   const subTitle = branding?.loginSubtitle ?? Branding.GetLoginSubTitle();
-  const loginTitle = branding?.loginTitle ?? Branding.LoginTitle;
   const loginBoxBackground = branding?.loginBoxBackground || Branding.LoginBoxBackground();
   const loginLogo = branding?.loginLogo;
-  const hideEdition = branding?.hideEdition ?? Branding.HideEdition;
 
   useEffect(() => setStartAnim(true), []);
 
@@ -40,9 +37,13 @@ export const LoginLayout = ({ children, branding, isChangingPassword }: React.Pr
       className={cx(loginStyles.container, startAnim && loginStyles.loginAnim, branding?.loginBackground)}
     >
       <div className={loginStyles.loginMain}>
+        <div className={loginStyles.loginLogoContainer}>
+          <Branding.LoginLogo className={loginStyles.loginLogo} logo={loginLogo} />
+        </div>
         <div className={cx(loginStyles.loginContent, loginBoxBackground, 'login-content-box')}>
           <div className={loginStyles.loginLogoWrapper}>
-            <Branding.LoginLogo className={loginStyles.loginLogo} logo={loginLogo} />
+            <div className={loginStyles.titleText}>Welcome back</div>
+            <div className={loginStyles.additionalText}>Sign in to your account and do your best</div>
             <div className={loginStyles.titleWrapper}>
               {isChangingPassword ? (
                 <h1 className={loginStyles.mainTitle}>
@@ -50,7 +51,6 @@ export const LoginLayout = ({ children, branding, isChangingPassword }: React.Pr
                 </h1>
               ) : (
                 <>
-                  <h1 className={loginStyles.mainTitle}>{loginTitle}</h1>
                   {subTitle && <h3 className={loginStyles.subTitle}>{subTitle}</h3>}
                 </>
               )}
@@ -58,8 +58,8 @@ export const LoginLayout = ({ children, branding, isChangingPassword }: React.Pr
           </div>
           <div className={loginStyles.loginOuterBox}>{children}</div>
         </div>
+        <div className={loginStyles.productText}>A <img src={'public/img/Setplex_logo.svg'} alt="Setplex" /> product. Supported by <a href="https://grafana.com/grafana" className={loginStyles.grafanaText} target="_blank" rel="noreferrer">Grafana</a>.</div>
       </div>
-      {branding?.hideFooter ? <></> : <Footer hideEdition={hideEdition} customLinks={branding?.footerLinks} />}
     </Branding.LoginBackground>
   );
 };
@@ -84,6 +84,7 @@ export const getLoginStyles = (theme: GrafanaTheme2) => {
       alignItems: 'center',
       justifyContent: 'center',
       minWidth: '100%',
+      marginTop: '60px'
     }),
     container: css({
       minHeight: '100%',
@@ -98,26 +99,52 @@ export const getLoginStyles = (theme: GrafanaTheme2) => {
       justifyContent: 'center',
     }),
     loginAnim: css({
-      ['&:before']: {
-        opacity: 1,
-      },
-
       ['.login-content-box']: {
         opacity: 1,
+        backgroundColor: '#262626',
+        borderRadius: 20,
       },
     }),
     submitButton: css({
       justifyContent: 'center',
       width: '100%',
     }),
+    titleText: css({
+      fontSize: '32px',
+      lineHeight: '40px',
+      fontWeight: '700'
+    }),
+    additionalText: css({
+      fontSize: '16px',
+      lineHeight: '24px',
+      fontWeight: '400',
+      paddingTop: '16px',
+      color: theme.colors.text.icon3,
+    }),
+    productText: css({
+      fontSize: '12px',
+      lineHeight: '16px',
+      fontWeight: '500',
+      color: theme.colors.text.icon3,
+      width: '100%',
+      textAlign: 'center',
+      marginTop: theme.spacing(20)
+    }),
+    grafanaText: css({
+      color: '#40B041',
+      position: 'relative'
+    }),
     loginLogo: css({
       width: '100%',
       maxWidth: 60,
-      marginBottom: theme.spacing(2),
-
       [theme.breakpoints.up('sm')]: {
-        maxWidth: 100,
+        maxWidth: 200,
       },
+    }),
+    loginLogoContainer: css({
+      width: '100%',
+      textAlign: 'center',
+      marginBottom: theme.spacing(8)
     }),
     loginLogoWrapper: css({
       display: 'flex',

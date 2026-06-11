@@ -5,7 +5,6 @@ import { useOverlay } from '@react-aria/overlays';
 import { KBarAnimator, KBarPortal, KBarPositioner, VisualState, useKBar, ActionImpl } from 'kbar';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 
-import { OpenAssistantButton, useAssistant } from '@grafana/assistant';
 import { GrafanaTheme2 } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
 import { t } from '@grafana/i18n';
@@ -139,10 +138,8 @@ interface RenderResultsProps {
   searchQuery: string;
 }
 
-const RenderResults = ({ isFetchingSearchResults, searchResults, searchQuery }: RenderResultsProps) => {
+const RenderResults = ({ isFetchingSearchResults, searchResults }: RenderResultsProps) => {
   const { results: kbarResults, rootActionId } = useMatches();
-  const { query } = useKBar();
-  const { isAvailable: isAssistantAvailable } = useAssistant();
   const lateralSpace = getCommandPalettePosition();
   const styles = useStyles2(getSearchStyles, lateralSpace);
 
@@ -184,16 +181,7 @@ const RenderResults = ({ isFetchingSearchResults, searchResults, searchQuery }: 
   }, [showEmptyState]);
 
   return showEmptyState ? (
-    <EmptyState variant="not-found" role="alert" message={t('command-palette.empty-state.message', 'No results found')}>
-      {isAssistantAvailable && (
-        <OpenAssistantButton
-          origin="grafana/command-palette-empty-state"
-          prompt={`Search for ${searchQuery}`}
-          title={t('command-palette.empty-state.button-title', 'Search with Grafana Assistant')}
-          onClick={query.toggle}
-        />
-      )}
-    </EmptyState>
+    <EmptyState role="alert" message={t('command-palette.empty-state.message', 'No results found')} />
   ) : (
     <KBarResults
       items={items}
@@ -201,14 +189,11 @@ const RenderResults = ({ isFetchingSearchResults, searchResults, searchQuery }: 
       onRender={({ item, active }) => {
         const isFirst = items[0] === item;
 
-        const renderedItem =
-          typeof item === 'string' ? (
-            <div className={cx(styles.sectionHeader, isFirst && styles.sectionHeaderFirst)}>{item}</div>
-          ) : (
-            <ResultItem action={item} active={active} currentRootActionId={rootActionId!} />
-          );
-
-        return renderedItem;
+        return typeof item === 'string' ? (
+          <div className={cx(styles.sectionHeader, isFirst && styles.sectionHeaderFirst)}>{item}</div>
+        ) : (
+          <ResultItem action={item} active={active} currentRootActionId={rootActionId!} />
+        );
       }}
     />
   );
