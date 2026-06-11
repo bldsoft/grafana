@@ -5,7 +5,7 @@ import { Button, IconName, LinkButton, Tooltip } from '@grafana/ui';
 type TooltipProps = ComponentProps<typeof Tooltip>;
 
 interface Props {
-  tooltip: TooltipProps['content'];
+  tooltip: NonNullable<TooltipProps['content']>;
   icon: IconName;
   className?: string;
   tooltipPlacement?: TooltipProps['placement'];

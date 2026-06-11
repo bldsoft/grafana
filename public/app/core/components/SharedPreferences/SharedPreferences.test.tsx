@@ -30,8 +30,8 @@ const selectComboboxOptionInTest = async (input: HTMLElement, optionOrOptions: s
 
 const setup = async () => {
   const view = render(<SharedPreferences resourceUri="user" preferenceType="user" />);
-  const themeSelect = await screen.findByRole('combobox', { name: 'Interface theme' });
-  await waitFor(() => expect(themeSelect).not.toBeDisabled());
+  const weekSelect = await screen.findByRole('combobox', { name: 'Week start' });
+  await waitFor(() => expect(weekSelect).not.toBeDisabled());
   return view;
 };
 
@@ -57,10 +57,9 @@ afterAll(() => {
 });
 
 describe('SharedPreferences', () => {
-  it('renders the theme preference', async () => {
+  it('does not render the theme preference', async () => {
     await setup();
-    const themeSelect = await screen.findByRole('combobox', { name: 'Interface theme' });
-    await waitFor(() => expect(themeSelect).toHaveValue('Light'));
+    expect(screen.queryByRole('combobox', { name: 'Interface theme' })).not.toBeInTheDocument();
   });
 
   it('renders the home dashboard preference', async () => {
@@ -112,7 +111,6 @@ describe('SharedPreferences', () => {
     const capture = captureRequests();
     const { user } = await setup();
 
-    await selectComboboxOptionInTest(await screen.findByRole('combobox', { name: 'Interface theme' }), 'Dark');
     await selectComboboxOptionInTest(
       await screen.findByRole('combobox', { name: /home dashboard/i }),
       new RegExp(dashboardToSelect.title)
@@ -129,7 +127,8 @@ describe('SharedPreferences', () => {
     expect(newPreferences).toEqual({
       timezone: 'Australia/Sydney',
       weekStart: 'saturday',
-      theme: 'dark',
+      // The theme is no longer editable in this form, so the loaded value is sent back unchanged
+      theme: 'light',
       homeDashboardUID: dashboardToSelect.uid,
       queryHistory: {
         homeTab: '',
@@ -141,7 +140,6 @@ describe('SharedPreferences', () => {
   it('saves the users default preferences', async () => {
     const capture = captureRequests();
     const { user } = await setup();
-    await selectComboboxOptionInTest(await screen.findByRole('combobox', { name: 'Interface theme' }), 'Default');
 
     // there's no default option in this dropdown - there's a clear selection button
     // get the parent container, and find the "Clear value" button
@@ -160,7 +158,8 @@ describe('SharedPreferences', () => {
     expect(newPreferences).toEqual({
       timezone: '',
       weekStart: '',
-      theme: '',
+      // The theme is no longer editable in this form, so the loaded value is sent back unchanged
+      theme: 'light',
       homeDashboardUID: '',
       queryHistory: {
         homeTab: '',

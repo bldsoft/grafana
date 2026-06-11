@@ -7,7 +7,7 @@ import { Trans, t } from '@grafana/i18n';
 import { getDataSourceSrv } from '@grafana/runtime';
 import { Button, DeleteButton, EmptyState, IconButton, Stack, TextLink, useStyles2 } from '@grafana/ui';
 
-import { DashboardModel } from '../../state';
+import { DashboardModel } from '../../state/DashboardModel';
 import { ListNewButton } from '../DashboardSettings/ListNewButton';
 
 type Props = {

@@ -66,7 +66,7 @@ exports[`RadialGauge color utils buildGradientColors should map threshold colors
 exports[`RadialGauge color utils buildGradientColors should return gradient colors for by-value color mode in dark theme 1`] = `
 [
   {
-    "color": "#181b1f",
+    "color": "#1F1F1F",
     "percent": 0,
   },
   {

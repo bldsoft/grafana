@@ -373,7 +373,7 @@ describe('BarGauge', () => {
       });
       const styles = getBasicAndGradientStyles(props);
       expect(styles.bar.background).toBe('rgba(255, 0, 0, 0.35)');
-      expect(styles.value.color).toBe('rgb(204, 204, 220)');
+      expect(styles.value.color).toBe('#E6E6E6');
     });
   });
 

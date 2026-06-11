@@ -48,13 +48,13 @@ $purple: #9933cc;
 // -------------------------
 $body-bg: #fbfbfb;
 
-$text-color: rgba(36, 41, 46, 1);
-$text-color-weak: rgba(36, 41, 46, 0.75);
+$text-color: #E6E6E6;
+$text-color-weak: #E6E6E6;
 $text-color-emphasis: #000000;
 
 // Links
 // -------------------------
-$link-color: rgba(36, 41, 46, 1);
+$link-color: #E6E6E6;
 $link-color-disabled: rgba(36, 41, 46, 0.65);
 $link-hover-color: #000000;
 
@@ -108,7 +108,7 @@ $btn-drag-image: '../img/grab_light.svg';
 // -------------------------
 $input-bg: #ffffff;
 
-$input-color: rgba(36, 41, 46, 1);
+$input-color: #E6E6E6;
 $input-border-color: rgba(36, 41, 46, 0.3);
 
 // Dropdowns
@@ -128,7 +128,7 @@ $dropdownLinkBackgroundHover: $gray-6;
 // -------------------------
 $menu-dropdown-bg: #ffffff;
 $menu-dropdown-hover-bg: rgba(36, 41, 46, 0.12);
-$menu-dropdown-shadow: 0px 13px 20px 1px rgba(24, 26, 27, 0.18);
+$menu-dropdown-shadow: 0px 8px 24px rgb(1, 4, 9);
 
 // Form states and alerts
 // -------------------------
@@ -139,13 +139,13 @@ $alert-info-bg: #ff9900;
 
 // Tooltips and popovers
 $tooltipBackground: #ffffff;
-$tooltipColor: rgba(36, 41, 46, 1);
+$tooltipColor: #E6E6E6;
 
 $popover-bg: #ffffff;
-$popover-color: rgba(36, 41, 46, 1);
+$popover-color: #E6E6E6;
 $popover-border-color: rgba(36, 41, 46, 0.12);
 $popover-header-bg: #f4f5f5;
-$popover-shadow: 0px 13px 20px 1px rgba(24, 26, 27, 0.18);
+$popover-shadow: 0px 8px 24px rgb(1, 4, 9);
 
 $graph-tooltip-bg: $gray-5;
 

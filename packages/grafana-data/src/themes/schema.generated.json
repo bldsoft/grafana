@@ -201,10 +201,19 @@
         "text": {
           "type": "object",
           "properties": {
+            "accent1": {
+              "type": "string"
+            },
             "primary": {
               "type": "string"
             },
             "secondary": {
+              "type": "string"
+            },
+            "tertiary": {
+              "type": "string"
+            },
+            "quaternary": {
               "type": "string"
             },
             "disabled": {
@@ -214,6 +223,15 @@
               "type": "string"
             },
             "maxContrast": {
+              "type": "string"
+            },
+            "active": {
+              "type": "string"
+            },
+            "icon3": {
+              "type": "string"
+            },
+            "iconsSecondary": {
               "type": "string"
             }
           },
@@ -228,10 +246,46 @@
             "primary": {
               "type": "string"
             },
+            "constPrimary": {
+              "type": "string"
+            },
             "secondary": {
               "type": "string"
             },
             "elevated": {
+              "type": "string"
+            },
+            "surfacePrimary": {
+              "type": "string"
+            },
+            "buttonHovered": {
+              "type": "string"
+            },
+            "surfaceSecondary": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "menu": {
+          "type": "object",
+          "properties": {
+            "active": {
+              "type": "string"
+            },
+            "hovered": {
+              "type": "string"
+            },
+            "pressed": {
+              "type": "string"
+            },
+            "fontColor": {
+              "type": "string"
+            },
+            "selectedHovered": {
+              "type": "string"
+            },
+            "fontColorHovered": {
               "type": "string"
             }
           },
@@ -247,6 +301,12 @@
               "type": "string"
             },
             "strong": {
+              "type": "string"
+            },
+            "secondary": {
+              "type": "string"
+            },
+            "teriary": {
               "type": "string"
             }
           },
@@ -290,6 +350,18 @@
             },
             "disabledOpacity": {
               "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "custom": {
+          "type": "object",
+          "properties": {
+            "accentAccent1": {
+              "type": "string"
+            },
+            "hoverErrorButton": {
+              "type": "string"
             }
           },
           "additionalProperties": false

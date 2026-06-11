@@ -414,7 +414,7 @@ describe('UPlotConfigBuilder', () => {
         "axes": [
           {
             "filter": undefined,
-            "font": "12px 'Inter', 'Helvetica', 'Arial', sans-serif",
+            "font": "12px 'Product Sans', sans-serif",
             "gap": 5,
             "grid": {
               "show": false,
@@ -423,7 +423,7 @@ describe('UPlotConfigBuilder', () => {
             },
             "incrs": undefined,
             "label": "test label",
-            "labelFont": "12px 'Inter', 'Helvetica', 'Arial', sans-serif",
+            "labelFont": "12px 'Product Sans', sans-serif",
             "labelGap": 8,
             "labelSize": 20,
             "rotate": undefined,
@@ -433,7 +433,7 @@ describe('UPlotConfigBuilder', () => {
             "size": [Function],
             "space": [Function],
             "splits": undefined,
-            "stroke": "rgb(204, 204, 220)",
+            "stroke": "#E6E6E6",
             "ticks": {
               "show": true,
               "size": 4,

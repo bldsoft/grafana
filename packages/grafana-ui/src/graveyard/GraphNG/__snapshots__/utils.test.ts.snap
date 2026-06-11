@@ -5,7 +5,7 @@ exports[`GraphNG utils preparePlotConfigBuilder 1`] = `
   "axes": [
     {
       "filter": undefined,
-      "font": "12px 'Inter', 'Helvetica', 'Arial', sans-serif",
+      "font": "12px 'Product Sans', sans-serif",
       "gap": 5,
       "grid": {
         "show": true,
@@ -21,7 +21,7 @@ exports[`GraphNG utils preparePlotConfigBuilder 1`] = `
       "size": [Function],
       "space": [Function],
       "splits": undefined,
-      "stroke": "rgb(204, 204, 220)",
+      "stroke": "#E6E6E6",
       "ticks": {
         "show": true,
         "size": 4,
@@ -33,7 +33,7 @@ exports[`GraphNG utils preparePlotConfigBuilder 1`] = `
     },
     {
       "filter": undefined,
-      "font": "12px 'Inter', 'Helvetica', 'Arial', sans-serif",
+      "font": "12px 'Product Sans', sans-serif",
       "gap": 5,
       "grid": {
         "show": true,
@@ -49,11 +49,11 @@ exports[`GraphNG utils preparePlotConfigBuilder 1`] = `
       "size": [Function],
       "space": [Function],
       "splits": undefined,
-      "stroke": "rgb(204, 204, 220)",
+      "stroke": "#E6E6E6",
       "ticks": {
         "show": false,
         "size": 4,
-        "stroke": "rgb(204, 204, 220)",
+        "stroke": "#E6E6E6",
         "width": 1,
       },
       "timeZone": undefined,

@@ -42,16 +42,13 @@ describe('Login Page', () => {
   it('renders correctly', () => {
     render(<LoginPage />);
 
-    expect(screen.getByRole('heading', { name: 'Welcome to Grafana' })).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: 'Email or username' })).toBeInTheDocument();
+    expect(screen.getByText('Welcome back')).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Username' })).toBeInTheDocument();
     expect(screen.getByLabelText('Password')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Log in' })).toBeInTheDocument();
 
-    expect(screen.getByRole('link', { name: 'Forgot your password?' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Forgot your password?' })).toHaveAttribute(
-      'href',
-      '/user/password/send-reset-email'
-    );
+    // The "Forgot your password?" link was removed from the login form
+    expect(screen.queryByRole('link', { name: 'Forgot your password?' })).not.toBeInTheDocument();
 
     expect(screen.getByRole('link', { name: 'Sign up' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Sign up' })).toHaveAttribute('href', '/signup');
@@ -61,10 +58,10 @@ describe('Login Page', () => {
     render(<LoginPage />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
-    expect(await screen.findByText('Email or username is required')).toBeInTheDocument();
+    expect(await screen.findByText('Username is required')).toBeInTheDocument();
 
-    await userEvent.type(screen.getByRole('textbox', { name: 'Email or username' }), 'admin');
-    await waitFor(() => expect(screen.queryByText('Email or username is required')).not.toBeInTheDocument());
+    await userEvent.type(screen.getByRole('textbox', { name: 'Username' }), 'admin');
+    await waitFor(() => expect(screen.queryByText('Username is required')).not.toBeInTheDocument());
   });
 
   it('should pass validation checks for password field', async () => {
@@ -86,7 +83,7 @@ describe('Login Page', () => {
     postMock.mockResolvedValueOnce({ message: 'Logged in' });
     render(<LoginPage />);
 
-    await userEvent.type(screen.getByLabelText('Email or username'), 'admin');
+    await userEvent.type(screen.getByLabelText('Username'), 'admin');
     await userEvent.type(screen.getByLabelText('Password'), 'test');
     fireEvent.click(screen.getByRole('button', { name: 'Log in' }));
 
@@ -114,7 +111,7 @@ describe('Login Page', () => {
 
     render(<LoginPage />);
 
-    const alert = await screen.findByRole('alert', { name: 'Login failed' });
+    const alert = await screen.findByRole('alert');
     expect(alert).toBeInTheDocument();
     expect(alert).toHaveTextContent('Oh no there was an error :(');
   });
@@ -132,11 +129,11 @@ describe('Login Page', () => {
 
     render(<LoginPage />);
 
-    await userEvent.type(screen.getByLabelText('Email or username'), 'admin');
+    await userEvent.type(screen.getByLabelText('Username'), 'admin');
     await userEvent.type(screen.getByLabelText('Password'), 'test');
     await userEvent.click(screen.getByRole('button', { name: 'Log in' }));
 
-    const alert = await screen.findByRole('alert', { name: 'Login failed' });
+    const alert = await screen.findByRole('alert');
     expect(alert).toBeInTheDocument();
     expect(alert).toHaveTextContent('Invalid username or password');
   });
@@ -154,11 +151,11 @@ describe('Login Page', () => {
 
     render(<LoginPage />);
 
-    await userEvent.type(screen.getByLabelText('Email or username'), 'admin');
+    await userEvent.type(screen.getByLabelText('Username'), 'admin');
     await userEvent.type(screen.getByLabelText('Password'), 'test');
     await userEvent.click(screen.getByRole('button', { name: 'Log in' }));
 
-    const alert = await screen.findByRole('alert', { name: 'Login failed' });
+    const alert = await screen.findByRole('alert');
     expect(alert).toBeInTheDocument();
     expect(alert).toHaveTextContent(
       'You have exceeded the number of login attempts for this user. Please try again later.'

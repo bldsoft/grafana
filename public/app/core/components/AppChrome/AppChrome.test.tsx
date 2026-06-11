@@ -96,7 +96,8 @@ describe('AppChrome', () => {
     const skipLink = await screen.findByRole('link', { name: 'Skip to main content' });
     expect(skipLink).toHaveFocus();
     await userEvent.keyboard('{tab}');
-    expect(await screen.findByRole('button', { name: 'Main menu' })).toHaveFocus();
+    // The mega menu is a permanent sidebar now, so its logo link is the next focusable element
+    expect(await screen.findByRole('link', { name: 'Go to home' })).toHaveFocus();
   });
 
   it('should move focus to main content on every skip link activation', async () => {
