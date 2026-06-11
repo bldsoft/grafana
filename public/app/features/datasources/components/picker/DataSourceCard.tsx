@@ -65,7 +65,7 @@ function getStyles(theme: GrafanaTheme2, builtIn = false) {
   return {
     card: css({
       cursor: 'pointer',
-      backgroundColor: 'transparent',
+      backgroundColor: theme.colors.background.surfacePrimary,
       padding: theme.spacing(1),
 
       '&:hover': {
@@ -145,7 +145,7 @@ function getStyles(theme: GrafanaTheme2, builtIn = false) {
       color: theme.colors.border.weak,
     }),
     selected: css({
-      background: theme.colors.action.selected,
+      background: theme.colors.background.surfacePrimary,
 
       '&::before': {
         backgroundImage: theme.colors.gradients.brandVertical,

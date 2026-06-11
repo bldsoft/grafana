@@ -9,16 +9,15 @@ import { PSEUDO_LOCALE, t, Trans } from '@grafana/i18n';
 import { config, reportInteraction } from '@grafana/runtime';
 import {
   Button,
+  FeatureBadge,
   Field,
   FieldSet,
   Label,
   stylesFactory,
   TimeZonePicker,
   WeekStartPicker,
-  FeatureBadge,
   Combobox,
   ComboboxOption,
-  TextLink,
   WeekStart,
   isWeekStart,
 } from '@grafana/ui';
@@ -227,41 +226,22 @@ export class SharedPreferences extends PureComponent<Props, State> {
   };
 
   render() {
-    const { theme, timezone, weekStart, homeDashboardUID, language, isLoading, isSubmitting, regionalFormat } =
-      this.state;
+    const { timezone, weekStart, homeDashboardUID, language, isLoading, isSubmitting, regionalFormat } = this.state;
     const { disabled } = this.props;
     const styles = getStyles();
-    const currentThemeOption = this.themeOptions.find((x) => x.value === theme) ?? this.themeOptions[0];
+    // const currentThemeOption = this.themeOptions.find((x) => x.value === theme) ?? this.themeOptions[0];
 
     return (
       <form onSubmit={this.onSubmitForm} className={styles.form}>
         <FieldSet label={<Trans i18nKey="shared-preferences.title">Preferences</Trans>} disabled={disabled}>
-          <Field
-            loading={isLoading}
-            disabled={isLoading}
-            label={t('shared-preferences.fields.theme-label', 'Interface theme')}
-            description={
-              config.featureToggles.grafanaconThemes && config.feedbackLinksEnabled ? (
-                <Trans i18nKey="shared-preferences.fields.theme-description">
-                  Enjoying the experimental themes? Tell us what you'd like to see{' '}
-                  <TextLink
-                    variant="bodySmall"
-                    external
-                    href="https://docs.google.com/forms/d/e/1FAIpQLSeRKAY8nUMEVIKSYJ99uOO-dimF6Y69_If1Q1jTLOZRWqK1cw/viewform?usp=dialog"
-                  >
-                    here.
-                  </TextLink>
-                </Trans>
-              ) : undefined
-            }
-          >
-            <Combobox
-              options={this.themeOptions}
-              value={currentThemeOption.value}
-              onChange={this.onThemeChanged}
-              id="shared-preferences-theme-select"
-            />
-          </Field>
+          {/*<Field loading={isLoading} disabled={isLoading} label={t('shared-preferences.fields.theme-label', 'Interface theme')}>*/}
+          {/*  <Combobox*/}
+          {/*    options={this.themeOptions}*/}
+          {/*    value={currentThemeOption.value}*/}
+          {/*    onChange={this.onThemeChanged}*/}
+          {/*    id="shared-preferences-theme-select"*/}
+          {/*  />*/}
+          {/*</Field>*/}
 
           <Field
             loading={isLoading}

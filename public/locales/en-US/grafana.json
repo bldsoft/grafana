@@ -10269,14 +10269,14 @@
       "email-required": "Email is required",
       "name-label": "Name",
       "password-label": "Password",
-      "password-placeholder": "password",
+      "password-placeholder": "Enter password",
       "password-required": "Password is required",
       "passwordless-username-label": "Username",
       "submit-label": "Log in",
       "submit-loading-label": "Logging in...",
-      "username-label": "Email or username",
-      "username-placeholder": "email or username",
-      "username-required": "Email or username is required",
+      "username-label": "Email or Username",
+      "username-placeholder": "Enter email or username",
+      "username-required": "Email or Username is required",
       "verify-email-label": "Send a verification email",
       "verify-email-loading-label": "Sending email..."
     },
@@ -11342,7 +11342,7 @@
       "dialog-label": "Navigation",
       "dock": "Dock menu",
       "list-label": "Navigation",
-      "open": "Main menu",
+      "open": "Open menu",
       "undock": "Undock menu"
     },
     "megamenu-item": {

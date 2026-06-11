@@ -6,7 +6,6 @@ import { Alert, ClipboardButton, Field, FieldSet, Input, Switch, TextLink } from
 import config from 'app/core/config';
 import { DashboardInteractions } from 'app/features/dashboard-scene/utils/interactions';
 
-import { ThemePicker } from './ThemePicker';
 import { ShareModalTabProps } from './types';
 import { buildImageUrl, buildShareUrl, getTrackingSource } from './utils';
 
@@ -15,7 +14,7 @@ export interface Props extends ShareModalTabProps {}
 export const ShareLink = memo(({ panel, dashboard }: Props) => {
   const [useCurrentTimeRange, setUseCurrentTimeRange] = useState(true);
   const [useShortUrl, setUseShortUrl] = useState(false);
-  const [selectedTheme, setSelectedTheme] = useState('current');
+  const [selectedTheme] = useState('current');
   const [shareUrl, setShareUrl] = useState('');
   const [imageUrl, setImageUrl] = useState('');
 
@@ -35,8 +34,6 @@ export const ShareLink = memo(({ panel, dashboard }: Props) => {
   };
 
   const onUrlShorten = () => setUseShortUrl((prev) => !prev);
-
-  const onThemeChange = (value: string) => setSelectedTheme(value);
 
   const onCopy = () => {
     DashboardInteractions.shareLinkCopied({
@@ -73,7 +70,6 @@ export const ShareLink = memo(({ panel, dashboard }: Props) => {
         <Field label={timeRangeLabelTranslation} description={isRelativeTime ? timeRangeDescriptionTranslation : ''}>
           <Switch id="share-current-time-range" value={useCurrentTimeRange} onChange={onUseCurrentTimeRangeChange} />
         </Field>
-        <ThemePicker selectedTheme={selectedTheme} onChange={onThemeChange} />
         <Field label={shortenURLTranslation}>
           <Switch id="share-shorten-url" value={useShortUrl} onChange={onUrlShorten} />
         </Field>

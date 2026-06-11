@@ -38,7 +38,7 @@ export type TableColumn = Column & {
   field?: Field;
 };
 
-const ROW_HEIGHT = 36; // pixels
+const ROW_HEIGHT = 48; // pixels
 
 export const SearchResultsTable = React.memo(
   ({
@@ -211,7 +211,7 @@ export const SearchResultsTable = React.memo(
           });
 
           return (
-            <div key={key} {...headerGroupProps} className={styles.headerRow}>
+            <div key={key} {...headerGroupProps} className={styles.newHeaderRow}>
               {headerGroup.headers.map((column) => {
                 const { key, ...headerProps } = column.getHeaderProps();
                 return (
@@ -256,8 +256,6 @@ export const SearchResultsTable = React.memo(
 SearchResultsTable.displayName = 'SearchResultsTable';
 
 const getStyles = (theme: GrafanaTheme2) => {
-  const rowHoverBg = theme.colors.action.hover;
-
   return {
     noData: css({
       display: 'flex',
@@ -269,26 +267,27 @@ const getStyles = (theme: GrafanaTheme2) => {
     headerCell: css({
       alignItems: 'center',
       display: 'flex',
-      overflo: 'hidden',
+      overflow: 'hidden',
       padding: theme.spacing(1),
     }),
-    headerRow: css({
-      backgroundColor: theme.colors.background.secondary,
+    newHeaderRow: css({
       display: 'flex',
       gap: theme.spacing(1),
-      height: `${ROW_HEIGHT}px`,
+      height: ROW_HEIGHT,
+      paddingLeft: 16,
     }),
     selectedRow: css({
-      backgroundColor: rowHoverBg,
-      boxShadow: `inset 3px 0px ${theme.colors.primary.border}`,
+      background: theme.colors.background.surfaceSecondary,
     }),
     rowContainer: css({
       display: 'flex',
       gap: theme.spacing(1),
-      height: `${ROW_HEIGHT}px`,
+      height: `${ROW_HEIGHT}px !important`,
       label: 'row',
+      paddingLeft: 16,
+      borderRadius: theme.shape.radius.default,
       '&:hover': {
-        backgroundColor: rowHoverBg,
+        background: theme.colors.background.surfaceSecondary,
       },
 
       "&:not(:hover) div[role='cell']": {

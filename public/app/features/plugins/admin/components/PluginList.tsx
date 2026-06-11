@@ -28,7 +28,7 @@ export const PluginList = ({ plugins, isLoading }: Props) => {
     );
   }
   if (!isLoading && plugins.length === 0) {
-    return <EmptyState variant="not-found" message={t('plugins.empty-state.message', 'No plugins found')} />;
+    return <EmptyState message={t('plugins.empty-state.message', 'No plugins found')} />;
   }
 
   return (

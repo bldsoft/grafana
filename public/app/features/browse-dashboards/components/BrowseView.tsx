@@ -144,9 +144,7 @@ export function BrowseView({ folderUID, width, height, permissions, isReadOnlyRe
         return false;
       }
       const item = treeItem.item;
-      const result = !(item.kind === 'ui' && item.uiKind === 'pagination-placeholder');
-
-      return result;
+      return !(item.kind === 'ui' && item.uiKind === 'pagination-placeholder');
     },
     [flatTree]
   );
@@ -158,7 +156,6 @@ export function BrowseView({ folderUID, width, height, permissions, isReadOnlyRe
       <div style={{ width }}>
         {canSelect ? (
           <EmptyState
-            variant="call-to-action"
             button={
               <LinkButton
                 href={folderUID ? `dashboard/new?folderUid=${folderUID}` : 'dashboard/new'}

@@ -129,7 +129,6 @@ export const PublicDashboardListTable = () => {
           <div>
             {paginatedPublicDashboards.publicDashboards.length === 0 ? (
               <EmptyState
-                variant="call-to-action"
                 message={t(
                   'shared-dashboard-list.empty-state.message',
                   "You haven't created any shared dashboards yet"

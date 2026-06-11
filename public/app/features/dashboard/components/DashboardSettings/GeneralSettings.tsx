@@ -1,7 +1,8 @@
+import { css } from '@emotion/css';
 import { useCallback, ChangeEvent, useState, type JSX } from 'react';
 import { connect, ConnectedProps } from 'react-redux';
 
-import { TimeZone } from '@grafana/data';
+import { GrafanaTheme2, TimeZone } from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
 import { config } from '@grafana/runtime';
 import {
@@ -15,6 +16,7 @@ import {
   Box,
   Stack,
   WeekStart,
+  useStyles2,
 } from '@grafana/ui';
 import { Page } from 'app/core/components/Page/Page';
 import { FolderPicker } from 'app/core/components/Select/FolderPicker';
@@ -54,6 +56,8 @@ export function GeneralSettingsUnconnected({
   ];
 
   const pageNav = sectionNav.node.parentItem;
+
+  const styles = useStyles2(getStyles);
 
   const onFolderChange = (newUID: string | undefined, newTitle: string | undefined) => {
     dashboard.meta.folderUid = newUID;
@@ -130,7 +134,7 @@ export function GeneralSettingsUnconnected({
 
   return (
     <Page navModel={sectionNav} pageNav={pageNav}>
-      <div style={{ maxWidth: '600px' }}>
+      <div style={{ maxWidth: '525px' }}>
         <Box marginBottom={5}>
           <Field
             label={
@@ -178,6 +182,7 @@ export function GeneralSettingsUnconnected({
 
           <Field
             label={t('dashboard-settings.general.editable-label', 'Editable')}
+            className={styles.tertiary}
             description={t(
               'dashboard-settings.general.editable-description',
               'Set to read-only to disable all editing. Reload the dashboard for changes to take effect'
@@ -223,6 +228,14 @@ export function GeneralSettingsUnconnected({
       </div>
     </Page>
   );
+}
+
+const getStyles = (theme: GrafanaTheme2) => {
+  return {
+     tertiary: css({
+       color: theme.colors.text.tertiary
+     })
+  }
 }
 
 const mapDispatchToProps = {

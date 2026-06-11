@@ -24,7 +24,7 @@ export const DashboardLoading = ({ initPhase }: Props) => {
             <Spinner inline={true} /> {initPhase}
           </Stack>{' '}
           <Stack alignItems="center" justifyContent="center">
-            <Button variant="secondary" size="md" icon="repeat" onClick={cancelVariables}>
+            <Button className={styles.loadingButton} variant="secondary" size="md" onClick={cancelVariables}>
               <Trans i18nKey="dashboard.dashboard-loading.cancel-loading-dashboard">Cancel loading dashboard</Trans>
             </Button>
           </Stack>
@@ -39,13 +39,13 @@ export const getStyles = (theme: GrafanaTheme2) => {
   const slowStartThreshold = '0.5s';
 
   const invisibleToVisible = keyframes`
-    0% { opacity: 0%; }
+    0% { opacity: 0; }
     100% { opacity: 100%; }
   `;
 
   return {
     dashboardLoading: css({
-      height: '60vh',
+      height: '70vh',
       display: 'flex',
       opacity: '0%',
       alignItems: 'center',
@@ -53,6 +53,11 @@ export const getStyles = (theme: GrafanaTheme2) => {
       [theme.transitions.handleMotion('no-preference', 'reduce')]: {
         animation: `${invisibleToVisible} 0s step-end ${slowStartThreshold} 1 normal forwards`,
       },
+    }),
+    loadingButton: css({
+      padding: '10px 24px',
+      height: 44,
+      borderRadius: 10
     }),
     dashboardLoadingText: css({
       fontSize: theme.typography.h4.fontSize,

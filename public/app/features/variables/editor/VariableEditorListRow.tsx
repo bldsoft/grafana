@@ -173,7 +173,7 @@ function getStyles(theme: GrafanaTheme2) {
     }),
     nameLink: css({
       cursor: 'pointer',
-      color: theme.colors.primary.text,
+      color: theme.colors.text.link,
     }),
     definitionColumn: css({
       width: '100%',
@@ -185,7 +185,12 @@ function getStyles(theme: GrafanaTheme2) {
       whiteSpace: 'nowrap',
     }),
     iconPassed: css({
-      color: theme.v1.palette.greenBase,
+      color: theme.colors.text.active,
+      width: '16px',
+      height: '16px',
+      borderRadius: '23px',
+      padding: '1px',
+      backgroundColor: theme.colors.text.accent1,
       marginRight: theme.spacing(2),
     }),
     iconFailed: css({

@@ -176,7 +176,7 @@ export function DashboardLinkForm({ link, onUpdate, onGoBack }: DashboardLinkFor
         </CollapsableSection>
 
         <div>
-          <Button variant="secondary" onClick={onGoBack}>
+          <Button variant="secondary" fill="outline" onClick={onGoBack}>
             <Trans i18nKey="dashboard-scene.dashboard-link-form.back-to-list">Back to list</Trans>
           </Button>
         </div>

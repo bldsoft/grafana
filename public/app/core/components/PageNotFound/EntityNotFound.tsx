@@ -18,7 +18,7 @@ export function EntityNotFound({ entity = 'Page' }: Props) {
 
   return (
     <div className={styles.container} data-testid={selectors.components.EntityNotFound.container}>
-      <EmptyState message={`${entity} not found`} variant="not-found">
+      <EmptyState message={`${entity} not found`}>
         <Trans i18nKey="entity-not-found.description">
           We&apos;re looking but can&apos;t seem to find this {{ lowerCaseEntity }}. Try returning{' '}
           <TextLink href="/">home</TextLink> or seeking help on the{' '}

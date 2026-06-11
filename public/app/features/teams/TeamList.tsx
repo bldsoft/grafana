@@ -241,7 +241,6 @@ const TeamList = () => {
       <Page.Contents>
         {!isLoading && !query && teams.length === 0 ? (
           <EmptyState
-            variant="call-to-action"
             button={
               <LinkButton disabled={!canCreate} href="org/teams/new" icon="users-alt" size="lg">
                 <Trans i18nKey="teams.empty-state.button-title">New team</Trans>
@@ -268,7 +267,7 @@ const TeamList = () => {
               </InlineField>
             </div>
             {!isLoading && teams.length === 0 && (
-              <EmptyState variant="not-found" message={t('teams.empty-state.message', 'No teams found')} />
+              <EmptyState message={t('teams.empty-state.message', 'No teams found')} />
             )}
             {isLoading && <LoadingPlaceholder text={t('teams.team-list.loading-teams', 'Loading teams...')} />}
             {!isLoading && teams.length > 0 && (

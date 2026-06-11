@@ -18,7 +18,7 @@ export const PasswordField = forwardRef<HTMLInputElement, Props>((props, ref) =>
       ref={ref}
       suffix={
         <IconButton
-          name={showPassword ? 'eye-slash' : 'eye'}
+          name={showPassword ? 'eye' : 'eye-slash'}
           aria-controls={props.id}
           role="switch"
           aria-checked={showPassword}

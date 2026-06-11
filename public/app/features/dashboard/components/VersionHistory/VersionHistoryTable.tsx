@@ -62,7 +62,7 @@ export const VersionHistoryTable = ({ versions, canCompare, onCheck }: VersionsT
               <td>{version.message}</td>
               <td className="text-right">
                 {idx === 0 ? (
-                  <Tag name={t('dashboard.version-history-table.name-latest', 'Latest')} colorIndex={17} />
+                  <Tag name={t('dashboard.version-history-table.name-latest', 'Latest')} colorIndex={20} />
                 ) : (
                   <ModalsController>
                     {({ showModal, hideModal }) => (

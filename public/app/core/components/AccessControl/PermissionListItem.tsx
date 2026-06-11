@@ -2,7 +2,7 @@ import { css } from '@emotion/css';
 
 import { GrafanaTheme2 } from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
-import { Box, Button, Icon, Select, Tooltip, useStyles2 } from '@grafana/ui';
+import { Box, Icon, IconButton, Select, Tooltip, useStyles2 } from '@grafana/ui';
 
 import { ResourcePermission } from './types';
 
@@ -56,20 +56,20 @@ export const PermissionListItem = ({ item, permissionLevels, canSet, onRemove, o
       </td>
       <td>
         {item.isManaged ? (
-          <Button
-            size="sm"
-            icon="times"
-            variant="destructive"
-            disabled={!canSet}
-            onClick={() => onRemove(item)}
-            aria-label={t(
-              'access-control.permission-list-item.remove-aria-label',
-              'Remove permission for {{identifier}}',
-              {
-                identifier: getName(item),
-              }
-            )}
-          />
+          <div className={styles.dFlex}>
+            <IconButton
+              onClick={() => onRemove(item)}
+              disabled={!canSet}
+              name="trash-alt"
+              tooltip={t(
+                'access-control.permission-list-item.remove-aria-label',
+                'Remove permission for {{identifier}}',
+                {
+                  identifier: getName(item),
+                }
+              )}
+            />
+          </div>
         ) : (
           <Tooltip
             content={
@@ -78,9 +78,9 @@ export const PermissionListItem = ({ item, permissionLevels, canSet, onRemove, o
                 : t('access-control.permission-list-item.tooltip-provisioned-permission', 'Provisioned permission')
             }
           >
-            <Button
-              size="sm"
-              icon="lock"
+            <Icon
+              name="lock"
+              size="lg"
               aria-label={t('access-control.permission-list-item.locked-aria-label', 'Locked permission indicator')}
             />
           </Tooltip>
@@ -129,5 +129,8 @@ const getStyles = (theme: GrafanaTheme2) => ({
   inherited: css({
     color: theme.colors.text.secondary,
     flexWrap: 'nowrap',
+  }),
+  dFlex: css({
+    display: 'flex',
   }),
 });

@@ -7,7 +7,7 @@ import { Trans, t } from '@grafana/i18n';
 import { getDataSourceSrv } from '@grafana/runtime';
 import { Button, DeleteButton, EmptyState, IconButton, Stack, TextLink, useStyles2 } from '@grafana/ui';
 
-import { DashboardModel } from '../../state/DashboardModel';
+import { DashboardModel } from '../../state';
 import { ListNewButton } from '../DashboardSettings/ListNewButton';
 
 type Props = {
@@ -136,7 +136,6 @@ export const AnnotationSettingsList = ({ dashboard, onNew, onEdit }: Props) => {
       {showEmptyListCTA && (
         <Stack direction="column">
           <EmptyState
-            variant="call-to-action"
             button={
               <Button
                 data-testid={selectors.components.CallToActionCard.buttonV2('Add annotation query')}
@@ -182,6 +181,6 @@ export const AnnotationSettingsList = ({ dashboard, onNew, onEdit }: Props) => {
 const getStyles = () => ({
   table: css({
     width: '100%',
-    overflowX: 'scroll',
+    overflowX: 'auto',
   }),
 });

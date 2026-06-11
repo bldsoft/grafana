@@ -43,7 +43,7 @@ export const VariableUsagesButton = ({ id, usages, isAdhoc }: Props) => {
               reportInteraction('Show variable usages');
               showModal();
             }}
-            name="code-branch"
+            name="show-dependencies"
             tooltip={t('variables.variable-usages-button.tooltip-show-usages', 'Show usages')}
           />
         );

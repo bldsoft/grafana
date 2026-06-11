@@ -34,7 +34,7 @@ export const VariablesDependenciesButton = ({ variables }: Props) => {
               reportInteraction('Show variable dependencies');
               showModal();
             }}
-            icon="channel-add"
+            icon="show-dependencies"
             variant="secondary"
           >
             <Trans i18nKey="variables.variables-dependencies-button.show-dependencies">Show dependencies</Trans>

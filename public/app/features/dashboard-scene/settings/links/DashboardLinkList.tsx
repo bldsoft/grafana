@@ -30,7 +30,6 @@ export function DashboardLinkList({
     return (
       <Stack direction="column">
         <EmptyState
-          variant="call-to-action"
           button={
             <Button onClick={onNew} size="lg">
               <Trans i18nKey="dashboard-links.empty-state.button-title">Add dashboard link</Trans>
@@ -99,11 +98,13 @@ export function DashboardLinkList({
                 ) : null}
               </td>
               <td style={{ width: '1%' }} role="gridcell">
-                <IconButton
-                  name="copy"
-                  onClick={() => onDuplicate(link)}
-                  tooltip={t('dashboard-scene.dashboard-link-list.tooltip-copy-link', 'Copy link')}
-                />
+                <div className={styles.dFlex}>
+                  <IconButton
+                    name="copy"
+                    onClick={() => onDuplicate(link)}
+                    tooltip={t('dashboard-scene.dashboard-link-list.tooltip-copy-link', 'Copy link')}
+                  />
+                </div>
               </td>
               <td style={{ width: '1%' }} role="gridcell">
                 <DeleteButton
@@ -132,6 +133,9 @@ const getStyles = (theme: GrafanaTheme2) => ({
     width: '20vw',
     textOverflow: 'ellipsis',
     overflow: 'hidden',
+  }),
+  dFlex: css({
+    display: 'flex'
   }),
   urlWrapper: css({
     width: '40vw',

@@ -1,8 +1,9 @@
-import { ChangeEvent, FocusEvent, KeyboardEvent, ReactElement, useCallback, useEffect, useState } from 'react';
+import { css } from '@emotion/css';
+import { ChangeEvent, KeyboardEvent, ReactElement, useCallback, useEffect, useState } from 'react';
 
 import { TextBoxVariableModel, isEmptyObject } from '@grafana/data';
 import { t } from '@grafana/i18n';
-import { Input } from '@grafana/ui';
+import { Input, useStyles2 } from '@grafana/ui';
 import { useDispatch } from 'app/types/store';
 
 import { variableAdapters } from '../adapters';
@@ -20,6 +21,8 @@ export function TextBoxVariablePicker({ variable, onVariableChange, readOnly }: 
   useEffect(() => {
     setUpdatedValue(variable.current.value);
   }, [variable]);
+
+  const styles = useStyles2(getStyles);
 
   const updateVariable = useCallback(() => {
     if (!variable.rootStateKey) {
@@ -56,7 +59,7 @@ export function TextBoxVariablePicker({ variable, onVariableChange, readOnly }: 
     [setUpdatedValue]
   );
 
-  const onBlur = (e: FocusEvent<HTMLInputElement>) => updateVariable();
+  const onBlur = () => updateVariable();
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.keyCode === 13) {
       event.preventDefault();
@@ -67,6 +70,7 @@ export function TextBoxVariablePicker({ variable, onVariableChange, readOnly }: 
   return (
     <Input
       type="text"
+      className={styles.input}
       value={updatedValue}
       onChange={onChange}
       onBlur={onBlur}
@@ -77,3 +81,11 @@ export function TextBoxVariablePicker({ variable, onVariableChange, readOnly }: 
     />
   );
 }
+
+const getStyles = () => {
+  return {
+    input: css({
+      height: 32,
+    }),
+  };
+};

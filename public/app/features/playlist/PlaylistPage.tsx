@@ -56,7 +56,7 @@ export const PlaylistPage = () => {
         ) : (
           <>
             {!hasPlaylists && searchQuery ? (
-              <EmptyState variant="not-found" message={t('playlists.empty-state.message', 'No playlists found')} />
+              <EmptyState message={t('playlists.empty-state.message', 'No playlists found')} />
             ) : (
               <PlaylistPageList
                 playlists={playlists}
@@ -66,7 +66,6 @@ export const PlaylistPage = () => {
             )}
             {!showSearch && (
               <EmptyState
-                variant="call-to-action"
                 button={
                   <LinkButton disabled={!contextSrv.isEditor} href="playlists/new" icon="plus" size="lg">
                     <Trans i18nKey="playlist-page.empty.button">Create playlist</Trans>
