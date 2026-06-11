@@ -5,17 +5,17 @@ import { colorManipulator, GrafanaTheme2, NavModelItem } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
 import { reportInteraction } from '@grafana/runtime';
 import { Tooltip, useStyles2, useTheme2 } from '@grafana/ui';
-import g8LoginDarkSvg from 'img/g8_login_dark.svg';
-import g8LoginLightSvg from 'img/g8_login_light.svg';
-import grafanaIconSvg from 'img/grafana_icon.svg';
+import analytixIconSvg from 'img/analytix_icon.svg';
+import analytixMinIconSvg from 'img/analytix_min_icon.svg';
 
 export interface BrandComponentProps {
   className?: string;
   children?: JSX.Element | JSX.Element[];
+  menuOpen?: boolean;
 }
 
 export const LoginLogo: FC<BrandComponentProps & { logo?: string }> = ({ className, logo }) => {
-  return <img className={className} src={`${logo ? logo : grafanaIconSvg}`} alt="Grafana" />;
+  return <img className={className} src={`${logo ? logo : analytixIconSvg}`} alt="Analytix" />;
 };
 
 const LoginBackground: FC<BrandComponentProps> = ({ className, children }) => {
@@ -29,7 +29,7 @@ const LoginBackground: FC<BrandComponentProps> = ({ className, children }) => {
       right: 0,
       bottom: 0,
       top: 0,
-      background: `url(${theme.isDark ? g8LoginDarkSvg : g8LoginLightSvg})`,
+      background: `#1F1F1F`,
       backgroundPosition: 'top center',
       backgroundSize: 'auto',
       backgroundRepeat: 'no-repeat',
@@ -50,8 +50,8 @@ const LoginBackground: FC<BrandComponentProps> = ({ className, children }) => {
   return <div className={cx(background, className)}>{children}</div>;
 };
 
-const MenuLogo: FC<BrandComponentProps> = ({ className }) => {
-  return <img className={className} src={grafanaIconSvg} alt="Grafana" />;
+const MenuLogo: FC<BrandComponentProps> = ({ className, menuOpen }) => {
+  return <img className={className} src={menuOpen ? analytixIconSvg : analytixMinIconSvg} alt="Analytix" />;
 };
 
 /**
@@ -117,8 +117,8 @@ export class Branding {
   static LoginBackground = LoginBackground;
   static MenuLogo = MenuLogo;
   static LoginBoxBackground = LoginBoxBackground;
-  static AppTitle = 'Grafana';
-  static LoginTitle = 'Welcome to Grafana';
+  static AppTitle = 'Analytix';
+  static LoginTitle = 'Welcome to Analytix';
   static HideEdition = false;
   static GetLoginSubTitle = (): null | string => {
     return null;

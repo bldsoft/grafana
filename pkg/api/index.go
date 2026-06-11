@@ -184,10 +184,10 @@ func (hs *HTTPServer) setIndexViewData(c *contextmodel.ReqContext) (*dtos.IndexV
 		AppNameBodyClass:                    "app-grafana",
 		FavIcon:                             template.URL(assets.ContentDeliveryURL + "public/build/img/fav32.png"),            // #nosec G203
 		AppleTouchIcon:                      template.URL(assets.ContentDeliveryURL + "public/build/img/apple-touch-icon.png"), // #nosec G203
-		AppTitle:                            "Grafana",
+		AppTitle:                            "Analytix",
 		NavTree:                             navTree,
 		Nonce:                               c.RequestNonce,
-		LoadingLogo:                         template.URL(assets.ContentDeliveryURL + "public/build/img/grafana_icon.svg"), // #nosec G203
+		LoadingLogo:                         template.URL(assets.ContentDeliveryURL + "public/build/img/analytix_min_icon.svg"), // #nosec G203
 		IsDevelopmentEnv:                    hs.Cfg.Env == setting.Dev,
 		Assets:                              assets,
 	}

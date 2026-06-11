@@ -1,42 +1,14 @@
 import { css } from '@emotion/css';
 
 import { GrafanaTheme2 } from '@grafana/data';
-import { Trans } from '@grafana/i18n';
 import { useStyles2 } from '@grafana/ui';
-
-const helpOptions = [
-  { value: 0, label: 'Documentation', href: 'https://grafana.com/docs/grafana/latest' },
-  { value: 1, label: 'Tutorials', href: 'https://grafana.com/tutorials' },
-  { value: 2, label: 'Community', href: 'https://community.grafana.com' },
-  { value: 3, label: 'Public Slack', href: 'http://slack.grafana.com' },
-];
 
 export const WelcomeBanner = () => {
   const styles = useStyles2(getStyles);
 
   return (
     <div className={styles.container}>
-      <h1 className={styles.title}>
-        <Trans i18nKey="welcome.welcome-banner.welcome-to-grafana">Welcome to Grafana</Trans>
-      </h1>
-      <div className={styles.help}>
-        <h2 className={styles.helpText}>
-          <Trans i18nKey="welcome.welcome-banner.need-help">Need help?</Trans>
-        </h2>
-        <div className={styles.helpLinks}>
-          {helpOptions.map((option, index) => {
-            return (
-              <a
-                key={`${option.label}-${index}`}
-                className={styles.helpLink}
-                href={`${option.href}?utm_source=grafana_gettingstarted`}
-              >
-                {option.label}
-              </a>
-            );
-          })}
-        </div>
-      </div>
+      <h1 className={styles.title}>Welcome to Analytix</h1>
     </div>
   );
 };
@@ -52,7 +24,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       padding: theme.spacing(0, 3),
 
       [theme.breakpoints.down('lg')]: {
-        backgroundPosition: '0px',
+        backgroundPosition: '0',
         flexDirection: 'column',
         alignItems: 'flex-start',
         justifyContent: 'center',
@@ -74,36 +46,6 @@ const getStyles = (theme: GrafanaTheme2) => {
       },
       [theme.breakpoints.down('sm')]: {
         fontSize: theme.typography.h3.fontSize,
-      },
-    }),
-    help: css({
-      display: 'flex',
-      alignItems: 'baseline',
-    }),
-    helpText: css({
-      ...theme.typography.h3,
-      marginRight: theme.spacing(2),
-      marginBottom: 0,
-
-      [theme.breakpoints.down('md')]: {
-        fontSize: theme.typography.h4.fontSize,
-      },
-
-      [theme.breakpoints.down('sm')]: {
-        display: 'none',
-      },
-    }),
-    helpLinks: css({
-      display: 'flex',
-      flexWrap: 'wrap',
-    }),
-    helpLink: css({
-      marginRight: theme.spacing(2),
-      textDecoration: 'underline',
-      textWrap: 'nowrap',
-
-      [theme.breakpoints.down('sm')]: {
-        marginRight: theme.spacing(1),
       },
     }),
   };
