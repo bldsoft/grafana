@@ -1,7 +1,9 @@
+import { css, cx } from '@emotion/css';
 import { memo, HTMLAttributes, useState } from 'react';
 
 import { SelectableValue } from '@grafana/data';
 
+import { useStyles2 } from '../../themes/ThemeContext';
 import { Menu } from '../Menu/Menu';
 import { MenuItem } from '../Menu/MenuItem';
 import { ScrollContainer } from '../ScrollContainer/ScrollContainer';
@@ -21,6 +23,7 @@ export interface Props<T> extends HTMLAttributes<HTMLButtonElement> {
   variant?: ToolbarButtonVariant;
   tooltip?: string;
   root?: HTMLElement;
+  grouped?: boolean;
 }
 
 /**
@@ -29,7 +32,8 @@ export interface Props<T> extends HTMLAttributes<HTMLButtonElement> {
  * https://developers.grafana.com/ui/latest/index.html?path=/docs/inputs-deprecated-buttonselect--docs
  */
 const ButtonSelectComponent = <T,>(props: Props<T>) => {
-  const { className, options, value, onChange, narrow, variant, root, ...restProps } = props;
+  const { className, options, value, onChange, narrow, variant, root, grouped, ...restProps } = props;
+  const styles = useStyles2(getStyles);
   const [isOpen, setIsOpen] = useState(false);
 
   const renderMenu = () => (
@@ -54,7 +58,15 @@ const ButtonSelectComponent = <T,>(props: Props<T>) => {
 
   return (
     <Dropdown root={root} overlay={renderMenu} placement="bottom-end">
-      <ToolbarButton className={className} isOpen={isOpen} narrow={narrow} variant={variant} {...restProps}>
+      <ToolbarButton
+        className={cx(className, {
+          [styles.grouped]: grouped,
+        })}
+        isOpen={isOpen}
+        narrow={narrow}
+        variant={variant}
+        {...restProps}
+      >
         {value?.label || (value?.value != null ? String(value?.value) : null)}
       </ToolbarButton>
     </Dropdown>
@@ -67,3 +79,12 @@ ButtonSelectComponent.displayName = 'ButtonSelect';
 // see https://github.com/DefinitelyTyped/DefinitelyTyped/issues/37087#issuecomment-656596623
 // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
 export const ButtonSelect = memo(ButtonSelectComponent) as typeof ButtonSelectComponent;
+
+const getStyles = () => {
+  return {
+    grouped: css({
+      borderTopLeftRadius: 0,
+      borderBottomLeftRadius: 0,
+    }),
+  };
+};

@@ -59,7 +59,6 @@ export const getModalStyles = (theme: GrafanaTheme2) => {
       display: 'flex',
       alignItems: 'center',
       position: 'relative',
-      top: '2px',
     }),
     modalHeaderIcon: css({
       marginRight: theme.spacing(2),

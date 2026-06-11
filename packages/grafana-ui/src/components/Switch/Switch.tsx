@@ -107,8 +107,8 @@ const getSwitchStyles = (theme: GrafanaTheme2, transparent?: boolean) => ({
 
         svg: {
           transform: `translate3d(${theme.spacing(2.25)}, -50%, 0)`,
-          background: theme.colors.primary.contrastText,
-          color: theme.colors.primary.main,
+          background: theme.colors.text.secondary,
+          color: theme.colors.text.secondary,
         },
       },
 
@@ -158,7 +158,6 @@ const getSwitchStyles = (theme: GrafanaTheme2, transparent?: boolean) => ({
         height: theme.spacing(1.5),
         borderRadius: theme.shape.radius.circle,
         background: theme.colors.text.secondary,
-        boxShadow: theme.shadows.z1,
         left: 0,
         top: '50%',
         transform: `translate3d(${theme.spacing(0.25)}, -50%, 0)`,
@@ -174,7 +173,6 @@ const getSwitchStyles = (theme: GrafanaTheme2, transparent?: boolean) => ({
   }),
   inlineContainer: css({
     padding: theme.spacing(0, 1),
-    height: theme.spacing(theme.components.height.md),
     display: 'inline-flex',
     alignItems: 'center',
     background: transparent ? 'transparent' : theme.components.input.background,

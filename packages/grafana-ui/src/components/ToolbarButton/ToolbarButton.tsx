@@ -145,12 +145,11 @@ const getStyles = (theme: GrafanaTheme2) => {
 
   const defaultOld = css({
     color: theme.colors.text.primary,
-    background: theme.colors.secondary.main,
+    background: 'transparent',
 
     '&:hover, &:focus': {
-      color: theme.colors.text.primary,
-      background: theme.colors.secondary.shade,
-      border: `1px solid ${theme.colors.border.medium}`,
+      color: theme.colors.text.active,
+      background: theme.colors.border.teriary,
     },
 
     '&:active': {
@@ -164,7 +163,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       position: 'relative',
       display: 'flex',
       alignItems: 'center',
-      height: theme.spacing(theme.components.height.md),
+      minHeight: theme.spacing(theme.components.height.md),
       padding: theme.spacing(0, 1),
       borderRadius: theme.shape.radius.default,
       lineHeight: `${theme.components.height.md * theme.spacing.gridSize - 2}px`,
@@ -188,6 +187,11 @@ const getStyles = (theme: GrafanaTheme2) => {
 
       '&:focus:not(:focus-visible)': getMouseFocusStyles(theme),
 
+      '&:hover': {
+        color: theme.colors.text.active,
+        background: theme.colors.background.surfaceSecondary,
+      },
+
       '&[disabled], &:disabled': {
         cursor: 'not-allowed',
         opacity: theme.colors.action.disabledOpacity,
@@ -195,9 +199,8 @@ const getStyles = (theme: GrafanaTheme2) => {
         boxShadow: 'none',
 
         '&:hover': {
-          color: theme.colors.text.disabled,
-          background: theme.colors.action.disabledBackground,
-          boxShadow: 'none',
+          color: theme.colors.text.active,
+          background: theme.colors.border.teriary,
         },
       },
     }),
@@ -208,7 +211,6 @@ const getStyles = (theme: GrafanaTheme2) => {
 
       '&:hover': {
         color: theme.colors.text.primary,
-        background: theme.colors.action.hover,
       },
 
       '&:active': {

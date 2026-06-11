@@ -36,7 +36,7 @@ export function getSvgSize(size: IconSize) {
     case 'lg':
       return 18;
     case 'xl':
-      return 24;
+      return 21;
     case 'xxl':
       return 36;
     case 'xxxl':
@@ -61,8 +61,8 @@ export function getIconRoot(): string {
   return iconRoot;
 }
 
-export function getIconPath(name: IconName, type: IconType = 'default'): string {
+export function getIconPath(name: IconName, type: IconType = 'default', filled = false): string {
   const iconRoot = getIconRoot();
   const subDir = getIconSubDir(name, type);
-  return `${iconRoot}${subDir}/${name}.svg`;
+  return `${iconRoot}${subDir}/${name}${filled ? '-filled' : ''}.svg`;
 }

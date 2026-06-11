@@ -9,12 +9,12 @@ export const getSelectStyles = stylesFactory((theme: GrafanaTheme2) => {
     menu: css({
       label: 'grafana-select-menu',
       background: theme.components.dropdown.background,
-      borderRadius: theme.shape.radius.default,
       boxShadow: theme.shadows.z3,
       position: 'relative',
       minWidth: '100%',
       overflow: 'hidden',
       zIndex: 1,
+      borderRadius: 10,
     }),
     option: css({
       label: 'grafana-select-option',
@@ -28,6 +28,16 @@ export const getSelectStyles = stylesFactory((theme: GrafanaTheme2) => {
       cursor: 'pointer',
       borderLeft: '2px solid transparent',
       borderRadius: theme.shape.radius.default,
+
+      '&:first-child': {
+        borderTopLeftRadius: 10,
+        borderTopRightRadius: 10,
+      },
+
+      '&:last-child': {
+        borderBottomLeftRadius: 10,
+        borderBottomRightRadius: 10,
+      },
 
       '&:hover': {
         background: theme.colors.action.hover,

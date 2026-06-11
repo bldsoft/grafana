@@ -86,7 +86,7 @@ const getTagStyles = (theme: GrafanaTheme2, name: string, colorIndex?: number) =
       lineHeight: theme.typography.bodySmall.lineHeight,
       verticalAlign: 'baseline',
       backgroundColor: colors.color,
-      color: theme.v1.palette.gray98,
+      color: theme.colors.text.accent1,
       whiteSpace: 'pre',
       textShadow: 'none',
       padding: '3px 6px',

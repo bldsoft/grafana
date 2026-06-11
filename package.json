@@ -418,6 +418,7 @@
     "react-virtualized-auto-sizer": "1.0.26",
     "react-window": "1.8.11",
     "react-window-infinite-loader": "1.0.10",
+    "reactjs-popup": "^2.0.6",
     "reduce-reducers": "^1.0.4",
     "redux": "5.0.1",
     "redux-thunk": "3.1.0",

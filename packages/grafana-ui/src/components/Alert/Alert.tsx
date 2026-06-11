@@ -66,12 +66,8 @@ export const Alert = React.forwardRef<HTMLDivElement, Props>(
         <Box
           data-testid={selectors.components.Alert.alertV2(severity)}
           display="flex"
-          backgroundColor={severity}
-          borderRadius="default"
           paddingY={1}
           paddingX={2}
-          borderStyle="solid"
-          borderColor={severity}
           alignItems="stretch"
           boxShadow={elevated ? 'z3' : undefined}
         >
@@ -82,9 +78,11 @@ export const Alert = React.forwardRef<HTMLDivElement, Props>(
           </Box>
 
           <Box paddingY={1} grow={1}>
-            <Text color="primary" weight="medium">
-              {title}
-            </Text>
+            {hasTitle && (
+              <Text color="secondary" weight="medium">
+                {title}
+              </Text>
+            )}
             {children && <div className={styles.content}>{children}</div>}
           </Box>
           {/* If onRemove is specified, giving preference to onRemove */}
@@ -119,7 +117,7 @@ Alert.displayName = 'Alert';
 export const getIconFromSeverity = (severity: AlertVariant): IconName => {
   switch (severity) {
     case 'error':
-      return 'exclamation-circle';
+      return 'exclamation-triangle';
     case 'warning':
       return 'exclamation-triangle';
     case 'info':
@@ -153,7 +151,7 @@ const getStyles = (
         left: 0,
         bottom: 0,
         right: 0,
-        background: theme.colors.background.primary,
+        background: theme.colors.background.constPrimary,
         zIndex: -1,
       },
     }),
@@ -163,7 +161,7 @@ const getStyles = (
       top: '-1px',
     }),
     content: css({
-      color: theme.colors.text.primary,
+      color: theme.colors.text.secondary,
       paddingTop: hasTitle ? theme.spacing(0.5) : 0,
       maxHeight: '50vh',
       overflowY: 'auto',

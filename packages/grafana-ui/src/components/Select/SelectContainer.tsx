@@ -51,7 +51,6 @@ const getSelectContainerStyles = (theme: GrafanaTheme2, focused: boolean, disabl
         alignItems: 'stretch',
         justifyContent: 'space-between',
         minHeight: theme.spacing(theme.components.height.md),
-        height: 'auto',
         maxWidth: '100%',
 
         /* Input padding is applied to the InputControl so the menu is aligned correctly */

@@ -28,7 +28,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       borderRadius: theme.shape.radius.default,
 
       '&:hover': {
-        background: theme.colors.action.hover,
+        background: theme.colors.background.surfaceSecondary,
         cursor: 'pointer',
       },
     }),

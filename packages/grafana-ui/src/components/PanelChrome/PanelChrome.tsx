@@ -198,7 +198,6 @@ export function PanelChrome({
   );
 
   const headerStyles: CSSProperties = {
-    height: headerHeight,
     cursor: dragClass ? 'move' : 'auto',
   };
 
@@ -384,7 +383,6 @@ export function PanelChrome({
                 title={typeof title === 'string' ? title : undefined}
                 dragClass={dragClass}
                 onDragStart={onDragStart}
-                offset={hoverHeaderOffset}
                 onOpenMenu={onOpenMenu}
               >
                 {headerContent}
@@ -641,7 +639,10 @@ const getStyles = (theme: GrafanaTheme2) => {
     menuItem: css({
       label: 'panel-menu',
       border: 'none',
-      background: theme.colors.secondary.main,
+      width: 32,
+      background: 'transparent',
+      padding: 0,
+      justifyContent: 'center',
       '&:hover': {
         background: theme.colors.secondary.shade,
       },

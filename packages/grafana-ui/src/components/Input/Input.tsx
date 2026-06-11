@@ -147,7 +147,7 @@ export const getInputStyles = stylesFactory(({ theme, invalid = false, width }: 
         label: 'input-wrapper',
         display: 'flex',
         width: width ? theme.spacing(width) : '100%',
-        height: theme.spacing(theme.components.height.md),
+        height: 44,
         borderRadius: theme.shape.radius.default,
         '&:hover': {
           '> .prefix, .suffix, .input': {
@@ -229,8 +229,13 @@ export const getInputStyles = stylesFactory(({ theme, invalid = false, width }: 
         zIndex: 0,
         flexGrow: 1,
         borderRadius: theme.shape.radius.default,
+        backgroundColor: theme.colors.background.surfacePrimary,
         height: '100%',
         width: '100%',
+        padding: '0 12px',
+        "&::placeholder": {
+          color: theme.colors.text.iconsSecondary
+        }
       })
     ),
     inputDisabled: css({

@@ -26,6 +26,7 @@ type BaseProps = {
   className?: string;
   fullWidth?: boolean;
   type?: string;
+  buttonType?: string;
   tooltip?: PopoverContent;
   tooltipPlacement?: TooltipPlacement;
   /** Position of the icon */
@@ -66,6 +67,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       children,
       className,
       type = 'button',
+      buttonType,
       tooltip,
       disabled,
       tooltipPlacement,
@@ -89,6 +91,7 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       styles.button,
       {
         [styles.disabled]: disabled,
+        [styles.iconButton]: buttonType === 'icon',
       },
       className
     );
@@ -243,11 +246,10 @@ export interface StyleProps {
 
 export const getButtonStyles = (props: StyleProps) => {
   const { theme, variant, fill = 'solid', size, iconOnly, fullWidth } = props;
-  const { height, padding, fontSize } = getPropertiesForButtonSize(size, theme);
+  const { height, padding } = getPropertiesForButtonSize(size, theme);
   const variantStyles = getPropertiesForVariant(theme, variant, fill);
   const disabledStyles = getPropertiesForDisabled(theme, variant, fill);
   const focusStyle = getButtonFocusStyles(theme);
-  const paddingMinusBorder = theme.spacing.gridSize * padding - 1;
 
   return {
     button: css({
@@ -255,11 +257,12 @@ export const getButtonStyles = (props: StyleProps) => {
       display: 'inline-flex',
       alignItems: 'center',
       gap: theme.spacing(1),
-      fontSize: fontSize,
+      fontSize: 14,
       fontWeight: theme.typography.fontWeightMedium,
       fontFamily: theme.typography.fontFamily,
-      padding: `0 ${paddingMinusBorder}px`,
-      height: theme.spacing(height),
+      padding: `10px 24px`,
+      justifyContent: 'center',
+      height: 44,
       // Deduct border from line-height for perfect vertical centering on windows and linux
       lineHeight: `${theme.spacing.gridSize * height - 2}px`,
       verticalAlign: 'middle',
@@ -280,6 +283,12 @@ export const getButtonStyles = (props: StyleProps) => {
         transition: theme.transitions.create(['background-color', 'border-color', 'color'], {
           duration: theme.transitions.duration.short,
         }),
+      },
+    }),
+    iconButton: css({
+      padding: '0 8px',
+      '&:hover': {
+        background: 'transparent',
       },
     }),
     disabled: css(disabledStyles, {
@@ -318,6 +327,7 @@ export function getButtonVariantStyles(theme: GrafanaTheme2, color: ThemeRichCol
   let outlineBorderColor = color.border;
   let borderColor = 'transparent';
   let hoverBorderColor = 'transparent';
+  let hoverColor = color.shade;
 
   // Secondary button has some special rules as we lack the color token to
   // specify border color for normal button vs border color for outline button
@@ -325,6 +335,14 @@ export function getButtonVariantStyles(theme: GrafanaTheme2, color: ThemeRichCol
     borderColor = color.border;
     hoverBorderColor = theme.colors.emphasize(color.border, 0.25);
     outlineBorderColor = theme.colors.border.strong;
+  }
+
+  if (color.name === 'error') {
+    hoverColor = theme.colors.custom.hoverErrorButton;
+  }
+  if (color.name === 'primary') {
+    hoverColor = theme.colors.menu.selectedHovered;
+    outlineBorderColor = theme.colors.custom.accentAccent1;
   }
 
   if (fill === 'outline') {
@@ -365,12 +383,12 @@ export function getButtonVariantStyles(theme: GrafanaTheme2, color: ThemeRichCol
 
   return {
     background: color.main,
-    color: color.contrastText,
+    color: theme.colors.text.primary,
     border: `1px solid ${borderColor}`,
 
     '&:hover': {
-      background: color.shade,
-      color: color.contrastText,
+      background: hoverColor,
+      color: theme.colors.text.primary,
       boxShadow: theme.shadows.z1,
       borderColor: hoverBorderColor,
     },
@@ -445,7 +463,7 @@ export const clearButtonStyles = (theme: GrafanaTheme2) => {
   });
 };
 
-export const clearLinkButtonStyles = (theme: GrafanaTheme2) => {
+export const clearLinkButtonStyles = () => {
   return css({
     background: 'transparent',
     border: 'none',

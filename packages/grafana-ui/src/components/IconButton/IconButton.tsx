@@ -120,14 +120,11 @@ const getStyles = (theme: GrafanaTheme2, size: IconSize, variant: IconButtonVari
   const activeButtonStyle = getActiveButtonStyles(theme.colors.secondary, 'text');
 
   let iconColor = theme.colors.primary.text;
-  let hoverColor = theme.colors.primary.transparent;
 
   if (variant === 'secondary') {
     iconColor = theme.colors.secondary.text;
-    hoverColor = theme.colors.secondary.transparent;
   } else if (variant === 'destructive') {
     iconColor = theme.colors.error.text;
-    hoverColor = theme.colors.error.transparent;
   }
 
   return {
@@ -178,11 +175,6 @@ const getStyles = (theme: GrafanaTheme2, size: IconSize, variant: IconButtonVari
       '&:focus, &:focus-visible': getFocusStyles(theme),
 
       '&:focus:not(:focus-visible)': getMouseFocusStyles(theme),
-
-      '&:hover:before': {
-        backgroundColor: hoverColor,
-        opacity: 1,
-      },
     }),
     icon: css({
       verticalAlign: 'baseline',

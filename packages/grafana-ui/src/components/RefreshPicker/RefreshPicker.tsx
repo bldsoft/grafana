@@ -1,4 +1,3 @@
-import { css } from '@emotion/css';
 import { formatDuration } from 'date-fns';
 import { memo } from 'react';
 
@@ -125,10 +124,6 @@ const RefreshPickerComponent = memo((props: Props) => {
       </ToolbarButton>
       {!noIntervalPicker && (
         <ButtonSelect
-          className={css({
-            borderTopLeftRadius: 'unset',
-            borderBottomLeftRadius: 'unset',
-          })}
           value={selectedValue}
           options={options}
           onChange={handleChangeSelect}
@@ -136,6 +131,7 @@ const RefreshPickerComponent = memo((props: Props) => {
           data-testid={selectors.components.RefreshPicker.intervalButtonV2}
           aria-label={ariaLabel}
           tooltip={tooltipAutoRefresh}
+          grouped={true}
         />
       )}
     </ButtonGroup>

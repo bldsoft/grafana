@@ -139,20 +139,18 @@ export const TimeRangeContent = (props: Props) => {
 
   const fiscalYear = rangeUtil.convertRawToRange({ from: 'now/fy', to: 'now/fy' }, timeZone, fiscalYearStartMonth);
 
-  const fyTooltip = (
+  const fyTooltip = rangeUtil.isFiscal(value) ? (
     <div className={style.tooltip}>
-      {rangeUtil.isFiscal(value) ? (
-        <Tooltip
-          content={t('time-picker.range-content.fiscal-year', 'Fiscal year: {{from}} - {{to}}', {
-            from: fiscalYear.from.format('MMM-DD'),
-            to: fiscalYear.to.format('MMM-DD'),
-          })}
-        >
-          <Icon name="info-circle" />
-        </Tooltip>
-      ) : null}
+      <Tooltip
+        content={t('time-picker.range-content.fiscal-year', 'Fiscal year: {{from}} - {{to}}', {
+          from: fiscalYear.from.format('MMM-DD'),
+          to: fiscalYear.to.format('MMM-DD'),
+        })}
+      >
+        <Icon name="info-circle" />
+      </Tooltip>
     </div>
-  );
+  ) : null;
 
   const icon = (
     <Button
@@ -166,9 +164,10 @@ export const TimeRangeContent = (props: Props) => {
   );
 
   return (
-    <div>
+    <div style={{ width: 'fit-content' }}>
       <div className={style.fieldContainer}>
         <Field
+          className={style.field}
           label={t('time-picker.range-content.from-input', 'From')}
           invalid={from.invalid}
           error={from.errorMessage}
@@ -186,7 +185,12 @@ export const TimeRangeContent = (props: Props) => {
         {fyTooltip}
       </div>
       <div className={style.fieldContainer}>
-        <Field label={t('time-picker.range-content.to-input', 'To')} invalid={to.invalid} error={to.errorMessage}>
+        <Field
+          className={style.field}
+          label={t('time-picker.range-content.to-input', 'To')}
+          invalid={to.invalid}
+          error={to.errorMessage}
+        >
           <Input
             id={toFieldId}
             onClick={(event) => event.stopPropagation()}
@@ -202,6 +206,7 @@ export const TimeRangeContent = (props: Props) => {
       <div className={style.buttonsContainer}>
         <Button
           data-testid={selectors.components.TimePicker.copyTimeRange}
+          size="lg"
           icon="copy"
           variant="secondary"
           tooltip={t('time-picker.copy-paste.tooltip-copy', 'Copy time range to clipboard')}
@@ -211,6 +216,7 @@ export const TimeRangeContent = (props: Props) => {
         <Button
           data-testid={selectors.components.TimePicker.pasteTimeRange}
           icon="clipboard-alt"
+          size="lg"
           variant="secondary"
           tooltip={t('time-picker.copy-paste.tooltip-paste', 'Paste time range')}
           type="button"
@@ -282,6 +288,9 @@ function valueAsString(value: DateTime | string, timeZone?: TimeZone): string {
 
 function getStyles(theme: GrafanaTheme2) {
   return {
+    field: css({
+      width: '100%',
+    }),
     fieldContainer: css({
       display: 'flex',
     }),

@@ -44,10 +44,10 @@ export const Label = ({ children, description, className, category, ...labelProp
 export const getLabelStyles = (theme: GrafanaTheme2) => ({
   label: css({
     label: 'Label',
-    fontSize: theme.typography.size.sm,
+    fontSize: theme.typography.size.md,
     fontWeight: theme.typography.fontWeightMedium,
     lineHeight: 1.25,
-    marginBottom: theme.spacing(0.5),
+    marginBottom: theme.spacing(1),
     color: theme.colors.text.primary,
     maxWidth: '480px',
   }),
@@ -57,7 +57,7 @@ export const getLabelStyles = (theme: GrafanaTheme2) => ({
   }),
   description: css({
     label: 'Label-description',
-    color: theme.colors.text.secondary,
+    color: theme.colors.text.tertiary,
     fontSize: theme.typography.size.sm,
     fontWeight: theme.typography.fontWeightRegular,
     marginTop: theme.spacing(0.25),

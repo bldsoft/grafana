@@ -4,8 +4,7 @@ import { AnchorHTMLAttributes, forwardRef } from 'react';
 import { GrafanaTheme2, locationUtil, textUtil, ThemeTypographyVariantTypes } from '@grafana/data';
 
 import { useTheme2 } from '../../themes/ThemeContext';
-import { IconName, IconSize } from '../../types/icon';
-import { Icon } from '../Icon/Icon';
+import { IconName } from '../../types/icon';
 import { customWeight } from '../Text/utils';
 
 import { Link } from './Link';
@@ -30,19 +29,6 @@ interface TextLinkProps extends Omit<AnchorHTMLAttributes<HTMLAnchorElement>, 't
   children: React.ReactNode;
 }
 
-const svgSizes: {
-  [key in TextLinkVariants]: IconSize;
-} = {
-  h1: 'xl',
-  h2: 'xl',
-  h3: 'lg',
-  h4: 'lg',
-  h5: 'md',
-  h6: 'md',
-  body: 'md',
-  bodySmall: 'xs',
-};
-
 /**
  * The TextLink component renders an anchor tag `<a>` that takes users to another page, external or internal to Grafana.
  *
@@ -57,13 +43,11 @@ export const TextLink = forwardRef<HTMLAnchorElement, TextLinkProps>(
 
     const theme = useTheme2();
     const styles = getLinkStyles(theme, inline, variant, weight, color);
-    const externalIcon = icon || 'external-link-alt';
 
     if (external) {
       return (
         <a href={validUrl} ref={ref} {...rest} target="_blank" rel="noreferrer" className={styles}>
           {children}
-          <Icon size={svgSizes[variant] || 'md'} name={externalIcon} />
         </a>
       );
     }
@@ -73,7 +57,6 @@ export const TextLink = forwardRef<HTMLAnchorElement, TextLinkProps>(
     return (
       <Link ref={ref} href={strippedUrl} {...rest} className={styles}>
         {children}
-        {icon && <Icon name={icon} size={svgSizes[variant] || 'md'} />}
       </Link>
     );
   }
@@ -109,9 +92,9 @@ export const getLinkStyles = (
       },
     },
     inline && {
-      textDecoration: 'underline',
+      textDecoration: 'none',
       '&:hover': {
-        textDecoration: 'none',
+        textDecoration: 'underline',
       },
     },
   ]);

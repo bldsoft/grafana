@@ -14,6 +14,7 @@ export interface IconProps extends Omit<React.SVGProps<SVGElement>, 'onLoad' | '
   name: IconName;
   size?: IconSize;
   type?: IconType;
+  filled?: boolean;
   /**
    * Give your icon a semantic meaning. The icon will be hidden from screen readers, unless this prop or an aria-label is provided.
    */
@@ -91,7 +92,7 @@ function useIconWorkaround(name: IconName) {
  */
 export const Icon = memo(
   forwardRef<SVGElement, IconProps>(
-    ({ size = 'md', type = 'default', name: nameProp, className, style, title = '', ...rest }, ref) => {
+    ({ size = 'md', type = 'default', name: nameProp, filled = false, className, style, title = '', ...rest }, ref) => {
       const styles = useStyles2(getIconStyles);
       const { nameToUse: name, handleLoad } = useIconWorkaround(nameProp);
 
@@ -105,7 +106,7 @@ export const Icon = memo(
       const svgSize = getSvgSize(size);
       const svgHgt = svgSize;
       const svgWid = name.startsWith('gf-bar-align') ? 16 : name.startsWith('gf-interp') ? 30 : svgSize;
-      const svgPath = getIconPath(iconName, type);
+      const svgPath = getIconPath(iconName, type, filled);
 
       const composedClassName = cx(
         styles.icon,

@@ -75,7 +75,6 @@ export const Spinner = ({
       </div>
     );
   }
-
   return (
     <div
       data-testid="Spinner"

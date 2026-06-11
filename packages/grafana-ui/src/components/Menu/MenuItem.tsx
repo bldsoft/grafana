@@ -6,7 +6,7 @@ import { GrafanaTheme2, LinkTarget } from '@grafana/data';
 import { t } from '@grafana/i18n';
 
 import { useStyles2 } from '../../themes/ThemeContext';
-import { getFocusStyles, getInternalRadius } from '../../themes/mixins';
+import { getInternalRadius } from '../../themes/mixins';
 import { IconName } from '../../types/icon';
 import { Icon } from '../Icon/Icon';
 import { Stack } from '../Layout/Stack/Stack';
@@ -239,14 +239,12 @@ const getStyles = (theme: GrafanaTheme2) => {
       border: 'none',
       width: '100%',
       position: 'relative',
+      marginTop: 5,
 
-      '&:hover, &:focus-visible': {
-        background: theme.colors.action.hover,
-        color: theme.colors.text.primary,
-        textDecoration: 'none',
+      '&:hover': {
+        backgroundColor: theme.colors.background.surfaceSecondary,
+        borderRadius: 8,
       },
-
-      '&:focus-visible': getFocusStyles(theme),
     }),
     label: css({
       color: theme.colors.text.primary,
@@ -304,6 +302,7 @@ const getStyles = (theme: GrafanaTheme2) => {
       marginLeft: theme.spacing(3),
     }),
     ellipsis: css({
+      width: '100%',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',

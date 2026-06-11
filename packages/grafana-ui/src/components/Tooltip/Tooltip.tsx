@@ -26,7 +26,7 @@ export interface TooltipProps {
   theme?: 'info' | 'error' | 'info-alt';
   show?: boolean;
   placement?: TooltipPlacement;
-  content: PopoverContent;
+  content?: PopoverContent;
   children: JSX.Element;
   /**
    * Set to true if you want the tooltip to stay long enough so the user can move mouse over content to select text or click a link
@@ -43,6 +43,10 @@ export const Tooltip = forwardRef<HTMLElement, TooltipProps>(
     const [controlledVisible, setControlledVisible] = useState(show);
     const isOpen = show ?? controlledVisible;
     const floatingUIPlacement = getPlacement(placement);
+
+    if (!content) {
+      return children;
+    }
 
     // the order of middleware is important!
     // `arrow` should almost always be at the end

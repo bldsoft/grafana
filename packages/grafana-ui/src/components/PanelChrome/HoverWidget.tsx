@@ -14,13 +14,12 @@ interface Props {
   children?: React.ReactNode;
   menu?: ReactElement | (() => ReactElement);
   title?: string;
-  offset?: number;
   dragClass?: string;
   onDragStart?: (event: React.PointerEvent<HTMLDivElement>) => void;
   onOpenMenu?: () => void;
 }
 
-export function HoverWidget({ menu, title, dragClass, children, offset = -32, onOpenMenu, onDragStart }: Props) {
+export function HoverWidget({ menu, title, dragClass, children, onOpenMenu, onDragStart }: Props) {
   const styles = useStyles2(getStyles);
   const draggableRef = useRef<HTMLDivElement>(null);
   const selectors = e2eSelectors.components.Panels.Panel.HoverWidget;
@@ -42,11 +41,7 @@ export function HoverWidget({ menu, title, dragClass, children, offset = -32, on
   }
 
   return (
-    <div
-      className={cx(styles.container, 'show-on-hover')}
-      style={{ top: offset === 0 ? -1 : offset }}
-      data-testid={selectors.container}
-    >
+    <div className={cx(styles.container, 'show-on-hover')} data-testid={selectors.container}>
       {dragClass && (
         <div
           className={cx(styles.square, styles.draggable, dragClass)}
@@ -86,12 +81,10 @@ function getStyles(theme: GrafanaTheme2) {
       top: -1,
       boxSizing: 'content-box',
       alignItems: 'center',
-      background: theme.colors.background.secondary,
       color: theme.colors.text.primary,
-      border: `1px solid ${theme.colors.border.weak}`,
+      background: 'transparent',
       borderBottomLeftRadius: theme.shape.radius.default,
       height: theme.spacing(4),
-      boxShadow: theme.shadows.z1,
       gap: theme.spacing(1),
       padding: theme.spacing(0, 1),
     }),
@@ -113,6 +106,14 @@ function getStyles(theme: GrafanaTheme2) {
       // Background and border are overriden when topnav toggle is disabled
       background: 'inherit',
       border: 'none',
+      width: 32,
+      height: 32,
+      padding: 0,
+      justifyContent: 'center',
+      '&:hover': {
+        color: theme.colors.text.active,
+        background: theme.colors.border.teriary,
+      },
     }),
     draggableIcon: css({
       transform: 'rotate(45deg)',

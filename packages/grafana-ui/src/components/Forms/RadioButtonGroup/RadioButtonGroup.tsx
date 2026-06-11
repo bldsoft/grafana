@@ -121,12 +121,9 @@ const getStyles = (theme: GrafanaTheme2) => {
       display: 'inline-flex',
       flexDirection: 'row',
       flexWrap: 'nowrap',
-      border: `1px solid ${theme.components.input.borderColor}`,
       borderRadius: theme.shape.radius.default,
       padding: RADIO_GROUP_PADDING,
-      '&:hover': {
-        borderColor: theme.components.input.borderHover,
-      },
+      gap: 12,
     }),
     fullWidth: css({
       display: 'flex',

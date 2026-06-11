@@ -5,7 +5,7 @@ import { GrafanaTheme2 } from '@grafana/data';
 import { StringSelector, selectors } from '@grafana/e2e-selectors';
 
 import { useStyles2 } from '../../../themes/ThemeContext';
-import { getFocusStyles, getInternalRadius, getMouseFocusStyles } from '../../../themes/mixins';
+import { getFocusStyles, getMouseFocusStyles } from '../../../themes/mixins';
 import { Tooltip } from '../../Tooltip/Tooltip';
 import { getPropertiesForButtonSize } from '../commonStyles';
 
@@ -82,12 +82,10 @@ export const RadioButton = React.forwardRef<HTMLInputElement, RadioButtonProps>(
 RadioButton.displayName = 'RadioButton';
 
 const getRadioButtonStyles = (theme: GrafanaTheme2, size: RadioButtonSize, fullWidth?: boolean) => {
-  const { fontSize, height, padding } = getPropertiesForButtonSize(size, theme);
+  const { fontSize } = getPropertiesForButtonSize(size, theme);
 
   const textColor = theme.colors.text.secondary;
   const textColorHover = theme.colors.text.primary;
-  // remove the group inner padding (set on RadioButtonGroup)
-  const labelHeight = height * theme.spacing.gridSize - 4 - 2;
 
   return {
     radioOption: css({
@@ -108,7 +106,8 @@ const getRadioButtonStyles = (theme: GrafanaTheme2, size: RadioButtonSize, fullW
       '&:checked + label': {
         color: theme.colors.text.primary,
         fontWeight: theme.typography.fontWeightMedium,
-        background: theme.colors.action.selected,
+        background: theme.colors.background.buttonHovered,
+        border: 'none',
         zIndex: 1,
       },
 
@@ -126,13 +125,14 @@ const getRadioButtonStyles = (theme: GrafanaTheme2, size: RadioButtonSize, fullW
       alignItems: 'center',
       justifyContent: 'center',
       fontSize,
-      height: `${labelHeight}px`,
+      height: 44,
       // Deduct border from line-height for perfect vertical centering on windows and linux
-      lineHeight: `${labelHeight}px`,
+      lineHeight: 24,
       color: textColor,
-      padding: theme.spacing(0, padding),
-      borderRadius: getInternalRadius(theme, RADIO_GROUP_PADDING),
-      background: theme.colors.background.primary,
+      borderRadius: theme.shape.radius.default,
+      padding: '10px 16px',
+      border: `1px solid ${theme.colors.border.secondary}`,
+      background: theme.colors.background.surfacePrimary,
       cursor: 'pointer',
       userSelect: 'none',
       whiteSpace: 'nowrap',
