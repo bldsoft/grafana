@@ -60,8 +60,8 @@ describe('NavToolbarActions', () => {
 
       expect(screen.queryByText('Save dashboard')).not.toBeInTheDocument();
       expect(screen.queryByLabelText('Add')).not.toBeInTheDocument();
-      expect(await screen.findByText('Edit')).toBeInTheDocument();
-      expect(await screen.findByText('Share')).toBeInTheDocument();
+      expect(await screen.findByTestId(selectors.components.NavToolbar.editDashboard.editButton)).toBeInTheDocument();
+      expect(await screen.findByTestId(selectors.pages.Dashboard.DashNav.newShareButton.shareLink)).toBeInTheDocument();
     });
 
     it('Should show the correct buttons when playing a playlist', async () => {
@@ -71,8 +71,8 @@ describe('NavToolbarActions', () => {
       expect(await screen.findByTestId(selectors.pages.Dashboard.DashNav.playlistControls.prev)).toBeInTheDocument();
       expect(await screen.findByTestId(selectors.pages.Dashboard.DashNav.playlistControls.stop)).toBeInTheDocument();
       expect(await screen.findByTestId(selectors.pages.Dashboard.DashNav.playlistControls.next)).toBeInTheDocument();
-      expect(screen.queryByText('Edit')).not.toBeInTheDocument();
-      expect(screen.queryByText('Share')).not.toBeInTheDocument();
+      expect(screen.queryByTestId(selectors.components.NavToolbar.editDashboard.editButton)).not.toBeInTheDocument();
+      expect(screen.queryByTestId(selectors.pages.Dashboard.DashNav.newShareButton.shareLink)).not.toBeInTheDocument();
     });
 
     it('Should call the playlist srv when using playlist controls', async () => {
@@ -105,13 +105,13 @@ describe('NavToolbarActions', () => {
     it('Should show correct buttons when editing', async () => {
       setup();
 
-      await userEvent.click(await screen.findByText('Edit'));
+      await userEvent.click(await screen.findByTestId(selectors.components.NavToolbar.editDashboard.editButton));
 
       expect(await screen.findByText('Save dashboard')).toBeInTheDocument();
       expect(await screen.findByText('Exit edit')).toBeInTheDocument();
       expect(await screen.findByText('Add')).toBeInTheDocument();
-      expect(screen.queryByText('Edit')).not.toBeInTheDocument();
-      expect(screen.queryByText('Share')).not.toBeInTheDocument();
+      expect(screen.queryByTestId(selectors.components.NavToolbar.editDashboard.editButton)).not.toBeInTheDocument();
+      expect(screen.queryByTestId(selectors.pages.Dashboard.DashNav.newShareButton.shareLink)).not.toBeInTheDocument();
       expect(screen.queryByText(selectors.pages.Dashboard.DashNav.playlistControls.prev)).not.toBeInTheDocument();
       expect(screen.queryByText(selectors.pages.Dashboard.DashNav.playlistControls.stop)).not.toBeInTheDocument();
       expect(screen.queryByText(selectors.pages.Dashboard.DashNav.playlistControls.next)).not.toBeInTheDocument();
@@ -120,7 +120,7 @@ describe('NavToolbarActions', () => {
     it('Should show correct buttons when in settings menu', async () => {
       setup();
 
-      await userEvent.click(await screen.findByText('Edit'));
+      await userEvent.click(await screen.findByTestId(selectors.components.NavToolbar.editDashboard.editButton));
       await userEvent.click(await screen.findByText('Settings'));
 
       expect(await screen.findByText('Save dashboard')).toBeInTheDocument();
@@ -205,7 +205,8 @@ describe('NavToolbarActions', () => {
       setup();
 
       expect(await screen.queryByTestId(selectors.pages.Dashboard.DashNav.shareButton)).not.toBeInTheDocument();
-      const newShareButton = screen.getByTestId(selectors.pages.Dashboard.DashNav.newShareButton.container);
+      // Analytix: the share button is a single icon button
+      const newShareButton = screen.getByTestId(selectors.pages.Dashboard.DashNav.newShareButton.shareLink);
       expect(newShareButton).toBeInTheDocument();
     });
     it('Should show new export button for org admins', async () => {

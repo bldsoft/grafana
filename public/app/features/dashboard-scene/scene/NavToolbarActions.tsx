@@ -327,11 +327,12 @@ export function ToolbarActions({ dashboard }: Props) {
 
   const showShareButton = uid && !isEditing && !isSnapshot && !isPlaying && !isEmbedded;
 
+  // Analytix: compact icon button instead of a labeled button
   toolbarActions.push({
     group: 'main-buttons',
     condition: !isEditing && dashboard.canEditDashboard() && !isViewingPanel && !isPlaying && editable,
     render: () => (
-      <Button
+      <ToolbarButton
         onClick={() => {
           trackDashboardSceneEditButtonClicked(dashboard.state.uid);
           dashboard.onEnterEditMode();
@@ -342,14 +343,10 @@ export function ToolbarActions({ dashboard }: Props) {
             : t('dashboard.toolbar.edit.tooltip', 'Enter edit mode')
         }
         key="edit"
-        className={styles.buttonWithExtraMargin}
-        variant={'secondary'}
-        size="sm"
+        icon="pen"
         data-testid={selectors.components.NavToolbar.editDashboard.editButton}
         disabled={isReadOnlyRepo}
-      >
-        <Trans i18nKey="dashboard.toolbar.edit.label">Edit</Trans>
-      </Button>
+      />
     ),
   });
 

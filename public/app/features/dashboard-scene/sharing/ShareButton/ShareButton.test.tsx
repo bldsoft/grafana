@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { selectors as e2eSelectors } from '@grafana/e2e-selectors';
+import { locationService } from '@grafana/runtime';
 import { SceneTimeRange, VizPanel } from '@grafana/scenes';
 
 import { DashboardScene } from '../../scene/DashboardScene';
@@ -16,20 +17,23 @@ jest.mock('app/core/utils/shortLinks', () => ({
 }));
 
 const selector = e2eSelectors.pages.Dashboard.DashNav.newShareButton;
+
+// Analytix: ShareButton is a single icon button that opens the share drawer
 describe('ShareButton', () => {
-  it('should render share link button and menu', async () => {
+  it('should render share icon button', async () => {
     setup();
 
     expect(await screen.findByTestId(selector.shareLink)).toBeInTheDocument();
-    expect(await screen.findByTestId(selector.arrowMenu)).toBeInTheDocument();
   });
-  it('should render menu when arrow button clicked', async () => {
+
+  it('should open the share drawer on click', async () => {
     setup();
 
-    const arrowMenu = await screen.findByTestId(selector.arrowMenu);
-    await userEvent.click(arrowMenu);
+    const partialSpy = jest.spyOn(locationService, 'partial');
+    await userEvent.click(await screen.findByTestId(selector.shareLink));
 
-    expect(await screen.findByTestId(selector.menu.container)).toBeInTheDocument();
+    expect(partialSpy).toHaveBeenCalledWith({ shareView: 'link' });
+    partialSpy.mockRestore();
   });
 });
 
