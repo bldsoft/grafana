@@ -201,13 +201,27 @@ const getStyles = (theme: GrafanaTheme2) => ({
     display: 'inline-flex',
     alignItems: 'center',
     verticalAlign: 'middle',
-    // No border for second element (inputs) as label and input border is shared
-    '> :nth-child(2)': css({
-      borderTopLeftRadius: 'unset',
-      borderBottomLeftRadius: 'unset',
-    }),
     marginBottom: theme.spacing(1),
     marginRight: theme.spacing(1),
+
+    // Analytix: compact variable picker - selected values render as plain text
+    // joined with "+" instead of removable pills, no clear-all icon
+    '[class*="grafana-select-multi-value-container"]': {
+      backgroundColor: 'transparent',
+      margin: 0,
+      padding: 0,
+    },
+    '[class*="grafana-select-multi-value-container"] + [class*="grafana-select-multi-value-container"]::before': {
+      content: '"+"',
+      margin: theme.spacing(0, 0.5),
+      color: theme.colors.text.primary,
+    },
+    '[class*="grafana-select-multi-value-remove"]': {
+      display: 'none',
+    },
+    'svg[role="button"]': {
+      display: 'none',
+    },
   }),
   verticalContainer: css({
     display: 'flex',
@@ -238,6 +252,18 @@ const getStyles = (theme: GrafanaTheme2) => ({
   label: css({
     display: 'flex',
     alignItems: 'center',
+
+    // Analytix: label is plain accent-colored text without the boxed background
+    '&&': {
+      background: 'transparent',
+      border: 'none',
+      color: theme.colors.text.accent1,
+      paddingLeft: 0,
+
+      svg: {
+        display: 'none',
+      },
+    },
   }),
   hidden: css({
     opacity: 0.6,
