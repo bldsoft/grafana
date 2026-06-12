@@ -226,7 +226,8 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   action = {
     hover: `rgba(${this.whiteBase}, 0.16)`,
     selected: `rgba(${this.whiteBase}, 0.12)`,
-    selectedBorder: palette.orangeDarkMain,
+    // Analytix: brand green instead of Grafana orange
+    selectedBorder: palette['accent_accent-1'],
     focus: `rgba(${this.whiteBase}, 0.16)`,
     hoverOpacity: 0.08,
     disabledText: this.text.disabled,
@@ -235,8 +236,9 @@ class DarkColors implements ThemeColorsBase<Partial<ThemeRichColor>> {
   };
 
   gradients = {
-    brandHorizontal: 'linear-gradient(270deg, #F55F3E 0%, #FF8833 100%)',
-    brandVertical: 'linear-gradient(0.01deg, #F55F3E 0.01%, #FF8833 99.99%)',
+    // Analytix: brand green gradients instead of Grafana orange
+    brandHorizontal: 'linear-gradient(270deg, #2E8B36 0%, #3CB043 100%)',
+    brandVertical: 'linear-gradient(0.01deg, #2E8B36 0.01%, #3CB043 99.99%)',
   };
 
   custom = {
