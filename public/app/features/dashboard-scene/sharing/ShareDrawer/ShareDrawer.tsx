@@ -1,6 +1,7 @@
 import { locationService } from '@grafana/runtime';
 import { SceneComponentProps, SceneObjectBase, SceneObjectRef, SceneObjectState, VizPanel } from '@grafana/scenes';
 import { Drawer } from '@grafana/ui';
+import { contextSrv } from 'app/core/services/context_srv';
 
 import { shareDashboardType } from '../../../dashboard/components/ShareModal/utils';
 import { DashboardScene } from '../../scene/DashboardScene';
@@ -98,6 +99,10 @@ function getShareView(
     case shareDashboardType.snapshot:
       return new ShareSnapshot({ dashboardRef, panelRef, onDismiss });
     case shareDashboardType.export:
+      // Analytix: full dashboard JSON export is admin-only (incl. direct ?shareView=export links)
+      if (!contextSrv.hasRole('Admin')) {
+        return new ShareInternally({ onDismiss });
+      }
       return new ExportAsCode({ onDismiss });
     case shareDashboardType.image:
       return new ExportAsImage({ onDismiss });

@@ -6,6 +6,7 @@ import { getGrafanaContextMock } from 'test/mocks/getGrafanaContextMock';
 import { selectors } from '@grafana/e2e-selectors';
 import { LocationServiceProvider, locationService } from '@grafana/runtime';
 import { SceneQueryRunner, SceneTimeRange, UrlSyncContextProvider, VizPanel } from '@grafana/scenes';
+import { contextSrv } from 'app/core/services/context_srv';
 import { mockLocalStorage } from 'app/features/alerting/unified/mocks';
 import { playlistSrv } from 'app/features/playlist/PlaylistSrv';
 import { DashboardMeta } from 'app/types/dashboard';
@@ -207,10 +208,17 @@ describe('NavToolbarActions', () => {
       const newShareButton = screen.getByTestId(selectors.pages.Dashboard.DashNav.newShareButton.container);
       expect(newShareButton).toBeInTheDocument();
     });
-    it('Should show new export button', async () => {
+    it('Should show new export button for org admins', async () => {
+      jest.spyOn(contextSrv, 'hasRole').mockReturnValue(true);
       setup();
       const newExportButton = screen.getByRole('button', { name: /export dashboard/i });
       expect(newExportButton).toBeInTheDocument();
+      jest.mocked(contextSrv.hasRole).mockRestore();
+    });
+
+    it('Should hide new export button from non-admins', async () => {
+      setup();
+      expect(screen.queryByRole('button', { name: /export dashboard/i })).not.toBeInTheDocument();
     });
   });
 

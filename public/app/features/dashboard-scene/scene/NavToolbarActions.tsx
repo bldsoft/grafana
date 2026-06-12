@@ -377,7 +377,8 @@ export function ToolbarActions({ dashboard }: Props) {
 
   toolbarActions.push({
     group: 'new-share-dashboard-buttons',
-    condition: showShareButton,
+    // Analytix: full dashboard JSON must not be exposed to view-only users
+    condition: Boolean(showShareButton) && contextSrv.hasRole('Admin'),
     render: () => <ExportButton key="new-export-dashboard-button" dashboard={dashboard} />,
   });
 
