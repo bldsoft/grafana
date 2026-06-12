@@ -216,19 +216,23 @@ function DashboardControlsRenderer({ model }: SceneComponentProps<DashboardContr
       data-testid={selectors.pages.Dashboard.Controls}
       className={cx(styles.controls, editPanel && styles.controlsPanelEdit)}
     >
-      <div className={cx(styles.rightControls, editPanel && styles.rightControlsWrap)}>
-        {!hideTimeControls && (
-          <div className={styles.fixedControls}>
-            <timePicker.Component model={timePicker} />
-            <refreshPicker.Component model={refreshPicker} />
-          </div>
-        )}
-        {config.featureToggles.dashboardNewLayouts && (
-          <div className={styles.fixedControls}>
-            <DashboardControlActions dashboard={dashboard} />
-          </div>
-        )}
-      </div>
+      {/* Analytix: on dashboard view the time controls live in the sticky header (NavToolbarActions);
+          panel edit keeps them here since the header shows edit actions instead */}
+      {(editPanel || config.featureToggles.dashboardNewLayouts) && (
+        <div className={cx(styles.rightControls, editPanel && styles.rightControlsWrap)}>
+          {!hideTimeControls && editPanel && (
+            <div className={styles.fixedControls}>
+              <timePicker.Component model={timePicker} />
+              <refreshPicker.Component model={refreshPicker} />
+            </div>
+          )}
+          {config.featureToggles.dashboardNewLayouts && (
+            <div className={styles.fixedControls}>
+              <DashboardControlActions dashboard={dashboard} />
+            </div>
+          )}
+        </div>
+      )}
       {config.featureToggles.scopeFilters && !editPanel && (
         <ContextualNavigationPaneToggle className={styles.contextualNavToggle} hideWhenOpen={true} />
       )}

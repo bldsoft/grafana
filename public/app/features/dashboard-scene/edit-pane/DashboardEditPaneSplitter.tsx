@@ -263,12 +263,8 @@ function getStyles(theme: GrafanaTheme2, headerHeight: number) {
       paddingRight: theme.spacing(1),
     }),
     controlsWrapperSticky: css({
-      [theme.breakpoints.up('md')]: {
-        position: 'sticky',
-        zIndex: theme.zIndex.activePanel,
-        background: theme.colors.background.canvas,
-        top: headerHeight,
-      },
+      // Analytix: variables row is intentionally NOT sticky - it scrolls away with the page,
+      // while the time controls stay pinned in the sticky header (NavToolbarActions)
     }),
   };
 }

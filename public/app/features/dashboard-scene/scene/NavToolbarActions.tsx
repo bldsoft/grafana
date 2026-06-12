@@ -388,6 +388,13 @@ export function ToolbarActions({ dashboard }: Props) {
     render: () => <ShareButton key="new-share-dashboard-button" dashboard={dashboard} />,
   });
 
+  // Analytix: time controls live in the sticky header so they stay visible while scrolling
+  toolbarActions.push({
+    group: 'dashboard-time-controls',
+    condition: !isEditingPanel && Boolean(dashboard.state.controls) && !dashboard.state.controls?.state.hideTimeControls,
+    render: () => <DashboardTimeControls key="dashboard-time-controls" dashboard={dashboard} />,
+  });
+
   toolbarActions.push({
     group: 'settings',
     condition: isEditing && dashboard.canEditDashboard() && isShowingDashboard,
@@ -664,6 +671,24 @@ interface ToolbarAction {
   group: string;
   condition?: boolean | string;
   render: () => ReactNode;
+}
+
+// Analytix: dashboard time picker + refresh rendered inside the sticky header toolbar
+function DashboardTimeControls({ dashboard }: { dashboard: DashboardScene }) {
+  const { controls } = dashboard.useState();
+
+  if (!controls) {
+    return null;
+  }
+
+  const { timePicker, refreshPicker } = controls.state;
+
+  return (
+    <>
+      <timePicker.Component model={timePicker} />
+      <refreshPicker.Component model={refreshPicker} />
+    </>
+  );
 }
 
 function getStyles(theme: GrafanaTheme2) {

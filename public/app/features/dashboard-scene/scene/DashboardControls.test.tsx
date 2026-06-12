@@ -91,8 +91,9 @@ describe('DashboardControls', () => {
 
       expect(await renderer.findByTestId(selectors.pages.Dashboard.Controls)).toBeInTheDocument();
       expect(await renderer.findByTestId(selectors.components.DashboardLinks.container)).toBeInTheDocument();
-      expect(await renderer.findByTestId(selectors.components.TimePicker.openButton)).toBeInTheDocument();
-      expect(await renderer.findByTestId(selectors.components.RefreshPicker.runButtonV2)).toBeInTheDocument();
+      // Analytix: time controls moved to the sticky header (NavToolbarActions), not rendered here
+      expect(renderer.queryByTestId(selectors.components.TimePicker.openButton)).not.toBeInTheDocument();
+      expect(renderer.queryByTestId(selectors.components.RefreshPicker.runButtonV2)).not.toBeInTheDocument();
       expect(await renderer.findByTestId(selectors.pages.Dashboard.SubMenu.submenuItem)).toBeInTheDocument();
     });
 

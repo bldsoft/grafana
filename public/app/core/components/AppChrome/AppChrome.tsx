@@ -207,6 +207,10 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
       background: theme.colors.background.primary,
       flexDirection: 'column',
       paddingRight: 32,
+      // Analytix: keep the header (breadcrumbs + dashboard toolbar) pinned while the page scrolls
+      position: 'sticky',
+      top: 0,
+      zIndex: theme.zIndex.navbarFixed,
     }),
     panes: css({
       label: 'page-panes',
@@ -232,7 +236,9 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
       flexGrow: 1,
       minHeight: 0,
       minWidth: 0,
-      overflow: 'auto',
+      // Analytix: the document scrolls (not this container) - overflow:auto here would
+      // make the sticky header stick to this non-scrolling box instead of the viewport
+      overflow: 'visible',
       '@media print': {
         overflow: 'visible',
       },
