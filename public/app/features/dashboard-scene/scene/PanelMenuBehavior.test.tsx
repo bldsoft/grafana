@@ -65,6 +65,11 @@ describe('panelMenuBehavior', () => {
     locationService.push('/d/dash-1?from=now-5m&to=now');
   });
 
+  beforeEach(() => {
+    // Analytix: panel JSON inspect is only available to editors/admins
+    mocks.contextSrv.hasRole.mockReturnValue(true);
+  });
+
   it('Given standard panel', async () => {
     const { menu, panel } = await buildTestScene({});
 

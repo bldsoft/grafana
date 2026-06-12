@@ -288,7 +288,10 @@ export function panelMenuBehavior(menu: VizPanelMenu) {
       items.push(exploreMenuItem);
     }
 
-    items.push(getInspectMenuItem(plugin, panel, dashboard));
+    const inspectMenuItem = getInspectMenuItem(plugin, panel, dashboard);
+    if (inspectMenuItem) {
+      items.push(inspectMenuItem);
+    }
 
     if (config.featureToggles.panelTimeSettings) {
       items.push({
@@ -442,7 +445,7 @@ function getInspectMenuItem(
   plugin: PanelPlugin | undefined,
   panel: VizPanel,
   dashboard: DashboardScene
-): PanelMenuItem {
+): PanelMenuItem | undefined {
   const inspectSubMenu: PanelMenuItem[] = [];
 
   if (plugin && !plugin.meta.skipDataQuery) {
@@ -465,13 +468,21 @@ function getInspectMenuItem(
     }
   }
 
-  inspectSubMenu.push({
-    text: t('panel.header-menu.inspect-json', `Panel JSON`),
-    onClick: (e) => {
-      e.preventDefault();
-      dashboard.showModal(new PanelInspectDrawer({ panelRef: panel.getRef(), currentTab: InspectTab.JSON }));
-    },
-  });
+  // Analytix: panel JSON (full panel config) is not exposed to view-only users
+  if (contextSrv.hasRole('Admin') || contextSrv.hasRole('Editor')) {
+    inspectSubMenu.push({
+      text: t('panel.header-menu.inspect-json', `Panel JSON`),
+      onClick: (e) => {
+        e.preventDefault();
+        dashboard.showModal(new PanelInspectDrawer({ panelRef: panel.getRef(), currentTab: InspectTab.JSON }));
+      },
+    });
+  }
+
+  // Analytix: panels without data queries would have an empty inspector for viewers - hide it
+  if (inspectSubMenu.length === 0 && plugin?.meta.skipDataQuery) {
+    return undefined;
+  }
 
   return {
     text: t('panel.header-menu.inspect', `Inspect`),

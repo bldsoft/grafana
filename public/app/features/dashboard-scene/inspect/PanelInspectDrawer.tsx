@@ -8,6 +8,7 @@ import {
   SceneObjectRef,
 } from '@grafana/scenes';
 import { Alert, Drawer, Tab, TabsBar } from '@grafana/ui';
+import { contextSrv } from 'app/core/services/context_srv';
 import { getDataSourceWithInspector } from 'app/features/dashboard/components/Inspector/hooks';
 import { supportsDataQuery } from 'app/features/dashboard/components/PanelEditor/utils';
 import { InspectTab } from 'app/features/inspector/types';
@@ -73,7 +74,10 @@ export class PanelInspectDrawer extends SceneObjectBase<PanelInspectDrawerState>
         }
       }
 
-      tabs.push(new InspectJsonTab({ panelRef, onClose: this.onClose }));
+      // Analytix: panel JSON (full panel config) is not exposed to view-only users
+      if (contextSrv.hasRole('Admin') || contextSrv.hasRole('Editor')) {
+        tabs.push(new InspectJsonTab({ panelRef, onClose: this.onClose }));
+      }
     }
 
     this.setState({ tabs });
