@@ -1,6 +1,5 @@
 import { css } from '@emotion/css';
 import { cloneDeep } from 'lodash';
-import { useToggle } from 'react-use';
 
 import { GrafanaTheme2, NavModelItem } from '@grafana/data';
 import { t } from '@grafana/i18n';
@@ -8,7 +7,6 @@ import { config } from '@grafana/runtime';
 import { Dropdown, Menu, MenuItem, ToolbarButton, useStyles2 } from '@grafana/ui';
 
 import { enrichWithInteractionTracking } from '../MegaMenu/utils';
-import { NewsContainer } from '../News/NewsDrawer';
 
 import { TopNavBarMenu } from './TopNavBarMenu';
 
@@ -17,30 +15,18 @@ export interface Props {
   onToggleKioskMode: () => void;
 }
 
-export function ProfileButton({ profileNode, onToggleKioskMode }: Props) {
+export function ProfileButton({ profileNode }: Props) {
   const styles = useStyles2(getStyles);
   const node = enrichWithInteractionTracking(cloneDeep(profileNode), false);
-  const [showNewsDrawer, onToggleShowNewsDrawer] = useToggle(false);
 
   if (!node) {
     return null;
   }
 
+  // Analytix: kiosk mode and blog feed entries are hidden
   const renderMenu = () => (
     <TopNavBarMenu node={profileNode}>
       <>
-        <Menu.Item
-          icon="monitor"
-          onClick={onToggleKioskMode}
-          label={t('profile.enable-kiosk-mode', 'Enable kiosk mode')}
-        />
-        {config.newsFeedEnabled && (
-          <MenuItem
-            icon="rss"
-            onClick={onToggleShowNewsDrawer}
-            label={t('navigation.rss-button', 'Latest from the blog')}
-          />
-        )}
         <Menu.Divider />
         {!config.auth.disableSignoutMenu && (
           <MenuItem
@@ -55,17 +41,14 @@ export function ProfileButton({ profileNode, onToggleKioskMode }: Props) {
   );
 
   return (
-    <>
-      <Dropdown overlay={renderMenu} placement="bottom-end">
-        <ToolbarButton
-          className={styles.profileButton}
-          imgSrc="public/img/avatar.png"
-          imgAlt="User avatar"
-          aria-label={t('navigation.profile.aria-label', 'Profile')}
-        />
-      </Dropdown>
-      {showNewsDrawer && <NewsContainer onClose={onToggleShowNewsDrawer} />}
-    </>
+    <Dropdown overlay={renderMenu} placement="bottom-end">
+      <ToolbarButton
+        className={styles.profileButton}
+        imgSrc="public/img/avatar.png"
+        imgAlt="User avatar"
+        aria-label={t('navigation.profile.aria-label', 'Profile')}
+      />
+    </Dropdown>
   );
 }
 

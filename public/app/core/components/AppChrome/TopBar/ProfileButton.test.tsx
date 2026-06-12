@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { render } from 'test/test-utils';
 
@@ -7,7 +7,6 @@ import { config } from '@grafana/runtime';
 import { ProfileButton } from './ProfileButton';
 
 describe('ProfileButton', () => {
-  let mainView: HTMLDivElement;
   let user: ReturnType<typeof userEvent.setup>;
   const defaultProps = {
     profileNode: {
@@ -22,35 +21,17 @@ describe('ProfileButton', () => {
   beforeEach(() => {
     user = userEvent.setup();
     config.newsFeedEnabled = true;
-
-    // Drawer portals into .main-view
-    mainView = document.createElement('div');
-    mainView.classList.add('main-view');
-    document.body.appendChild(mainView);
   });
 
-  afterEach(() => {
-    document.body.removeChild(mainView);
-  });
-
-  it('should return focus to the profile button when the news feed drawer is closed', async () => {
+  // Analytix: kiosk mode and news feed entries are hidden from the profile menu
+  it('should not render kiosk mode and news feed menu items', async () => {
     render(<ProfileButton {...defaultProps} />);
 
     const profileButton = screen.getByRole('button', { name: /profile/i });
-
-    // Open the dropdown menu and open the news drawer
     await user.click(profileButton);
-    const newsMenuItem = await screen.findByRole('menuitem', { name: /latest from the blog/i });
-    await user.click(newsMenuItem);
-    expect(await screen.findByRole('dialog')).toBeInTheDocument();
 
-    // Close the drawer
-    await user.click(screen.getByRole('button', { name: /close/i }));
-
-    // Verify the drawer is closed and focus returned to the profile button
-    await waitFor(() => {
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-    });
-    expect(profileButton).toHaveFocus();
+    expect(await screen.findByRole('menuitem', { name: /sign out/i })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /latest from the blog/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /kiosk/i })).not.toBeInTheDocument();
   });
 });
