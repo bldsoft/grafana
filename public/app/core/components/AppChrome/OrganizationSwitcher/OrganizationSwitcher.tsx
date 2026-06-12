@@ -33,7 +33,8 @@ export function OrganizationSwitcher() {
   }, [dispatch]);
 
   if (orgs?.length <= 1) {
-    return <Text truncate>{Branding.AppTitle}</Text>;
+    // Analytix: no `truncate` - it sets width:100% and starves the breadcrumbs of space
+    return <Text>{Branding.AppTitle}</Text>;
   }
 
   return <OrganizationSelect orgs={orgs} onSelectChange={onSelectChange} />;

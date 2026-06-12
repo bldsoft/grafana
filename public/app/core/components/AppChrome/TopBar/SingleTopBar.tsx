@@ -114,6 +114,9 @@ const getStyles = (theme: GrafanaTheme2, menuDockedAndOpen: boolean) => ({
   breadcrumbsWrapper: css({
     display: 'flex',
     overflow: 'hidden',
+    // Analytix: take the free space so breadcrumb items can show their full text
+    flex: '1 1 auto',
+    minWidth: 0,
     [theme.breakpoints.down('sm')]: {
       minWidth: '40%',
     },
