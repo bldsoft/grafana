@@ -422,10 +422,13 @@ function getStyles(theme: GrafanaTheme2) {
   return {
     grid: css({
       display: 'grid',
-      gridTemplateColumns: `auto minmax(5em, 1fr) auto 1fr`,
-      gap: theme.spacing(0.5),
+      // Analytix: compact inputs (no full-width stretch) and roomier rows, like pre-12.x
+      gridTemplateColumns: `auto minmax(5em, 12em) auto 1fr`,
+      columnGap: theme.spacing(0.5),
+      rowGap: theme.spacing(1.5),
       gridAutoRows: theme.spacing(4),
       whiteSpace: 'nowrap',
+      justifyContent: 'start',
     }),
     firstColumn: css({
       gridColumn: 1,
