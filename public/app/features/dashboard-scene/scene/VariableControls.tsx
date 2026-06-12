@@ -210,6 +210,14 @@ const getStyles = (theme: GrafanaTheme2) => ({
       backgroundColor: 'transparent',
       margin: 0,
       padding: 0,
+      // the pill rounding + overflow:hidden clipped the text corners (e.g. "All")
+      borderRadius: 0,
+      overflow: 'visible',
+
+      '& > div': {
+        overflow: 'visible',
+        textOverflow: 'clip',
+      },
     },
     '[class*="grafana-select-multi-value-container"] + [class*="grafana-select-multi-value-container"]::before': {
       content: '"+"',
