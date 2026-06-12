@@ -60,7 +60,13 @@ export const SingleTopBar = memo(function SingleTopBar({
   return (
     <>
       <div className={styles.layout}>
-        <Stack minWidth={0} gap={0.5} alignItems="center" flex={{ xs: 2, lg: 1 }}>
+        <Stack
+          minWidth={0}
+          gap={0.5}
+          alignItems="center"
+          flex={{ xs: 2, lg: '1 1 auto' }}
+          data-testid={!showToolbarLevel ? Components.NavToolbar.container : undefined}
+        >
           {!state.megaMenuDocked && (
             <ToolbarButton
               narrow
@@ -78,20 +84,15 @@ export const SingleTopBar = memo(function SingleTopBar({
           {topLevelScopes ? <ScopesSelector /> : undefined}
           <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />
           {!showToolbarLevel && breadcrumbActions}
+          {/* Analytix: toolbar actions inline right after the breadcrumbs, single-row header */}
+          {!showToolbarLevel && actions}
         </Stack>
 
-        <Stack
-          gap={0.5}
-          alignItems="center"
-          justifyContent={'flex-end'}
-          flex={1}
-          data-testid={!showToolbarLevel ? Components.NavToolbar.container : undefined}
-        >
+        <Stack gap={0.5} alignItems="center" justifyContent={'flex-end'} flex={{ xs: 1, lg: '0 0 auto' }}>
           <TopBarExtensionPoint />
           <TopSearchBarCommandPaletteTrigger />
           {!isSmallScreen && <QuickAdd />}
           {!isSmallScreen && <ExtensionToolbarItem compact={isSmallScreen} />}
-          {!showToolbarLevel && actions}
           {profileNode && <ProfileButton profileNode={profileNode} onToggleKioskMode={onToggleKioskMode} />}
         </Stack>
       </div>
@@ -114,8 +115,9 @@ const getStyles = (theme: GrafanaTheme2, menuDockedAndOpen: boolean) => ({
   breadcrumbsWrapper: css({
     display: 'flex',
     overflow: 'hidden',
-    // Analytix: take the free space so breadcrumb items can show their full text
-    flex: '1 1 auto',
+    // Analytix: size to content (full path visible), shrink with ellipsis only when tight;
+    // the toolbar actions sit right after the breadcrumbs in the single-row header
+    flex: '0 1 auto',
     minWidth: 0,
     [theme.breakpoints.down('sm')]: {
       minWidth: '40%',

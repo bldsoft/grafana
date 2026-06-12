@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { config, useScopes } from '@grafana/runtime';
+import { useScopes } from '@grafana/runtime';
 import { useGrafana } from 'app/core/context/GrafanaContext';
 import { useMediaQueryMinWidth } from 'app/core/hooks/useMediaQueryMinWidth';
 import { isDashboardSceneEnabled } from 'app/features/dashboard-scene/utils/utils';
@@ -58,14 +58,14 @@ function getHeaderLevelsGivenState(
   }
 
   // We have actions
-  // If mega menu docked always use two levels
   // If scenes disabled always use two levels (mainly because of the time range picker)
-  if (chromeState.megaMenuDocked || !isDashboardSceneEnabled()) {
+  if (!isDashboardSceneEnabled()) {
     return 2;
   }
 
-  // If screen is large and unifiedNavbars is not disabled then we can use 1 level
-  if (isLargeScreen && config.featureToggles.unifiedNavbars) {
+  // Analytix: single-row header on large screens (even with the docked mega menu),
+  // toolbar actions render inline next to the breadcrumbs like pre-12.x
+  if (isLargeScreen) {
     return 1;
   }
 
