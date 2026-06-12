@@ -2,7 +2,6 @@ import { selectors as e2eSelectors } from '@grafana/e2e-selectors';
 import { Trans, t } from '@grafana/i18n';
 import { Label, Spinner, Stack, Switch } from '@grafana/ui';
 
-import { ThemePicker } from '../../dashboard/components/ShareModal/ThemePicker';
 
 interface Props {
   useLockedTime: boolean;
@@ -60,7 +59,6 @@ export default function ShareInternallyConfiguration({
             </Label>
           </Stack>
         </Stack>
-        <ThemePicker selectedTheme={selectedTheme} onChange={onChangeTheme} />
       </Stack>
       {isLoading && <Spinner />}
     </Stack>

@@ -7,6 +7,11 @@ import { contextSrv } from '../services/context_srv';
 import { PreferencesService } from './PreferencesService';
 
 export async function changeTheme(themeId: string, runtimeOnly?: boolean) {
+  // Analytix: the product ships with a single dark theme, switching is disabled
+  if (themeId !== 'dark') {
+    return;
+  }
+
   const oldTheme = config.theme2;
 
   const newTheme = getThemeById(themeId);

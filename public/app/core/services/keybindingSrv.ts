@@ -25,7 +25,6 @@ import { RouteDescriptor } from '../navigation/types';
 import { contextSrv } from '../services/context_srv';
 
 import { mousetrap } from './mousetrap';
-import { toggleTheme } from './theme';
 
 export class KeybindingSrv {
   constructor(
@@ -59,8 +58,7 @@ export class KeybindingSrv {
       this.bindGlobalEsc();
     }
 
-    this.bind('c t', () => toggleTheme(false));
-    this.bind('c r', () => toggleTheme(true));
+    // Analytix: theme switching shortcuts ('c t' / 'c r') are disabled, dark theme only
 
     if (process.env.NODE_ENV === 'development') {
       // 'change mock'

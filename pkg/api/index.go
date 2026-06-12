@@ -303,18 +303,6 @@ func (hs *HTTPServer) NotFoundHandler(c *contextmodel.ReqContext) {
 }
 
 func (hs *HTTPServer) getThemeForIndexData(themePrefId string, themeURLParam string) *pref.ThemeDTO {
-	if themeURLParam != "" && pref.IsValidThemeID(themeURLParam) {
-		return pref.GetThemeByID(themeURLParam)
-	}
-
-	if pref.IsValidThemeID(themePrefId) {
-		theme := pref.GetThemeByID(themePrefId)
-		// TODO refactor
-		//nolint:staticcheck // not yet migrated to OpenFeature
-		if !theme.IsExtra || hs.Features.IsEnabledGlobally(featuremgmt.FlagGrafanaconThemes) {
-			return theme
-		}
-	}
-
-	return pref.GetThemeByID(hs.Cfg.DefaultTheme)
+	// Analytix: the product ships with a single dark theme, user/url theme overrides are disabled
+	return pref.GetThemeByID("dark")
 }

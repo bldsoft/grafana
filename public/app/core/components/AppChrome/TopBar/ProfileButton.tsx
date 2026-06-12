@@ -7,7 +7,6 @@ import { t } from '@grafana/i18n';
 import { config } from '@grafana/runtime';
 import { Dropdown, Menu, MenuItem, ToolbarButton, useStyles2 } from '@grafana/ui';
 
-import { ThemeSelectorDrawer } from '../../ThemeSelector/ThemeSelectorDrawer';
 import { enrichWithInteractionTracking } from '../MegaMenu/utils';
 import { NewsContainer } from '../News/NewsDrawer';
 
@@ -22,7 +21,6 @@ export function ProfileButton({ profileNode, onToggleKioskMode }: Props) {
   const styles = useStyles2(getStyles);
   const node = enrichWithInteractionTracking(cloneDeep(profileNode), false);
   const [showNewsDrawer, onToggleShowNewsDrawer] = useToggle(false);
-  const [showThemeDrawer, onToggleThemeDrawer] = useToggle(false);
 
   if (!node) {
     return null;
@@ -31,9 +29,6 @@ export function ProfileButton({ profileNode, onToggleKioskMode }: Props) {
   const renderMenu = () => (
     <TopNavBarMenu node={profileNode}>
       <>
-        {config.featureToggles.grafanaconThemes && (
-          <MenuItem icon="palette" onClick={onToggleThemeDrawer} label={t('profile.change-theme', 'Change theme')} />
-        )}
         <Menu.Item
           icon="monitor"
           onClick={onToggleKioskMode}
@@ -70,7 +65,6 @@ export function ProfileButton({ profileNode, onToggleKioskMode }: Props) {
         />
       </Dropdown>
       {showNewsDrawer && <NewsContainer onClose={onToggleShowNewsDrawer} />}
-      {showThemeDrawer && <ThemeSelectorDrawer onClose={onToggleThemeDrawer} />}
     </>
   );
 }
