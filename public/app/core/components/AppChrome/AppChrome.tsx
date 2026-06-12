@@ -191,6 +191,12 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
       display: 'block',
       flexShrink: 0,
       width: megaMenuOpen ? 240 : 68,
+      // Keep the sidebar (and its collapse button) pinned to the viewport while the page scrolls
+      position: 'sticky',
+      top: 0,
+      alignSelf: 'flex-start',
+      height: '100vh',
+      overflow: 'hidden',
 
       [theme.breakpoints.down('md')]: {
         display: 'none',
