@@ -429,6 +429,12 @@ function getStyles(theme: GrafanaTheme2) {
       gridAutoRows: theme.spacing(4),
       whiteSpace: 'nowrap',
       justifyContent: 'start',
+
+      // Analytix: standard 32px input height here, the global 44px override is for forms
+      '[class*="input-wrapper"]': {
+        height: theme.spacing(theme.components.height.md),
+        minHeight: theme.spacing(theme.components.height.md),
+      },
     }),
     firstColumn: css({
       gridColumn: 1,

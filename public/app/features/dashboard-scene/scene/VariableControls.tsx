@@ -204,6 +204,13 @@ const getStyles = (theme: GrafanaTheme2) => ({
     marginBottom: theme.spacing(1),
     marginRight: theme.spacing(1),
 
+    // Analytix: standard 32px control height - the global 44px input override is meant
+    // for forms, not for the compact variable pickers (pre-12.x look)
+    '[class*="input-wrapper"]': {
+      height: theme.spacing(theme.components.height.md),
+      minHeight: theme.spacing(theme.components.height.md),
+    },
+
     // Analytix: compact variable picker - selected values render as plain text
     // joined with "+" instead of removable pills, no clear-all icon
     '[class*="grafana-select-multi-value-container"]': {
@@ -211,7 +218,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
       margin: 0,
       padding: 0,
       // the pill rounding + overflow:hidden clipped the text corners (e.g. "All")
-      borderRadius: 0,
+      borderRadius: 'unset',
       overflow: 'visible',
 
       '& > div': {
