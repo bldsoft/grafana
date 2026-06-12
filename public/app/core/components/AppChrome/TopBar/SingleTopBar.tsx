@@ -60,13 +60,7 @@ export const SingleTopBar = memo(function SingleTopBar({
   return (
     <>
       <div className={styles.layout}>
-        <Stack
-          minWidth={0}
-          gap={0.5}
-          alignItems="center"
-          flex={{ xs: 2, lg: '1 1 auto' }}
-          data-testid={!showToolbarLevel ? Components.NavToolbar.container : undefined}
-        >
+        <Stack minWidth={0} gap={0.5} alignItems="center" flex={{ xs: 2, lg: '0 1 auto' }}>
           {!state.megaMenuDocked && (
             <ToolbarButton
               narrow
@@ -84,11 +78,18 @@ export const SingleTopBar = memo(function SingleTopBar({
           {topLevelScopes ? <ScopesSelector /> : undefined}
           <Breadcrumbs breadcrumbs={breadcrumbs} className={styles.breadcrumbsWrapper} />
           {!showToolbarLevel && breadcrumbActions}
-          {/* Analytix: toolbar actions inline right after the breadcrumbs, single-row header */}
-          {!showToolbarLevel && actions}
         </Stack>
 
-        <Stack gap={0.5} alignItems="center" justifyContent={'flex-end'} flex={{ xs: 1, lg: '0 0 auto' }}>
+        <Stack
+          gap={0.5}
+          alignItems="center"
+          justifyContent={'flex-end'}
+          flex={{ xs: 1, lg: '0 1 auto' }}
+          minWidth={0}
+          data-testid={!showToolbarLevel ? Components.NavToolbar.container : undefined}
+        >
+          {/* Analytix: toolbar actions in the right corner next to search/profile, single-row header */}
+          {!showToolbarLevel && actions}
           <TopBarExtensionPoint />
           <TopSearchBarCommandPaletteTrigger />
           {!isSmallScreen && <QuickAdd />}
