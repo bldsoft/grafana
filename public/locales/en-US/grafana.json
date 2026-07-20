@@ -3485,6 +3485,32 @@
       "label-stat": "Stat"
     }
   },
+  "analytix": {
+    "home": {
+      "card": {
+        "favorite": "Add \"{{title}}\" to favorites",
+        "unfavorite": "Remove \"{{title}}\" from favorites"
+      },
+      "catalog": {
+        "all": "All",
+        "count_one": "{{count}} dashboard shown.",
+        "count_other": "{{count}} dashboards shown.",
+        "empty": "No dashboards match your search.",
+        "error": "Dashboards couldn’t be loaded.",
+        "favorites": "Favorites",
+        "filters": "Filter dashboards",
+        "recent": "Recently viewed",
+        "search": "Search dashboards",
+        "search-label": "Search dashboards",
+        "title": "Your dashboards"
+      },
+      "welcome": {
+        "browse": "Browse dashboards",
+        "subtitle": "Everything you need to understand your data",
+        "title": "Welcome to Analytix"
+      }
+    }
+  },
   "annolist": {
     "anno-list-panel": {
       "aria-label-remove-filter": "Remove filter: {{filterToRemove}}",

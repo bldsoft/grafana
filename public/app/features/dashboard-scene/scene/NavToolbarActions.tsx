@@ -29,12 +29,14 @@ import { StarToolbarButton } from 'app/features/stars/StarToolbarButton';
 import { useSelector } from 'app/types/store';
 
 import { selectFolderRepository } from '../../provisioning/utils/selectors';
+import { GenPanelButton } from '../ai-panel/GenPanelButton';
 import { PanelEditor, buildPanelEditScene } from '../panel-edit/PanelEditor';
 import ExportButton from '../sharing/ExportButton/ExportButton';
 import ShareButton from '../sharing/ShareButton/ShareButton';
 import { DashboardInteractions } from '../utils/interactions';
 import { DynamicDashNavButtonModel, dynamicDashNavActions } from '../utils/registerDynamicDashNavAction';
 import { isLibraryPanel } from '../utils/utils';
+
 
 import { DashboardScene } from './DashboardScene';
 import { GoToSnapshotOriginButton } from './GoToSnapshotOriginButton';
@@ -164,6 +166,13 @@ export function ToolbarActions({ dashboard }: Props) {
     group: 'icon-actions',
     condition: isSnapshot && !isEditing && !isEmbedded,
     render: () => <GoToSnapshotOriginButton key="go-to-snapshot-origin" originalURL={dashboard.getSnapshotUrl()} />,
+  });
+
+  // Analytix: generate a panel from a natural-language description
+  toolbarActions.push({
+    group: 'icon-actions',
+    condition: isShowingDashboard && !isPlaying,
+    render: () => <GenPanelButton key="gen-panel-button" dashboard={dashboard} />,
   });
 
   if (!isEditingPanel && !isEditing) {

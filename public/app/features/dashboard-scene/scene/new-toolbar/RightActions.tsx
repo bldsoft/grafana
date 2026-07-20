@@ -5,6 +5,7 @@ import { ToolbarButtonRow, useStyles2 } from '@grafana/ui';
 import { contextSrv } from 'app/core/services/context_srv';
 import { playlistSrv } from 'app/features/playlist/PlaylistSrv';
 
+import { GenPanelButton } from '../../ai-panel/GenPanelButton';
 import { dynamicDashNavActions } from '../../utils/registerDynamicDashNavAction';
 import { isLibraryPanel } from '../../utils/utils';
 import { DashboardScene } from '../DashboardScene';
@@ -47,6 +48,12 @@ export const RightActions = ({ dashboard }: { dashboard: DashboardScene }) => {
           // This adds the presence indicators in enterprise
           // Leaving group empty here as these are sometimes not rendered leaving separators with blank space between them
           ...getDynamicActions(dynamicDashNavActions.right, '', !isEditingPanel && !isEditingDashboard),
+          {
+            key: 'gen-panel-button',
+            component: GenPanelButton,
+            group: 'ai',
+            condition: isShowingDashboard && !isPlaying,
+          },
           {
             key: 'play-list-previous-button',
             component: PlayListPreviousButton,

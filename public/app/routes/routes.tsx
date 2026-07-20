@@ -35,11 +35,14 @@ export function getAppRoutes(): RouteDescriptor[] {
     // In order to make it possible we need to register them first due to how `<Switch>` is evaluating routes. (This will be unnecessary once/when we upgrade to React Router v6 and start using `<Routes>` instead.)
     ...getAppPluginRoutes(),
     {
+      // Analytix: "/" renders the custom Analytix home page (Welcome + Your
+      // dashboards) instead of the stock home dashboard. AnalytixHomePage still
+      // honours a user/org custom home dashboard by redirecting when
+      // /api/dashboards/home returns a redirect response.
       path: '/',
-      pageClass: 'page-dashboard',
       routeName: DashboardRoutes.Home,
       component: SafeDynamicImport(
-        () => import(/* webpackChunkName: "DashboardPageProxy" */ '../features/dashboard/containers/DashboardPageProxy')
+        () => import(/* webpackChunkName: "AnalytixHomePage" */ '../features/home/AnalytixHomePage')
       ),
     },
     {
