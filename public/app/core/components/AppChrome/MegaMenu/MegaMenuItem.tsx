@@ -22,6 +22,19 @@ interface Props {
 
 const MAX_DEPTH = 2;
 
+// Analytix: the only icons that ship a `-filled` counterpart under
+// public/img/icons/unicons. MegaMenuItem.test.tsx asserts this stays in sync
+// with the files on disk.
+export const ICONS_WITH_FILLED_VARIANT = new Set([
+  'adjust-circle',
+  'apps',
+  'bell',
+  'cog',
+  'compass',
+  'home-alt',
+  'star',
+]);
+
 export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
   const { chrome } = useGrafana();
   const state = chrome.useState();
@@ -60,11 +73,16 @@ export function MegaMenuItem({ link, activeItem, level = 0, onClick }: Props) {
 
   let iconElement: React.JSX.Element | null = null;
   if (link.icon) {
+    const iconName = toIconName(link.icon) ?? 'link';
     iconElement = (
       <Icon
         className={styles.icon}
-        filled={hasActiveChild || isActive}
-        name={toIconName(link.icon) ?? 'link'}
+        // Analytix: only ask for the filled variant when one actually exists.
+        // Icon resolves `filled` to `<name>-filled.svg`, so for an icon without
+        // that file (e.g. "drilldown") the request 404s and the icon vanishes
+        // the moment the nav item becomes active.
+        filled={(hasActiveChild || isActive) && ICONS_WITH_FILLED_VARIANT.has(iconName)}
+        name={iconName}
         size={'lg'}
       />
     );

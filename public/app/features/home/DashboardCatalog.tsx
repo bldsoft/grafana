@@ -8,7 +8,7 @@ import { Spinner, useStyles2 } from '@grafana/ui';
 import { useStarItem } from 'app/features/stars/hooks';
 
 import { DashboardCard } from './DashboardCard';
-import { FavoriteIcon, RecentIcon, SearchIcon } from './analytixIcons';
+import { FavoriteIcon, GridIcon, RecentIcon, SearchIcon } from './analytixIcons';
 import { analytix } from './analytixTokens';
 import { AnalytixDashboard, STAR_GROUP, STAR_KIND, useAnalytixDashboards } from './useAnalytixDashboards';
 
@@ -69,14 +69,17 @@ export function DashboardCatalog({ onOpen }: Props) {
     }
   };
 
-  const filterButton = (value: Filter, label: string, icon?: React.ReactNode) => (
+  const filterButton = (value: Filter, label: string, icon: React.ReactNode) => (
     <button
       type="button"
       className={filter === value ? styles.filterActive : styles.filter}
       aria-pressed={filter === value}
+      // Analytix: the visible label collapses to an icon on narrow screens, so
+      // the accessible name has to come from the button itself
+      aria-label={label}
       onClick={() => handleFilter(value)}
     >
-      {icon && <span className={styles.filterIcon}>{icon}</span>}
+      <span className={styles.filterIcon}>{icon}</span>
       <span className={styles.filterLabel}>{label}</span>
     </button>
   );
@@ -89,7 +92,7 @@ export function DashboardCatalog({ onOpen }: Props) {
 
       <div className={styles.toolbar}>
         <div className={styles.filters} role="group" aria-label={t('analytix.home.catalog.filters', 'Filter dashboards')}>
-          {filterButton('all', t('analytix.home.catalog.all', 'All'))}
+          {filterButton('all', t('analytix.home.catalog.all', 'All'), <GridIcon />)}
           {filterButton('favorites', t('analytix.home.catalog.favorites', 'Favorites'), <FavoriteIcon filled={false} />)}
           {filterButton('recent', t('analytix.home.catalog.recent', 'Recently viewed'), <RecentIcon />)}
         </div>

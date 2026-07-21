@@ -50,6 +50,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
     border: 'none',
     background: 'none',
     color: theme.colors.text.secondary,
+    // Analytix: the top bar is a flex row with minWidth:0, which otherwise
+    // squeezes the org select down to a single character plus an ellipsis
+    // ("S…" instead of "Setplex R&D"). Size to the name, cap it so a long
+    // org name cannot push the rest of the header off screen.
+    minWidth: 'fit-content',
+    maxWidth: theme.spacing(30),
     '&:hover': {
       color: theme.colors.text.primary,
 
