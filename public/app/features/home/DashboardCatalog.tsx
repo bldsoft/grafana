@@ -1,5 +1,5 @@
 import { css } from '@emotion/css';
-import { forwardRef, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { GrafanaTheme2 } from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
@@ -20,7 +20,7 @@ interface Props {
 
 // Analytix: "Your dashboards" block from the approved home-page design.
 // Filters, search and the responsive card grid follow COMPONENT_SPEC.md.
-export const DashboardCatalog = forwardRef<HTMLElement, Props>(function DashboardCatalog({ onOpen }, ref) {
+export function DashboardCatalog({ onOpen }: Props) {
   const styles = useStyles2(getStyles);
   const { dashboards, loading, error } = useAnalytixDashboards();
   const starItem = useStarItem(STAR_GROUP, STAR_KIND);
@@ -82,7 +82,7 @@ export const DashboardCatalog = forwardRef<HTMLElement, Props>(function Dashboar
   );
 
   return (
-    <section className={styles.panel} ref={ref} aria-labelledby="analytix-dashboards-title">
+    <section className={styles.panel} aria-labelledby="analytix-dashboards-title">
       <h2 id="analytix-dashboards-title" className={styles.heading}>
         <Trans i18nKey="analytix.home.catalog.title">Your dashboards</Trans>
       </h2>
@@ -148,7 +148,7 @@ export const DashboardCatalog = forwardRef<HTMLElement, Props>(function Dashboar
       </p>
     </section>
   );
-});
+}
 
 const getStyles = (theme: GrafanaTheme2) => ({
   panel: css({
@@ -156,7 +156,8 @@ const getStyles = (theme: GrafanaTheme2) => ({
     padding: '12px 16px 16px',
     border: `1px solid ${analytix.border}`,
     borderRadius: analytix.radiusPanel,
-    background: analytix.panelGradient,
+    // Analytix: same grey surface as the welcome panel (see WelcomePanel)
+    background: theme.colors.background.secondary,
 
     [theme.breakpoints.down('sm')]: {
       paddingInline: 10,

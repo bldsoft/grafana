@@ -1,8 +1,7 @@
 import { css } from '@emotion/css';
-import { useRef } from 'react';
 import { useAsync } from 'react-use';
 
-import { GrafanaTheme2, locationUtil } from '@grafana/data';
+import { GrafanaTheme2, PageLayoutType, locationUtil } from '@grafana/data';
 import { getBackendSrv, locationService, reportInteraction } from '@grafana/runtime';
 import { Spinner, useStyles2 } from '@grafana/ui';
 import { Page } from 'app/core/components/Page/Page';
@@ -21,7 +20,6 @@ import { AnalytixDashboard } from './useAnalytixDashboards';
 // initDashboard.ts does, so tenants that set their own home dashboard keep it.
 export function AnalytixHomePage() {
   const styles = useStyles2(getStyles);
-  const catalogRef = useRef<HTMLElement>(null);
 
   const { loading } = useAsync(async () => {
     const dto = await getBackendSrv().get<DashboardDTO | HomeDashboardRedirectDTO>('/api/dashboards/home');
@@ -33,10 +31,9 @@ export function AnalytixHomePage() {
 
   const handleBrowse = () => {
     reportInteraction('analytix_home_welcome_browse_clicked');
-    // Analytix: the design spec requires the reduced-motion preference to
-    // disable smooth scrolling.
-    const prefersReducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-    catalogRef.current?.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'start' });
+    // Analytix: the CTA routes to the dashboards catalog rather than scrolling
+    // to the section below it.
+    locationService.push('/dashboards');
   };
 
   const handleOpen = (dashboard: AnalytixDashboard) => {
@@ -45,7 +42,9 @@ export function AnalytixHomePage() {
   };
 
   return (
-    <Page navId="home">
+    // Analytix: Canvas layout drops the "Home" page header so the two design
+    // blocks start at the top of the content area.
+    <Page navId="home" layout={PageLayoutType.Canvas}>
       <Page.Contents>
         {loading ? (
           <div className={styles.loading}>
@@ -54,7 +53,7 @@ export function AnalytixHomePage() {
         ) : (
           <div className={styles.layout}>
             <WelcomePanel onBrowse={handleBrowse} />
-            <DashboardCatalog ref={catalogRef} onOpen={handleOpen} />
+            <DashboardCatalog onOpen={handleOpen} />
           </div>
         )}
       </Page.Contents>

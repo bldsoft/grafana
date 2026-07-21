@@ -22,15 +22,9 @@ export const analytix = {
   greenBright: '#45d157',
   greenDark: '#215d2a',
   favorite: '#ffad00',
-  panelGradient: 'linear-gradient(120deg, rgb(12 14 15 / 98%), rgb(10 13 13 / 92%))',
-  cardGradient: 'linear-gradient(125deg, #0c0f10, #101314)',
-  cardGradientHover: '#141718',
   focusRing: '0 0 0 3px rgb(53 185 68 / 25%)',
   radiusControl: '7px',
   radiusCard: '8px',
   radiusPanel: '10px',
   transitionFast: '160ms ease',
 } as const;
-
-/** Product/version label shown in the dashboard card meta row. */
-export const ANALYTIX_PRODUCT_LABEL = 'Analytix 1.0';

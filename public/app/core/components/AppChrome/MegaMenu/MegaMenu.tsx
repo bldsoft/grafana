@@ -31,8 +31,12 @@ export const MegaMenu = memo(
     const styles = useStyles2(getStyles, state.megaMenuOpen);
 
     // Remove profile + help + bookmarks from tree
+    // Analytix: also hide the "Starred" section - favorites are surfaced on the
+    // home page catalog instead of in the nav menu
     const navItems = navTree
-      .filter((item) => item.id !== 'profile' && item.id !== 'help' && item.id !== 'bookmarks')
+      .filter(
+        (item) => item.id !== 'profile' && item.id !== 'help' && item.id !== 'bookmarks' && item.id !== 'starred'
+      )
       .map((item) => enrichWithInteractionTracking(item, state.megaMenuDocked));
 
     const activeItem = getActiveItem(navItems, state.sectionNav.node, location.pathname);

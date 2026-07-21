@@ -56,7 +56,9 @@ const getStyles = (theme: GrafanaTheme2) => ({
     gridTemplateColumns: '1.15fr .85fr',
     border: `1px solid ${analytix.border}`,
     borderRadius: analytix.radiusPanel,
-    background: analytix.panelGradient,
+    // Analytix: panel sits on the standard Grafana surface so it reads as a
+    // grey card against the page canvas rather than a black block
+    background: theme.colors.background.secondary,
 
     // Analytix: green glow behind the product illustration
     '&::after': {
@@ -65,7 +67,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
       inset: 0,
       zIndex: -1,
       pointerEvents: 'none',
-      background: 'radial-gradient(ellipse at 78% 45%, rgb(45 201 72 / 37%), transparent 46%)',
+      background: 'radial-gradient(ellipse at 72% 50%, rgb(45 201 72 / 34%), transparent 58%)',
     },
 
     [theme.breakpoints.down('lg')]: {
@@ -156,22 +158,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
     minHeight: 230,
     display: 'flex',
     alignItems: 'center',
-    justifyContent: 'center',
-
-    // Analytix: organic ring outline behind the hero image
-    '&::before': {
-      content: '""',
-      position: 'absolute',
-      width: 290,
-      height: 290,
-      border: '2px solid rgb(65 222 82 / 38%)',
-      // eslint-disable-next-line @grafana/no-border-radius-literal -- Analytix: organic blob shape from the approved design; no theme token can express it
-      borderRadius: '42% 58% 60% 40%',
-      transform: 'rotate(24deg)',
-      boxShadow: '0 0 45px rgb(42 207 63 / 30%)',
-    },
+    // Analytix: the illustration hugs the right edge of the panel, as in the
+    // approved design, instead of floating in the middle of its column
+    justifyContent: 'flex-end',
 
     [theme.breakpoints.down('lg')]: {
+      justifyContent: 'center',
       minHeight: 205,
     },
     [theme.breakpoints.down('sm')]: {
@@ -180,16 +172,20 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   heroImage: css({
     position: 'relative',
-    width: 'min(100%, 550px)',
-    maxHeight: 228,
+    // Analytix: fill the column so the illustration reads at the size shown in
+    // the approved design instead of sitting small and centred
+    width: '100%',
+    height: '100%',
+    maxHeight: 300,
     objectFit: 'contain',
+    objectPosition: 'right center',
     filter: 'drop-shadow(0 14px 18px rgb(0 0 0 / 45%))',
 
     [theme.breakpoints.down('lg')]: {
       maxHeight: 205,
+      objectPosition: 'center',
     },
     [theme.breakpoints.down('sm')]: {
-      width: '96%',
       maxHeight: 180,
     },
   }),

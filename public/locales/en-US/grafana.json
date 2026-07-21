@@ -5907,6 +5907,20 @@
       "row": "Row",
       "visualization": "Visualization"
     },
+    "ai-panel": {
+      "chat-clear": "Clear",
+      "chat-demo": "Demo mode — any prompt renders a sample chart.",
+      "chat-empty": "Describe a panel and press Enter. Each request adds a chart below — keep refining.",
+      "chat-error": "Could not generate the panel",
+      "chat-placeholder": "e.g. Show the last 30 days as a pie chart",
+      "chat-send": "Send",
+      "chat-thinking": "Generating…",
+      "chat-title": "AI panel chat",
+      "datasource-label": "ClickHouse datasource",
+      "llm-disabled-body": "Install and configure the Grafana LLM app (grafana-llm-app) to enable panel generation.",
+      "llm-disabled-title": "AI is not configured",
+      "tooltip": "Generate a panel from a description"
+    },
     "alert-rules-drawer": {
       "redirect-link": "List in Grafana Alerting",
       "subtitle": "Alert rules related to this dashboard"

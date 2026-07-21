@@ -1,12 +1,9 @@
-// Analytix: card descriptions for the home-page dashboard catalog.
+// Analytix: fallback card descriptions for the home-page dashboard catalog.
 //
-// NOTE: the Grafana search index does NOT return a dashboard's `description`
-// field (see app/features/search/service/unified.ts - hits carry name, folder,
-// tags, uid and url only). Reading real descriptions would mean one
-// /api/dashboards/uid/:uid request per card, which is too expensive for the
-// home page. Until descriptions are added to the search index, the nine
-// approved dashboards get their copy from this map and everything else falls
-// back to its folder name.
+// The dashboard's own `description` always wins (see useAnalytixDashboards).
+// This map only fills in the nine approved dashboards when they have no
+// description set, so the home page still matches the approved design on a
+// fresh install. Anything else falls back to its folder name.
 const descriptionsByTitle: Record<string, string> = {
   'search info': 'Analyze search behavior',
   'content info': 'Monitor content performance',

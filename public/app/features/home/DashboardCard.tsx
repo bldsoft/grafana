@@ -6,7 +6,7 @@ import { t } from '@grafana/i18n';
 import { useStyles2 } from '@grafana/ui';
 
 import { FavoriteIcon, OpenArrowIcon, getDashboardIcon } from './analytixIcons';
-import { ANALYTIX_PRODUCT_LABEL, analytix } from './analytixTokens';
+import { analytix } from './analytixTokens';
 import { AnalytixDashboard } from './useAnalytixDashboards';
 
 interface Props {
@@ -64,15 +64,7 @@ export function DashboardCard({ dashboard, onOpen, onToggleFavorite }: Props) {
         <FavoriteIcon filled={dashboard.favorite} />
       </button>
 
-      <div className={styles.meta}>
-        <span>{ANALYTIX_PRODUCT_LABEL}</span>
-        {dashboard.folderName && (
-          <>
-            <span aria-hidden={true}>&bull;</span>
-            <span className={styles.folder}>{dashboard.folderName}</span>
-          </>
-        )}
-      </div>
+      <div className={styles.meta}>{dashboard.folderName && <span className={styles.folder}>{dashboard.folderName}</span>}</div>
 
       <span className={styles.open} data-analytix-open="" aria-hidden={true}>
         <OpenArrowIcon />
@@ -92,7 +84,10 @@ const getStyles = (theme: GrafanaTheme2) => ({
     border: `1px solid ${analytix.border}`,
     // eslint-disable-next-line @grafana/no-border-radius-literal -- Analytix: exact radius from the approved design (tokens.css --anx-radius-card)
     borderRadius: analytix.radiusCard,
-    background: analytix.cardGradient,
+    // Analytix: cards sit one step above the panel surface so they read as
+    // cards. background.primary is the same colour as the page canvas in the
+    // dark theme, which would make them look like holes in the panel.
+    background: theme.colors.background.elevated,
 
     [theme.transitions.handleMotion('no-preference')]: {
       transition: theme.transitions.create(['transform', 'border-color', 'background'], { duration: 160 }),
@@ -101,7 +96,6 @@ const getStyles = (theme: GrafanaTheme2) => ({
     '&:hover': {
       transform: 'translateY(-2px)',
       borderColor: analytix.borderHover,
-      background: analytix.cardGradientHover,
     },
     '&:hover [data-analytix-open]': {
       borderColor: analytix.green,
@@ -225,6 +219,9 @@ const getStyles = (theme: GrafanaTheme2) => ({
     gridColumn: 3,
     gridRow: 2,
     alignSelf: 'end',
+    // Analytix: right-align inside the column so the arrow's right edge lines
+    // up with the favorite star above it (both sit on the card's 12px inset)
+    justifySelf: 'end',
     width: 30,
     height: 30,
     display: 'grid',

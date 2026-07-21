@@ -7,6 +7,7 @@ import { LocationInfo } from 'app/features/search/service/types';
 import { useStarredItems } from 'app/features/stars/hooks';
 
 import { getDashboardDescription } from './dashboardDescriptions';
+import { fetchDashboardDescriptions } from './fetchDashboardDescriptions';
 
 // Analytix: the home catalog shows the client's full dashboard set, which is
 // small by design. This cap keeps a misconfigured tenant from rendering
@@ -44,15 +45,16 @@ export function useAnalytixDashboards(): Result {
     loading: searchLoading,
     error,
   } = useAsync(async () => {
-    const [response, recentUids, locationInfo] = await Promise.all([
+    const [response, recentUids, locationInfo, descriptions] = await Promise.all([
       getGrafanaSearcher().search({ kind: ['dashboard'], limit: MAX_DASHBOARDS }),
       impressionSrv.getDashboardOpened().catch((): string[] => []),
       getGrafanaSearcher()
         .getLocationInfo()
         .catch((): Record<string, LocationInfo> => ({})),
+      fetchDashboardDescriptions(MAX_DASHBOARDS),
     ]);
 
-    return { hits: response.view.toArray(), recentUids, locationInfo };
+    return { hits: response.view.toArray(), recentUids, locationInfo, descriptions };
   }, []);
 
   const dashboards = useMemo<AnalytixDashboard[]>(() => {
@@ -60,7 +62,7 @@ export function useAnalytixDashboards(): Result {
       return [];
     }
 
-    const { hits, recentUids, locationInfo } = value;
+    const { hits, recentUids, locationInfo, descriptions } = value;
     const starred = new Set(starredUids ?? []);
     const recent = new Set(recentUids);
 
@@ -72,10 +74,15 @@ export function useAnalytixDashboards(): Result {
       .filter((hit) => !hit.isDeleted)
       .map((hit) => {
         const folderName = locationInfo[hit.location]?.name;
+        // Analytix: prefer the dashboard's own description. The unified searcher
+        // puts it straight on the hit; the legacy SQL searcher does not return
+        // it at all, so fetchDashboardDescriptions() supplies it separately.
+        const hitDescription = typeof hit.description === 'string' ? hit.description.trim() : '';
+        const ownDescription = hitDescription || descriptions[hit.uid] || '';
         return {
           uid: hit.uid,
           title: hit.name,
-          description: getDashboardDescription(hit.name, folderName),
+          description: ownDescription || getDashboardDescription(hit.name, folderName),
           url: hit.url,
           folderName,
           favorite: starred.has(hit.uid),
