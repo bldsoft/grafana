@@ -29,7 +29,7 @@ import { StarToolbarButton } from 'app/features/stars/StarToolbarButton';
 import { useSelector } from 'app/types/store';
 
 import { selectFolderRepository } from '../../provisioning/utils/selectors';
-import { GenPanelButton } from '../ai-panel/GenPanelButton';
+import { AI_PANEL_ENABLED, GenPanelButton } from '../ai-panel/GenPanelButton';
 import { PanelEditor, buildPanelEditScene } from '../panel-edit/PanelEditor';
 import ExportButton from '../sharing/ExportButton/ExportButton';
 import ShareButton from '../sharing/ShareButton/ShareButton';
@@ -170,7 +170,7 @@ export function ToolbarActions({ dashboard }: Props) {
   // Analytix: generate a panel from a natural-language description
   toolbarActions.push({
     group: 'icon-actions',
-    condition: isShowingDashboard && !isPlaying,
+    condition: AI_PANEL_ENABLED && isShowingDashboard && !isPlaying,
     render: () => <GenPanelButton key="gen-panel-button" dashboard={dashboard} />,
   });
 

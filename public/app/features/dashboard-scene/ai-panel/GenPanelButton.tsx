@@ -8,6 +8,13 @@ import { ToolbarActionProps } from '../scene/new-toolbar/types';
 import { GenPanelChat } from './GenPanelChat';
 
 /**
+ * Analytix: temporary kill switch for the AI panel button. The feature is
+ * parked, not removed - flip this back to `true` to bring the toolbar button
+ * back in both toolbars. Both registration sites gate their `condition` on it.
+ */
+export const AI_PANEL_ENABLED = false;
+
+/**
  * Toolbar action that opens the "generate panel from a description" chat.
  * Registered in {@link ../scene/NavToolbarActions.tsx} (legacy toolbar) and
  * {@link ../scene/new-toolbar/RightActions.tsx} (new toolbar).

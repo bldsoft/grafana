@@ -68,6 +68,43 @@ describe('OrganisationSwitcher', () => {
     expect(screen.queryByRole('combobox', { name: 'Change organization' })).not.toBeInTheDocument();
   });
 
+  // Analytix: with a single organization there is no switcher, so the slot
+  // names the organization instead of showing the product name.
+  it('should render the organization name when there is only one organisation', () => {
+    const contextSrv = new ContextSrv();
+    contextSrv.user.orgName = 'Setplex R&D';
+    setContextSrv(contextSrv);
+
+    renderWithProvider({
+      initialState: {
+        organization: {
+          organization: { name: 'Setplex R&D', id: 1 },
+          userOrgs: [{ orgId: 1, name: 'Setplex R&D', role: OrgRole.Admin }],
+        },
+      },
+    });
+
+    expect(screen.getByText('Setplex R&D')).toBeInTheDocument();
+    expect(screen.queryByText('Analytix')).not.toBeInTheDocument();
+  });
+
+  it('should fall back to the product name when the organization name is unavailable', () => {
+    const contextSrv = new ContextSrv();
+    contextSrv.user.orgName = '';
+    setContextSrv(contextSrv);
+
+    renderWithProvider({
+      initialState: {
+        organization: {
+          organization: { name: 'test', id: 1 },
+          userOrgs: [{ orgId: 1, name: 'test', role: OrgRole.Admin }],
+        },
+      },
+    });
+
+    expect(screen.getByText('Analytix')).toBeInTheDocument();
+  });
+
   it('should not render if there is no organisation available', () => {
     renderWithProvider({
       initialState: {

@@ -12,35 +12,36 @@ const CARD_ICON_PROPS = {
 } as const;
 
 /**
- * The nine approved dashboard card icons, keyed by a normalised dashboard title.
- * `getDashboardIcon` resolves a dashboard to one of these, falling back to `default`.
+ * The nine approved dashboard card icons, keyed by topic.
+ * `getDashboardIcon` resolves a dashboard title to one of these via ICON_RULES,
+ * falling back to `default`.
  */
 export const dashboardIcons = {
-  'search info': (
+  search: (
     <svg {...CARD_ICON_PROPS} strokeWidth={2}>
       <circle cx="15" cy="15" r="9" />
       <path d="m22 22 8 8" />
     </svg>
   ),
-  'content info': (
+  content: (
     <svg {...CARD_ICON_PROPS} strokeWidth={2}>
       <rect x="5" y="7" width="28" height="24" rx="2" />
       <path d="m16 14 9 5-9 5z" />
     </svg>
   ),
-  'stream quality info': (
+  quality: (
     <svg {...CARD_ICON_PROPS} strokeWidth={2}>
       <path d="M3 20h5l4-11 6 22 5-18 4 11h7" />
     </svg>
   ),
-  'organisations info': (
+  organisations: (
     <svg {...CARD_ICON_PROPS} strokeWidth={1.8}>
       <rect x="7" y="5" width="14" height="28" />
       <rect x="21" y="12" width="11" height="21" />
       <path d="M11 10h3m3 0h1m-7 6h3m3 0h1m-7 6h3m3 0h1m7-4h3m-3 6h3M5 33h29" />
     </svg>
   ),
-  'providers info': (
+  providers: (
     <svg {...CARD_ICON_PROPS} strokeWidth={1.8}>
       <circle cx="19" cy="7" r="4" />
       <circle cx="8" cy="23" r="4" />
@@ -49,26 +50,26 @@ export const dashboardIcons = {
       <path d="m16 10-6 9m12-9 6 9M12 25l4 4m10-4-4 4" />
     </svg>
   ),
-  'user info': (
+  users: (
     <svg {...CARD_ICON_PROPS} strokeWidth={2}>
       <circle cx="19" cy="12" r="7" />
       <path d="M7 33c1-8 5-12 12-12s11 4 12 12z" />
     </svg>
   ),
-  'device info': (
+  devices: (
     <svg {...CARD_ICON_PROPS} strokeWidth={1.8}>
       <rect x="4" y="7" width="23" height="17" rx="1" />
       <path d="M10 29h11m-6-5v5" />
       <rect x="24" y="16" width="11" height="18" rx="2" />
     </svg>
   ),
-  'cdn qos': (
+  cdn: (
     <svg {...CARD_ICON_PROPS} strokeWidth={1.8}>
       <path d="M10 28H8a6 6 0 0 1 0-12 11 11 0 0 1 21-2 7 7 0 0 1 2 14h-3" />
       <path d="m11 25 4-7 4 13 4-8 3 5" />
     </svg>
   ),
-  'feature adoption rate': (
+  adoption: (
     <svg {...CARD_ICON_PROPS} strokeWidth={2}>
       <path d="M5 30 14 20l7 5L33 10" />
       <path d="M26 10h7v7" />
@@ -85,13 +86,42 @@ export const dashboardIcons = {
 };
 
 /**
- * Resolves a dashboard title to one of the approved card icons.
- * Matching is case- and whitespace-insensitive; unknown titles get the fallback.
+ * Keyword rules for resolving a dashboard title to a card icon.
+ *
+ * Analytix: matching is by whole word, not by substring - "Research Info"
+ * contains "search" but must not get the magnifier. Plurals are listed
+ * explicitly rather than matched by prefix, so the behaviour stays predictable
+ * (a prefix match would turn "Contention" into the content icon).
+ *
+ * Order matters: the first rule with a matching word wins. Domain-specific
+ * terms come before generic entity terms, so "CDN Users" reads as a CDN
+ * dashboard rather than a user one.
+ */
+const ICON_RULES: Array<{ words: string[]; icon: keyof typeof dashboardIcons }> = [
+  { words: ['cdn'], icon: 'cdn' },
+  { words: ['adoption'], icon: 'adoption' },
+  { words: ['stream', 'streams', 'streaming', 'quality'], icon: 'quality' },
+  { words: ['provider', 'providers'], icon: 'providers' },
+  { words: ['organisation', 'organisations', 'organization', 'organizations', 'org', 'orgs'], icon: 'organisations' },
+  { words: ['device', 'devices'], icon: 'devices' },
+  { words: ['content', 'contents'], icon: 'content' },
+  { words: ['search', 'searches'], icon: 'search' },
+  { words: ['user', 'users'], icon: 'users' },
+];
+
+/** Splits a title into lowercase words, dropping punctuation and separators. */
+function toWords(title: string): string[] {
+  return title.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+/**
+ * Resolves a dashboard title to one of the approved card icons by looking for
+ * a known keyword anywhere in the title. Unknown titles get the fallback icon.
  */
 export function getDashboardIcon(title: string) {
-  const key = title.trim().toLowerCase().replace(/\s+/g, ' ');
-  const icons: Record<string, JSX.Element> = dashboardIcons;
-  return icons[key] ?? dashboardIcons.default;
+  const words = new Set(toWords(title));
+  const rule = ICON_RULES.find(({ words: keywords }) => keywords.some((keyword) => words.has(keyword)));
+  return rule ? dashboardIcons[rule.icon] : dashboardIcons.default;
 }
 
 const UI_ICON_PROPS = {

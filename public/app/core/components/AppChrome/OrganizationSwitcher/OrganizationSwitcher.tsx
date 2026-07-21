@@ -33,8 +33,11 @@ export function OrganizationSwitcher() {
   }, [dispatch]);
 
   if (orgs?.length <= 1) {
-    // Analytix: no `truncate` - it sets width:100% and starves the breadcrumbs of space
-    return <Text>{Branding.AppTitle}</Text>;
+    // Analytix: with a single organization there is no switcher to show, so this
+    // slot names the organization the user is in. Falls back to the product name
+    // when the org name is unavailable (e.g. before bootData is populated).
+    // No `truncate` - it sets width:100% and starves the breadcrumbs of space.
+    return <Text>{contextSrv.user.orgName || Branding.AppTitle}</Text>;
   }
 
   return <OrganizationSelect orgs={orgs} onSelectChange={onSelectChange} />;
