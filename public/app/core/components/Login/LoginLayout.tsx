@@ -136,7 +136,9 @@ export const getLoginStyles = (theme: GrafanaTheme2) => {
     }),
     loginLogo: css({
       width: '100%',
-      maxWidth: 60,
+      // Analytix: 60px rendered the wordmark almost unreadable on a phone -
+      // the logo is a wide wordmark, not a compact glyph, so it needs room.
+      maxWidth: 150,
       [theme.breakpoints.up('sm')]: {
         maxWidth: 200,
       },
