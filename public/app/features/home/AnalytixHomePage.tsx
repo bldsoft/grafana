@@ -4,7 +4,9 @@ import { useAsync } from 'react-use';
 import { GrafanaTheme2, PageLayoutType, locationUtil } from '@grafana/data';
 import { getBackendSrv, locationService, reportInteraction } from '@grafana/runtime';
 import { Spinner, useStyles2 } from '@grafana/ui';
+import { AppChromeUpdate } from 'app/core/components/AppChrome/AppChromeUpdate';
 import { Page } from 'app/core/components/Page/Page';
+import { GenPanelButton } from 'app/features/dashboard-scene/ai-panel/GenPanelButton';
 import { DashboardDTO, HomeDashboardRedirectDTO, isRedirectResponse } from 'app/types/dashboard';
 
 import { DashboardCatalog } from './DashboardCatalog';
@@ -45,6 +47,10 @@ export function AnalytixHomePage() {
     // Analytix: Canvas layout drops the "Home" page header so the two design
     // blocks start at the top of the content area.
     <Page navId="home" layout={PageLayoutType.Canvas}>
+      {/* Analytix: AI assistant button in the top-right header corner, same
+          spot it used to occupy in the dashboard toolbar. `inlineActions`
+          keeps it in the first header row at every screen width. */}
+      <AppChromeUpdate inlineActions={<GenPanelButton />} />
       <Page.Contents>
         {loading ? (
           <div className={styles.loading}>

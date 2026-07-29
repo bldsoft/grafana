@@ -9,8 +9,6 @@ import { EmbeddedScene } from '@grafana/scenes';
 import { Alert, Button, Drawer, Field, IconButton, Spinner, TextArea, useStyles2 } from '@grafana/ui';
 import { isLLMPluginEnabled } from 'app/features/dashboard/components/GenAI/utils';
 
-import { DashboardScene } from '../scene/DashboardScene';
-
 import { buildGeneratedPanel } from './buildPanel';
 import { fetchClickhouseSchema } from './clickhouseSchema';
 import { AI_PANEL_DEMO_MODE, buildDemoPanel } from './demo';
@@ -18,7 +16,6 @@ import { generatePanelSpec } from './generatePanelSpec';
 import { buildInlineChartScene } from './inlineScene';
 
 interface Props {
-  dashboard: DashboardScene;
   onClose: () => void;
 }
 

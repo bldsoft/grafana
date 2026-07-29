@@ -1,10 +1,10 @@
-import { css } from '@emotion/css';
+import { css, keyframes } from '@emotion/css';
 
 import { GrafanaTheme2 } from '@grafana/data';
 import { Trans } from '@grafana/i18n';
 import { useStyles2 } from '@grafana/ui';
-import heroImage from 'img/analytix_welcome_hero.webp';
 
+import { NeuralCoreAnimation } from './NeuralCoreAnimation';
 import { GridIcon } from './analytixIcons';
 import { analytix } from './analytixTokens';
 
@@ -36,15 +36,19 @@ export function WelcomePanel({ onBrowse }: Props) {
         </button>
       </div>
       <div className={styles.visual}>
-        <img
-          className={styles.heroImage}
-          src={heroImage}
-          alt="Analytix dashboards displayed on a desktop monitor and laptop"
-        />
+        {/* Analytix: animated "Neural Core" scene replaces the static hero
+            illustration; decorative only, hence no accessible alternative. */}
+        <NeuralCoreAnimation className={styles.heroAnimation} />
       </div>
     </section>
   );
 }
+
+// Analytix: glow "breathing" from the analytix-welcome hero package
+const glowBreathe = keyframes({
+  '0%, 100%': { opacity: 0.85, transform: 'scale(1)' },
+  '50%': { opacity: 1, transform: 'scale(1.03)' },
+});
 
 const getStyles = (theme: GrafanaTheme2) => ({
   panel: css({
@@ -56,18 +60,37 @@ const getStyles = (theme: GrafanaTheme2) => ({
     gridTemplateColumns: '1.15fr .85fr',
     border: `1px solid ${analytix.border}`,
     borderRadius: analytix.radiusPanel,
-    // Analytix: panel sits on the standard Grafana surface so it reads as a
-    // grey card against the page canvas rather than a black block
+    // Analytix: grey panel surface (same as the catalog panel below) with the
+    // hero effects from the analytix-welcome package on top - green glow only
+    // under/right of the animation (the glow layer starts 30% in from the
+    // left edge) and faint grid lines.
     background: theme.colors.background.secondary,
 
-    // Analytix: green glow behind the product illustration
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      inset: '-20% -10% -30% 30%',
+      pointerEvents: 'none',
+      background:
+        'radial-gradient(ellipse 45% 55% at 65% 45%, rgba(57, 211, 83, 0.18), transparent 70%),' +
+        'radial-gradient(ellipse 30% 40% at 80% 60%, rgba(74, 222, 128, 0.1), transparent 70%)',
+
+      [theme.transitions.handleMotion('no-preference')]: {
+        animation: `${glowBreathe} 6s ease-in-out infinite`,
+      },
+    },
+
     '&::after': {
       content: '""',
       position: 'absolute',
       inset: 0,
-      zIndex: -1,
       pointerEvents: 'none',
-      background: 'radial-gradient(ellipse at 72% 50%, rgb(45 201 72 / 34%), transparent 58%)',
+      opacity: 0.5,
+      backgroundImage:
+        'linear-gradient(rgba(74, 222, 128, 0.04) 1px, transparent 1px),' +
+        'linear-gradient(90deg, rgba(74, 222, 128, 0.04) 1px, transparent 1px)',
+      backgroundSize: '40px 40px',
+      maskImage: 'radial-gradient(ellipse 70% 80% at 70% 50%, #000 20%, transparent 75%)',
     },
 
     [theme.breakpoints.down('lg')]: {
@@ -79,6 +102,8 @@ const getStyles = (theme: GrafanaTheme2) => ({
     },
   }),
   copy: css({
+    // Analytix: keep the text above the absolutely positioned glow/grid layers
+    position: 'relative',
     alignSelf: 'center',
     padding: '38px 46px',
 
@@ -158,35 +183,18 @@ const getStyles = (theme: GrafanaTheme2) => ({
     minHeight: 230,
     display: 'flex',
     alignItems: 'center',
-    // Analytix: the illustration hugs the right edge of the panel, as in the
-    // approved design, instead of floating in the middle of its column
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
 
     [theme.breakpoints.down('lg')]: {
-      justifyContent: 'center',
       minHeight: 205,
     },
     [theme.breakpoints.down('sm')]: {
       minHeight: 180,
     },
   }),
-  heroImage: css({
-    position: 'relative',
-    // Analytix: fill the column so the illustration reads at the size shown in
-    // the approved design instead of sitting small and centred
-    width: '100%',
+  heroAnimation: css({
+    // Analytix: the neural scene fills the column; the panel keeps its own
+    // green ::after glow, the animation brings its halo on top of it
     height: '100%',
-    maxHeight: 300,
-    objectFit: 'contain',
-    objectPosition: 'right center',
-    filter: 'drop-shadow(0 14px 18px rgb(0 0 0 / 45%))',
-
-    [theme.breakpoints.down('lg')]: {
-      maxHeight: 205,
-      objectPosition: 'center',
-    },
-    [theme.breakpoints.down('sm')]: {
-      maxHeight: 180,
-    },
   }),
 });

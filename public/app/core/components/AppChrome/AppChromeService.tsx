@@ -18,6 +18,10 @@ export interface AppChromeState {
   pageNav?: NavModelItem;
   actions?: React.ReactNode;
   breadcrumbActions?: React.ReactNode;
+  // Analytix: actions that always render inline in the first header row (next
+  // to search/profile) and never move the header to a second toolbar level,
+  // unlike `actions` which wrap to their own row on smaller screens.
+  inlineActions?: React.ReactNode;
   megaMenuOpen: boolean;
   megaMenuDocked: boolean;
   kioskMode: KioskMode | null;
@@ -67,6 +71,7 @@ export class AppChromeService {
     // when route change update props from route and clear fields
     if (!this.routeChangeHandled) {
       newState.actions = undefined;
+      newState.inlineActions = undefined;
       newState.pageNav = undefined;
       newState.sectionNav = { node: { text: t('nav.home.title', 'Home') }, main: { text: '' } };
       newState.chromeless = this.currentRoute?.chromeless;
@@ -117,6 +122,7 @@ export class AppChromeService {
     if (newState.sectionNav !== current.sectionNav || newState.pageNav !== current.pageNav) {
       if (
         newState.actions === current.actions &&
+        newState.inlineActions === current.inlineActions &&
         newState.layout === current.layout &&
         navItemsAreTheSame(newState.sectionNav.node, current.sectionNav.node) &&
         navItemsAreTheSame(newState.pageNav, current.pageNav)

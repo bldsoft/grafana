@@ -6,25 +6,28 @@ import { useGrafana } from 'app/core/context/GrafanaContext';
 export interface AppChromeUpdateProps {
   actions?: React.ReactNode;
   breadcrumbActions?: React.ReactNode;
+  // Analytix: rendered inline in the first header row at every screen size
+  // (never wraps to the second toolbar level like `actions` do).
+  inlineActions?: React.ReactNode;
 }
 /**
  * This is the way core pages add actions to the second chrome toolbar
  */
 export const AppChromeUpdate = React.memo<AppChromeUpdateProps>(
-  ({ actions, breadcrumbActions }: AppChromeUpdateProps) => {
+  ({ actions, breadcrumbActions, inlineActions }: AppChromeUpdateProps) => {
     const { chrome } = useGrafana();
 
     // Unmount cleanup
     useLayoutEffect(() => {
       return () => {
-        chrome.update({ actions: undefined, breadcrumbActions: undefined });
+        chrome.update({ actions: undefined, breadcrumbActions: undefined, inlineActions: undefined });
       };
     }, [chrome]);
 
     // We use useLayoutEffect here to make sure that the chrome is updated before the page is rendered
     // This prevents flickering actions when going from one dashboard to another for example
     useLayoutEffect(() => {
-      chrome.update({ actions, breadcrumbActions });
+      chrome.update({ actions, breadcrumbActions, inlineActions });
     });
 
     return null;

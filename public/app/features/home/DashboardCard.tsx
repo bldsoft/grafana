@@ -101,8 +101,10 @@ const getStyles = (theme: GrafanaTheme2) => ({
       borderColor: analytix.green,
       color: analytix.greenBright,
     },
-    // Analytix: the stretched link is the focus target, so raise the ring to the card
-    '&:focus-within': {
+    // Analytix: the stretched link is the focus target, so raise the ring to
+    // the card - but only for keyboard focus (:focus-visible), so the ring
+    // does not stick to the card after opening it with a mouse click
+    '&:has(:focus-visible)': {
       boxShadow: analytix.focusRing,
     },
 

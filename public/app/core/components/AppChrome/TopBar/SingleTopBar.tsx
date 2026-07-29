@@ -32,6 +32,8 @@ interface Props {
   onToggleKioskMode(): void;
   actions?: React.ReactNode;
   breadcrumbActions?: React.ReactNode;
+  // Analytix: always rendered in this (first) header row, at every screen size
+  inlineActions?: React.ReactNode;
   scopes?: ScopesContextValue | undefined;
   showToolbarLevel: boolean;
 }
@@ -44,6 +46,7 @@ export const SingleTopBar = memo(function SingleTopBar({
   scopes,
   actions,
   breadcrumbActions,
+  inlineActions,
   showToolbarLevel,
 }: Props) {
   const { chrome } = useGrafana();
@@ -89,6 +92,7 @@ export const SingleTopBar = memo(function SingleTopBar({
           data-testid={!showToolbarLevel ? Components.NavToolbar.container : undefined}
         >
           {/* Analytix: toolbar actions in the right corner next to search/profile, single-row header */}
+          {inlineActions}
           {!showToolbarLevel && actions}
           <TopBarExtensionPoint />
           <TopSearchBarCommandPaletteTrigger />

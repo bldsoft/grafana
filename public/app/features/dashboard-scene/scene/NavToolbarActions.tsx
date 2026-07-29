@@ -171,7 +171,7 @@ export function ToolbarActions({ dashboard }: Props) {
   toolbarActions.push({
     group: 'icon-actions',
     condition: AI_PANEL_ENABLED && isShowingDashboard && !isPlaying,
-    render: () => <GenPanelButton key="gen-panel-button" dashboard={dashboard} />,
+    render: () => <GenPanelButton key="gen-panel-button" />,
   });
 
   if (!isEditingPanel && !isEditing) {

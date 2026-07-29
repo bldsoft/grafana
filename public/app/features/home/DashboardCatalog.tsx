@@ -201,11 +201,14 @@ const getStyles = (theme: GrafanaTheme2) => ({
     gap: 6,
     border: `1px solid ${analytix.borderControl}`,
     borderRadius: analytix.radiusControl,
-    background: '#131617',
+    // Analytix: one surface step above the panel so idle controls do not
+    // blend into it (same grey as the dashboard cards)
+    background: theme.colors.background.elevated,
     color: analytix.textMuted,
     font: 'inherit',
     cursor: 'pointer',
     '&:hover': { color: '#fff' },
+    '&:active': { transform: 'translateY(1px)' },
     '&:focus-visible': { outline: 0, boxShadow: analytix.focusRing },
 
     [theme.breakpoints.down('sm')]: {
@@ -214,6 +217,8 @@ const getStyles = (theme: GrafanaTheme2) => ({
       justifyContent: 'center',
     },
   }),
+  // Analytix: the selected filter keeps the muted dark green from the
+  // approved design (deliberately calmer than the "Browse dashboards" CTA)
   filterActive: css({
     minHeight: 35,
     padding: '0 13px',
@@ -226,6 +231,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     color: '#fff',
     font: 'inherit',
     cursor: 'pointer',
+    '&:active': { transform: 'translateY(1px)' },
     '&:focus-visible': { outline: 0, boxShadow: analytix.focusRing },
 
     [theme.breakpoints.down('sm')]: {
@@ -255,9 +261,10 @@ const getStyles = (theme: GrafanaTheme2) => ({
     gap: 8,
     border: `1px solid ${analytix.borderControl}`,
     borderRadius: analytix.radiusControl,
-    background: analytix.controlSunken,
+    // Analytix: same raised grey as the filter buttons; no focus ring on the
+    // search field by design - the caret is the focus indicator
+    background: theme.colors.background.elevated,
     color: analytix.textMuted,
-    '&:focus-within': { outline: 0, boxShadow: analytix.focusRing },
 
     [theme.breakpoints.down('md')]: {
       width: '100%',

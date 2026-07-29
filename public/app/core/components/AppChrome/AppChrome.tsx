@@ -120,6 +120,7 @@ export function AppChrome({ children }: Props) {
                   onToggleKioskMode={chrome.onToggleKioskMode}
                   actions={state.actions}
                   breadcrumbActions={state.breadcrumbActions}
+                  inlineActions={state.inlineActions}
                   scopes={scopes}
                   showToolbarLevel={headerLevels === 2}
                 />
