@@ -13,9 +13,10 @@ interface Props {
   onBrowse: () => void;
 }
 
-// Analytix: "Welcome to Analytix" block from the approved home-page design.
-// Layout follows COMPONENT_SPEC.md: two columns (~58/42), 232px min height,
-// stacking below 900px with the copy before the illustration.
+// Analytix: "Welcome to Analytix" block from the approved home-page design
+// (analytix-welcome handoff package). Two columns with the animation as the
+// dominant one, everything sized in clamp()/fr so the scene scales with the
+// viewport; below lg it stacks with the copy before the illustration.
 export function WelcomePanel({ onBrowse }: Props) {
   const styles = useStyles2(getStyles);
 
@@ -38,7 +39,7 @@ export function WelcomePanel({ onBrowse }: Props) {
       <div className={styles.visual}>
         {/* Analytix: animated "Neural Core" scene replaces the static hero
             illustration; decorative only, hence no accessible alternative. */}
-        <NeuralCoreAnimation className={styles.heroAnimation} />
+        <NeuralCoreAnimation />
       </div>
     </section>
   );
@@ -55,9 +56,14 @@ const getStyles = (theme: GrafanaTheme2) => ({
     position: 'relative',
     isolation: 'isolate',
     overflow: 'hidden',
-    minHeight: 232,
+    // Analytix: the animation is the dominant half of the block, so the copy
+    // sits in the narrower column and the scene gets room to scale.
     display: 'grid',
-    gridTemplateColumns: '1.15fr .85fr',
+    gridTemplateColumns: 'minmax(200px, .75fr) minmax(0, 1.4fr)',
+    gap: 'clamp(12px, 2vw, 28px)',
+    alignItems: 'center',
+    minHeight: 'clamp(280px, 42vw, 420px)',
+    padding: 'clamp(20px, 3vw, 36px) clamp(16px, 3vw, 40px)',
     border: `1px solid ${analytix.border}`,
     borderRadius: analytix.radiusPanel,
     // Analytix: grey panel surface (same as the catalog panel below) with the
@@ -93,50 +99,53 @@ const getStyles = (theme: GrafanaTheme2) => ({
       maskImage: 'radial-gradient(ellipse 70% 80% at 70% 50%, #000 20%, transparent 75%)',
     },
 
+    [theme.breakpoints.down(1100)]: {
+      gridTemplateColumns: 'minmax(180px, .85fr) minmax(0, 1.2fr)',
+    },
     [theme.breakpoints.down('lg')]: {
       gridTemplateColumns: '1fr',
-      minHeight: 410,
+      // Stacked: the copy and the scene each bring their own height.
+      minHeight: 0,
+      gap: 8,
+      padding: '24px 20px 12px',
     },
-    [theme.breakpoints.down('sm')]: {
-      minHeight: 390,
+    [theme.breakpoints.down('md')]: {
+      padding: '20px 16px 8px',
     },
   }),
   copy: css({
     // Analytix: keep the text above the absolutely positioned glow/grid layers
     position: 'relative',
+    zIndex: 1,
     alignSelf: 'center',
-    padding: '38px 46px',
 
     [theme.breakpoints.down('lg')]: {
-      padding: '30px 28px 0',
-    },
-    [theme.breakpoints.down('sm')]: {
-      padding: '25px 18px 0',
+      maxWidth: 480,
     },
   }),
   title: css({
     margin: '0 0 10px',
     color: analytix.text,
-    fontSize: 'clamp(30px, 3vw, 42px)',
+    fontSize: 'clamp(28px, 3.2vw, 40px)',
     lineHeight: 1.15,
-    letterSpacing: '-.8px',
+    letterSpacing: '-.02em',
 
-    [theme.breakpoints.down('sm')]: {
-      fontSize: 29,
+    [theme.breakpoints.down('md')]: {
+      fontSize: 'clamp(24px, 7vw, 32px)',
     },
   }),
   subtitle: css({
-    margin: 0,
+    margin: '0 0 clamp(16px, 2vw, 22px)',
+    maxWidth: 320,
     color: '#c3c6c7',
-    fontSize: 16,
+    fontSize: 'clamp(14px, 1.5vw, 16px)',
     lineHeight: 1.5,
 
-    [theme.breakpoints.down('sm')]: {
-      fontSize: 14,
+    [theme.breakpoints.down('md')]: {
+      maxWidth: 'none',
     },
   }),
   cta: css({
-    marginTop: 28,
     minHeight: 40,
     padding: '0 17px',
     display: 'inline-flex',
@@ -166,9 +175,8 @@ const getStyles = (theme: GrafanaTheme2) => ({
       boxShadow: analytix.focusRing,
     },
 
-    [theme.breakpoints.down('sm')]: {
+    [theme.breakpoints.down('md')]: {
       width: '100%',
-      marginTop: 21,
     },
   }),
   ctaIcon: css({
@@ -179,22 +187,21 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   visual: css({
     position: 'relative',
+    zIndex: 1,
+    width: '100%',
     minWidth: 0,
-    minHeight: 230,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    // Analytix: the scene bleeds slightly past the panel padding so its faded
+    // edges reach the panel border instead of ending in a gap.
+    margin: '-12px -16px -12px -8px',
 
     [theme.breakpoints.down('lg')]: {
-      minHeight: 205,
+      margin: '0 -8px -4px',
     },
-    [theme.breakpoints.down('sm')]: {
-      minHeight: 180,
+    [theme.breakpoints.down('md')]: {
+      margin: '4px -4px 0',
     },
-  }),
-  heroAnimation: css({
-    // Analytix: the neural scene fills the column; the panel keeps its own
-    // green ::after glow, the animation brings its halo on top of it
-    height: '100%',
   }),
 });

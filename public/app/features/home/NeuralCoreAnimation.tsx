@@ -141,7 +141,7 @@ export function NeuralCoreAnimation({ className }: Props) {
       {/* Analytix: the viewBox is taller than the drawn content (devices end at
           y=322 with the "cdn" label) so nothing clips at the bottom and the
           scene renders slightly smaller than an edge-to-edge fit. */}
-      <svg className={styles.svg} viewBox="-24 -26 468 368" preserveAspectRatio="xMidYMid meet" focusable="false">
+      <svg className={styles.svg} viewBox="-24 -20 468 352" preserveAspectRatio="xMidYMid meet" focusable="false">
         <defs>
           <radialGradient id="anc-core-grad" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stopColor="#4ade80" stopOpacity="0.95" />
@@ -298,25 +298,47 @@ const haloBreathe = keyframes({
   '50%': { transform: 'scale(1.15)', opacity: 1 },
 });
 
+// Analytix: the scene fades out towards the edges instead of ending on a hard
+// rectangle; the mask opens up on small screens so the outer devices survive.
+const SCENE_MASK = 'radial-gradient(ellipse 78% 72% at 52% 48%, #000 42%, transparent 88%)';
+const SCENE_MASK_MOBILE = 'radial-gradient(ellipse 82% 78% at 50% 48%, #000 38%, transparent 90%)';
+
 const getStyles = (theme: GrafanaTheme2) => ({
   neural: css({
     position: 'relative',
     width: '100%',
-    // Analytix: the container adopts the column height; the SVG is absolutely
-    // positioned so its intrinsic viewBox ratio cannot inflate the panel.
-    height: '100%',
+    // Analytix: the scene carries its own aspect ratio instead of a fixed
+    // height, so it scales with the column it is dropped into.
+    aspectRatio: '468 / 352',
+    minHeight: 'clamp(220px, 38vw, 400px)',
+    // Analytix: past this width the aspect ratio alone would push the hero
+    // beyond 600px tall on ultra-wide monitors.
+    maxWidth: 820,
+    marginInline: 'auto',
     display: 'grid',
     placeItems: 'center',
     background:
       'radial-gradient(circle at 52% 48%, rgba(57, 211, 83, 0.22), transparent 38%),' +
       'radial-gradient(ellipse 90% 75% at 55% 50%, rgba(12, 20, 14, 0.35), transparent 78%)',
-    maskImage: 'radial-gradient(ellipse 78% 72% at 52% 48%, #000 42%, transparent 88%)',
+    maskImage: SCENE_MASK,
+    WebkitMaskImage: SCENE_MASK,
+
+    [theme.breakpoints.down('lg')]: {
+      // Stacked layout: the column is already as wide as the panel, so the
+      // aspect ratio alone decides the height.
+      minHeight: 0,
+      maxWidth: 640,
+    },
+    [theme.breakpoints.down('md')]: {
+      aspectRatio: '450 / 352',
+      maskImage: SCENE_MASK_MOBILE,
+      WebkitMaskImage: SCENE_MASK_MOBILE,
+    },
   }),
   halo: css({
     position: 'absolute',
-    width: '58%',
+    width: 'clamp(140px, 28vw, 280px)',
     aspectRatio: '1',
-    maxWidth: 280,
     borderRadius: theme.shape.radius.circle,
     background: 'radial-gradient(circle, rgba(74, 222, 128, 0.28), rgba(57, 211, 83, 0.08) 45%, transparent 72%)',
     filter: 'blur(14px)',
@@ -325,13 +347,26 @@ const getStyles = (theme: GrafanaTheme2) => ({
     [theme.transitions.handleMotion('no-preference')]: {
       animation: `${haloBreathe} 4s ease-in-out infinite`,
     },
+
+    [theme.breakpoints.down('md')]: {
+      width: 'clamp(120px, 42vw, 200px)',
+      filter: 'blur(10px)',
+    },
   }),
   svg: css({
-    position: 'absolute',
-    inset: 0,
+    position: 'relative',
     zIndex: 1,
+    display: 'block',
     width: '100%',
-    height: '100%',
+    height: 'auto',
+    aspectRatio: '468 / 352',
+    // Analytix: device labels are drawn a couple of units past the viewBox on
+    // the tightest ratios - let them paint rather than clip mid-glyph.
+    overflow: 'visible',
+
+    [theme.breakpoints.down('md')]: {
+      aspectRatio: '450 / 352',
+    },
   }),
   mesh: css({
     '& path': {
