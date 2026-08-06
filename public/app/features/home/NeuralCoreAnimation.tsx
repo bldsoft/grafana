@@ -310,16 +310,20 @@ const getStyles = (theme: GrafanaTheme2) => ({
     // Analytix: the scene carries its own aspect ratio instead of a fixed
     // height, so it scales with the column it is dropped into.
     aspectRatio: '468 / 352',
-    minHeight: 'clamp(220px, 38vw, 400px)',
+    minHeight: 'clamp(108px, 18.6vw, 196px)',
     // Analytix: past this width the aspect ratio alone would push the hero
-    // beyond 600px tall on ultra-wide monitors.
-    maxWidth: 820,
+    // beyond 300px tall on ultra-wide monitors.
+    maxWidth: 402,
     marginInline: 'auto',
     display: 'grid',
     placeItems: 'center',
+    // Analytix: both gradients must fade out fully INSIDE the scene (edge
+    // distance / radius > transparent stop on every side) - a tint that still
+    // has alpha at the container edge gets cut off and paints a visible seam
+    // against the panel background.
     background:
       'radial-gradient(circle at 52% 48%, rgba(57, 211, 83, 0.22), transparent 38%),' +
-      'radial-gradient(ellipse 90% 75% at 55% 50%, rgba(12, 20, 14, 0.35), transparent 78%)',
+      'radial-gradient(ellipse 55% 50% at 52% 48%, rgba(12, 20, 14, 0.35), transparent 85%)',
     maskImage: SCENE_MASK,
     WebkitMaskImage: SCENE_MASK,
 
@@ -327,7 +331,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
       // Stacked layout: the column is already as wide as the panel, so the
       // aspect ratio alone decides the height.
       minHeight: 0,
-      maxWidth: 640,
+      maxWidth: 314,
     },
     [theme.breakpoints.down('md')]: {
       aspectRatio: '450 / 352',
@@ -337,7 +341,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   halo: css({
     position: 'absolute',
-    width: 'clamp(140px, 28vw, 280px)',
+    width: 'clamp(69px, 13.7vw, 137px)',
     aspectRatio: '1',
     borderRadius: theme.shape.radius.circle,
     background: 'radial-gradient(circle, rgba(74, 222, 128, 0.28), rgba(57, 211, 83, 0.08) 45%, transparent 72%)',
@@ -349,7 +353,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     },
 
     [theme.breakpoints.down('md')]: {
-      width: 'clamp(120px, 42vw, 200px)',
+      width: 'clamp(59px, 20.6vw, 98px)',
       filter: 'blur(10px)',
     },
   }),

@@ -60,10 +60,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
     // sits in the narrower column and the scene gets room to scale.
     display: 'grid',
     gridTemplateColumns: 'minmax(200px, .75fr) minmax(0, 1.4fr)',
-    gap: 'clamp(12px, 2vw, 28px)',
+    gap: 'clamp(6px, 1vw, 14px)',
     alignItems: 'center',
-    minHeight: 'clamp(280px, 42vw, 420px)',
-    padding: 'clamp(20px, 3vw, 36px) clamp(16px, 3vw, 40px)',
+    minHeight: 'clamp(137px, 20.6vw, 206px)',
+    // Analytix: the copy keeps a generous prod-like inset from the left edge;
+    // the right side stays tight so the scene can bleed towards the border.
+    padding: 'clamp(10px, 1.5vw, 18px) clamp(8px, 1.5vw, 20px) clamp(10px, 1.5vw, 18px) clamp(32px, 4.5vw, 80px)',
     border: `1px solid ${analytix.border}`,
     borderRadius: analytix.radiusPanel,
     // Analytix: grey panel surface (same as the catalog panel below) with the
@@ -106,11 +108,11 @@ const getStyles = (theme: GrafanaTheme2) => ({
       gridTemplateColumns: '1fr',
       // Stacked: the copy and the scene each bring their own height.
       minHeight: 0,
-      gap: 8,
-      padding: '24px 20px 12px',
+      gap: 4,
+      padding: '12px 10px 6px',
     },
     [theme.breakpoints.down('md')]: {
-      padding: '20px 16px 8px',
+      padding: '10px 8px 4px',
     },
   }),
   copy: css({
@@ -136,7 +138,9 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   subtitle: css({
     margin: '0 0 clamp(16px, 2vw, 22px)',
-    maxWidth: 320,
+    // Analytix: wide enough for "Everything you need to understand your data"
+    // to stay on a single line at the largest font size.
+    maxWidth: 480,
     color: '#c3c6c7',
     fontSize: 'clamp(14px, 1.5vw, 16px)',
     lineHeight: 1.5,
@@ -195,13 +199,17 @@ const getStyles = (theme: GrafanaTheme2) => ({
     justifyContent: 'center',
     // Analytix: the scene bleeds slightly past the panel padding so its faded
     // edges reach the panel border instead of ending in a gap.
-    margin: '-12px -16px -12px -8px',
+    margin: '-6px -8px -6px -4px',
+    // Analytix: nudge the scene towards the right half of the panel
+    transform: 'translateX(70px)',
 
     [theme.breakpoints.down('lg')]: {
-      margin: '0 -8px -4px',
+      margin: '0 -4px -2px',
+      // Stacked layout: the scene is centered under the copy again.
+      transform: 'none',
     },
     [theme.breakpoints.down('md')]: {
-      margin: '4px -4px 0',
+      margin: '2px -2px 0',
     },
   }),
 });
