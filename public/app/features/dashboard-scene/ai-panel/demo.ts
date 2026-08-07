@@ -7,10 +7,10 @@ import { SceneQueryRunner, VizPanel } from '@grafana/scenes';
  * and builds a sample chart from the built-in TestData datasource, so the whole
  * flow can be shown end-to-end without configuring grafana-llm-app or ClickHouse.
  *
- * TODO: flip to false (or remove this module) once the real LLM/ClickHouse path
- * is wired up.
+ * The real path talks to the ai-grafana-helper service (see assistantClient.ts);
+ * flip this back to `true` for offline demos without the service and VPN.
  */
-export const AI_PANEL_DEMO_MODE = true;
+export const AI_PANEL_DEMO_MODE = false;
 
 const TESTDATA_PLUGIN_ID = 'grafana-testdata-datasource';
 
