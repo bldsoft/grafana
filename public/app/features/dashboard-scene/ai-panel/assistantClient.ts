@@ -24,6 +24,7 @@ export interface AssistantResult {
 
 const DEFAULT_URL = 'http://localhost:8765';
 const URL_OVERRIDE_KEY = 'analytix.aiAssistantUrl';
+const TOKEN_KEY = 'analytix.aiAssistantToken';
 
 export function getAssistantBaseUrl(): string {
   try {
@@ -33,13 +34,30 @@ export function getAssistantBaseUrl(): string {
   }
 }
 
+/** Auth headers for a non-localhost backend (see AUTH_TOKEN on the service). */
+function authHeaders(): Record<string, string> {
+  // The extra header also skips the ngrok free-tier browser interstitial,
+  // which would otherwise replace API responses with an HTML warning page.
+  const headers: Record<string, string> = { 'ngrok-skip-browser-warning': '1' };
+  try {
+    const token = store.get(TOKEN_KEY);
+    if (token) {
+      headers.Authorization = `Bearer ${token}`;
+    }
+  } catch {}
+  return headers;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
 export async function checkAssistantHealth(): Promise<{ ok: boolean; clickhouse: boolean }> {
   try {
-    const res = await fetch(`${getAssistantBaseUrl()}/healthz`, { signal: AbortSignal.timeout(4000) });
+    const res = await fetch(`${getAssistantBaseUrl()}/healthz`, {
+      headers: authHeaders(),
+      signal: AbortSignal.timeout(4000),
+    });
     if (!res.ok) {
       return { ok: false, clickhouse: false };
     }
@@ -64,7 +82,7 @@ interface GenerateArgs {
 export async function generatePanel({ prompt, sessionId, signal, onProgress }: GenerateArgs): Promise<AssistantResult> {
   const res = await fetch(`${getAssistantBaseUrl()}/api/generate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...authHeaders() },
     body: JSON.stringify({ prompt, sessionId: sessionId || undefined }),
     signal,
   });
