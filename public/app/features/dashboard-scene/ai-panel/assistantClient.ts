@@ -2,9 +2,10 @@
 // The backend lives in a separate private repository; it validates the SQL
 // server-side and returns a ready GeneratedPanelSpec.
 
-import { store } from '@grafana/data';
+import { DataSourceRef, store } from '@grafana/data';
 import { config } from '@grafana/runtime';
 
+import { runRawQuery } from './datasourceQuery';
 import { GeneratedPanelSpec, SUPPORTED_PANEL_TYPES } from './types';
 
 /** Live progress from the agent while it explores the schema and writes SQL. */
@@ -53,34 +54,71 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-export async function checkAssistantHealth(): Promise<{ ok: boolean; clickhouse: boolean }> {
+export async function checkAssistantHealth(): Promise<{ ok: boolean }> {
   try {
     const res = await fetch(`${getAssistantBaseUrl()}/healthz`, {
       headers: authHeaders(),
       signal: AbortSignal.timeout(4000),
     });
     if (!res.ok) {
-      return { ok: false, clickhouse: false };
+      return { ok: false };
     }
     const body = await res.json();
-    return { ok: Boolean(body.ok), clickhouse: Boolean(body.clickhouse) };
+    return { ok: Boolean(body.ok) };
   } catch {
-    return { ok: false, clickhouse: false };
+    return { ok: false };
   }
 }
 
 interface GenerateArgs {
   prompt: string;
+  /** ClickHouse datasource that executes the agent's exploration queries (and later the panel). */
+  datasource: DataSourceRef;
   sessionId?: string | null;
   signal?: AbortSignal;
   onProgress?: (progress: AssistantProgress) => void;
 }
 
 /**
+ * Browser leg of the query bridge: execute the SQL from a `query` SSE event
+ * through the user's datasource and POST the result back to the backend.
+ * Errors are shipped back too — the agent reads them and self-corrects.
+ */
+async function answerQueryEvent(datasource: DataSourceRef, payload: Record<string, unknown>): Promise<void> {
+  const requestId = typeof payload.requestId === 'string' ? payload.requestId : '';
+  const sql = typeof payload.sql === 'string' ? payload.sql : '';
+  const maxRows = typeof payload.maxRows === 'number' && payload.maxRows > 0 ? payload.maxRows : 200;
+  if (!requestId) {
+    return;
+  }
+
+  let body: Record<string, unknown>;
+  try {
+    if (!sql) {
+      throw new Error('empty SQL statement');
+    }
+    const result = await runRawQuery(datasource, sql, maxRows);
+    body = { requestId, ok: true, data: result.data, rows: result.rows, meta: result.meta };
+  } catch (e) {
+    body = { requestId, ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+
+  try {
+    await fetch(`${getAssistantBaseUrl()}/api/query-result`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    // Nothing to do: the backend times the request out and tells the agent.
+  }
+}
+
+/**
  * POST /api/generate and consume the SSE stream. Resolves with the terminal
  * `result` event; rejects on `error` events, HTTP errors or malformed specs.
  */
-export async function generatePanel({ prompt, sessionId, signal, onProgress }: GenerateArgs): Promise<AssistantResult> {
+export async function generatePanel({ prompt, datasource, sessionId, signal, onProgress }: GenerateArgs): Promise<AssistantResult> {
   const res = await fetch(`${getAssistantBaseUrl()}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -125,6 +163,10 @@ export async function generatePanel({ prompt, sessionId, signal, onProgress }: G
         tool: typeof payload.tool === 'string' ? payload.tool : null,
         toolCounts,
       });
+    } else if (event === 'query' && isRecord(payload)) {
+      // Fire-and-forget: the SSE reader must keep draining while the
+      // datasource executes; the backend blocks on its own promise.
+      void answerQueryEvent(datasource, payload);
     } else if (event === 'result') {
       result = normalizeResult(payload);
     } else if (event === 'error') {

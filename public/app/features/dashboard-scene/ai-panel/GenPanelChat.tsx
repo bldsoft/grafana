@@ -116,6 +116,9 @@ export function GenPanelChat({ onClose }: Props) {
     try {
       const result = await generatePanel({
         prompt,
+        // The agent's exploration queries execute in this browser through the
+        // selected datasource — same data and permissions as the final panel.
+        datasource,
         sessionId: sessionRef.current,
         signal: abortController.signal,
         onProgress: (p: AssistantProgress) => {
@@ -177,14 +180,6 @@ export function GenPanelChat({ onClose }: Props) {
             <Alert severity="warning" title={t('dashboard.ai-panel.service-down-title', 'Assistant is offline')}>
               <Trans i18nKey="dashboard.ai-panel.service-down-body">
                 The ai-grafana-helper service is not reachable. Start it locally (npm start) and reopen the chat.
-              </Trans>
-            </Alert>
-          )}
-          {!AI_PANEL_DEMO_MODE && health?.ok && !health.clickhouse && (
-            <Alert severity="info" title={t('dashboard.ai-panel.ch-down-title', 'ClickHouse is not reachable')}>
-              <Trans i18nKey="dashboard.ai-panel.ch-down-body">
-                The assistant is up, but ClickHouse does not respond — check the VPN. Generation will fail until it is
-                back.
               </Trans>
             </Alert>
           )}
