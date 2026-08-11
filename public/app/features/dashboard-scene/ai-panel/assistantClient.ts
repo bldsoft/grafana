@@ -3,6 +3,7 @@
 // server-side and returns a ready GeneratedPanelSpec.
 
 import { store } from '@grafana/data';
+import { config } from '@grafana/runtime';
 
 import { GeneratedPanelSpec, SUPPORTED_PANEL_TYPES } from './types';
 
@@ -83,7 +84,9 @@ export async function generatePanel({ prompt, sessionId, signal, onProgress }: G
   const res = await fetch(`${getAssistantBaseUrl()}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
-    body: JSON.stringify({ prompt, sessionId: sessionId || undefined }),
+    // `user` attributes the request in the backend audit log; access control
+    // stays on the bearer token.
+    body: JSON.stringify({ prompt, sessionId: sessionId || undefined, user: config.bootData?.user?.login || undefined }),
     signal,
   });
 

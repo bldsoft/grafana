@@ -1,8 +1,8 @@
-import { css, keyframes } from '@emotion/css';
+import { css, cx, keyframes } from '@emotion/css';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAsync } from 'react-use';
 
-import { DataSourceInstanceSettings, DataSourceRef, GrafanaTheme2, getDataSourceRef } from '@grafana/data';
+import { DataSourceInstanceSettings, DataSourceRef, GrafanaTheme2, getDataSourceRef, renderMarkdown } from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
 import { DataSourcePicker, getDataSourceSrv } from '@grafana/runtime';
 import { EmbeddedScene } from '@grafana/scenes';
@@ -32,6 +32,16 @@ interface ChatEntry {
   message?: string;
   error?: string;
   durationMs?: number;
+}
+
+/**
+ * Assistant text rendered as markdown: the agent replies with bold/tables/lists,
+ * which looked like raw `**` and `|` pipes as plain text. renderMarkdown
+ * sanitizes the HTML, so dangerouslySetInnerHTML is safe here.
+ */
+function MarkdownText({ text, className }: { text: string; className?: string }) {
+  const html = useMemo(() => renderMarkdown(text, { breaks: true }), [text]);
+  return <div className={className} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 const EXAMPLE_PROMPTS = [
@@ -222,7 +232,9 @@ export function GenPanelChat({ onClose }: Props) {
                       ))}
                     </span>
                   </div>
-                  {entry.progressText && <div className={styles.progressText}>{entry.progressText}</div>}
+                  {entry.progressText && (
+                    <MarkdownText className={cx(styles.progressText, styles.markdownBody)} text={entry.progressText} />
+                  )}
                 </div>
               )}
 
@@ -232,7 +244,9 @@ export function GenPanelChat({ onClose }: Props) {
                 </Alert>
               )}
 
-              {entry.status === 'message' && <div className={styles.assistantBubble}>{entry.message}</div>}
+              {entry.status === 'message' && (
+                <MarkdownText className={cx(styles.assistantBubble, styles.markdownBody)} text={entry.message || ''} />
+              )}
 
               {entry.status === 'done' && entry.scene && (
                 <div className={styles.chartCard}>
@@ -241,7 +255,7 @@ export function GenPanelChat({ onClose }: Props) {
                   </div>
                   <div className={styles.chartFooter}>
                     {entry.spec && <span className={styles.typeBadge}>{entry.spec.panelType}</span>}
-                    {entry.message && <span className={styles.chartNote}>{entry.message}</span>}
+                    {entry.message && <MarkdownText className={styles.chartNote} text={entry.message} />}
                     {entry.durationMs != null && (
                       <span className={styles.duration}>
                         {t('dashboard.ai-panel.duration', '{{seconds}}s', {
@@ -420,7 +434,55 @@ const getStyles = (theme: GrafanaTheme2) => ({
     borderBottomLeftRadius: theme.shape.radius.default,
     padding: theme.spacing(1, 1.5),
     color: analytix.textDim,
-    whiteSpace: 'pre-wrap',
+  }),
+  // Rendered-markdown polish shared by the assistant bubble and live progress:
+  // compact paragraphs, Analytix-toned tables and code.
+  markdownBody: css({
+    '& p': { margin: 0, marginBottom: theme.spacing(0.5) },
+    '& p:last-child': { marginBottom: 0 },
+    '& ul, & ol': { margin: theme.spacing(0.5, 0), paddingLeft: theme.spacing(2.5) },
+    '& strong': { color: analytix.text },
+    '& a': { color: analytix.greenBright },
+    '& h1, & h2, & h3, & h4, & h5, & h6': {
+      fontSize: theme.typography.body.fontSize,
+      fontWeight: theme.typography.fontWeightMedium,
+      color: analytix.text,
+      margin: theme.spacing(0.5, 0),
+    },
+    '& table': {
+      borderCollapse: 'collapse',
+      margin: theme.spacing(0.5, 0),
+    },
+    '& th, & td': {
+      border: `1px solid ${analytix.border}`,
+      padding: theme.spacing(0.5, 1),
+      textAlign: 'left',
+    },
+    '& th': {
+      color: analytix.text,
+      fontWeight: theme.typography.fontWeightMedium,
+      background: analytix.control,
+    },
+    '& code': {
+      background: analytix.control,
+      borderRadius: theme.shape.radius.default,
+      padding: '1px 4px',
+      fontSize: theme.typography.bodySmall.fontSize,
+    },
+    '& pre': {
+      background: analytix.controlSunken,
+      border: `1px solid ${analytix.borderControl}`,
+      borderRadius: analytix.radiusControl,
+      padding: theme.spacing(1),
+      overflowX: 'auto',
+      '& code': { background: 'none', padding: 0 },
+    },
+    '& blockquote': {
+      margin: theme.spacing(0.5, 0),
+      paddingLeft: theme.spacing(1.5),
+      borderLeft: `2px solid ${analytix.green}`,
+      color: analytix.textMuted,
+    },
   }),
   agentCard: css({
     alignSelf: 'stretch',
@@ -467,7 +529,6 @@ const getStyles = (theme: GrafanaTheme2) => ({
   progressText: css({
     color: analytix.textMuted,
     fontSize: theme.typography.bodySmall.fontSize,
-    whiteSpace: 'pre-wrap',
     maxHeight: 120,
     overflowY: 'auto',
   }),
@@ -507,6 +568,10 @@ const getStyles = (theme: GrafanaTheme2) => ({
     textOverflow: 'ellipsis',
     whiteSpace: 'nowrap',
     flex: 1,
+    // The note is a one-line summary: keep markdown blocks inline so the
+    // ellipsis still applies, and bold stays subtle at footer contrast.
+    '& p': { display: 'inline', margin: 0 },
+    '& strong': { fontWeight: theme.typography.fontWeightMedium },
   }),
   duration: css({
     marginLeft: 'auto',

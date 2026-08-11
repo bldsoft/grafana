@@ -5,9 +5,13 @@ import { GeneratedPanelSpec, SupportedPanelType } from './types';
 
 /**
  * Analytix: per-panel-type visual defaults so generated charts land in the
- * brand look (smooth green gradients on dark) instead of bare plugin defaults.
+ * dashboard look — flat pastel-blue bars, thin linear lines, pale-green stat
+ * values on dark — instead of bare plugin defaults.
  */
-const ANALYTIX_GREEN = '#45d157';
+// Soft blue of the "TOP 10 ..." bar rows on the Home dashboard.
+const ANALYTIX_BLUE = '#8ab8ff';
+// Pale green of the big stat values ("98.0 k") on the Home dashboard.
+const ANALYTIX_GREEN_SOFT = '#a9e0b0';
 
 function fieldConfigFor(panelType: SupportedPanelType) {
   switch (panelType) {
@@ -17,10 +21,10 @@ function fieldConfigFor(panelType: SupportedPanelType) {
           color: { mode: FieldColorModeId.PaletteClassic },
           custom: {
             drawStyle: 'line',
-            lineInterpolation: 'smooth',
-            lineWidth: 2,
-            fillOpacity: 16,
-            gradientMode: 'opacity',
+            lineInterpolation: 'linear',
+            lineWidth: 1,
+            fillOpacity: 0,
+            gradientMode: 'none',
             showPoints: 'never',
             spanNulls: true,
             pointSize: 4,
@@ -31,11 +35,13 @@ function fieldConfigFor(panelType: SupportedPanelType) {
     case 'barchart':
       return {
         defaults: {
-          color: { mode: FieldColorModeId.PaletteClassic },
+          // Shades: a single series renders in the exact brand blue (matching
+          // the TOP-10 rows); extra series get shades of it, staying on-brand.
+          color: { mode: FieldColorModeId.Shades, fixedColor: ANALYTIX_BLUE },
           custom: {
             lineWidth: 0,
-            fillOpacity: 85,
-            gradientMode: 'hue',
+            fillOpacity: 100,
+            gradientMode: 'none',
           },
         },
         overrides: [],
@@ -43,7 +49,7 @@ function fieldConfigFor(panelType: SupportedPanelType) {
     case 'stat':
       return {
         defaults: {
-          color: { mode: FieldColorModeId.Fixed, fixedColor: ANALYTIX_GREEN },
+          color: { mode: FieldColorModeId.Fixed, fixedColor: ANALYTIX_GREEN_SOFT },
         },
         overrides: [],
       };
@@ -71,21 +77,22 @@ function optionsFor(panelType: SupportedPanelType): Record<string, unknown> {
       return {
         legend: { showLegend: true, displayMode: 'list', placement: 'bottom' },
         tooltip: { mode: 'single' },
-        showValue: 'never',
-        barWidth: 0.72,
+        showValue: 'auto',
+        barWidth: 0.6,
       };
     case 'piechart':
       return {
         pieType: 'donut',
-        displayLabels: ['percent'],
-        legend: { showLegend: true, displayMode: 'list', placement: 'right', values: [] },
+        // Slices stay clean; shares are readable from the legend instead.
+        displayLabels: [],
+        legend: { showLegend: true, displayMode: 'list', placement: 'right', values: ['percent'] },
         reduceOptions: { calcs: ['lastNotNull'], fields: '', values: true },
         tooltip: { mode: 'single' },
       };
     case 'stat':
       return {
         colorMode: 'value',
-        graphMode: 'area',
+        graphMode: 'none',
         justifyMode: 'auto',
         textMode: 'auto',
         reduceOptions: { calcs: ['lastNotNull'], fields: '', values: false },
