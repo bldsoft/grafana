@@ -142,12 +142,26 @@ export function GenPanelChat({ onClose }: Props) {
         patchEntry(id, { status: 'message', message: result.message || '—' });
       }
     } catch (e) {
-      const error = e instanceof Error ? e.message : String(e);
-      patchEntry(id, { status: 'error', error });
+      if (abortController.signal.aborted) {
+        // User pressed stop (or closed the drawer) — not a failure.
+        patchEntry(id, {
+          status: 'message',
+          message: t('dashboard.ai-panel.stopped', 'Generation stopped.'),
+        });
+      } else {
+        const error = e instanceof Error ? e.message : String(e);
+        patchEntry(id, { status: 'error', error });
+      }
     } finally {
       abortRef.current = null;
       setBusy(false);
     }
+  };
+
+  // Stop the current generation: aborting the SSE fetch closes the stream,
+  // and the backend kills the agent run on disconnect (no more tokens burned).
+  const onStop = () => {
+    abortRef.current?.abort();
   };
 
   const onClear = () => {
@@ -164,11 +178,25 @@ export function GenPanelChat({ onClose }: Props) {
 
   return (
     <Drawer
-      title={t('dashboard.ai-panel.chat-title', 'AI panel chat')}
-      subtitle={t(
-        'dashboard.ai-panel.chat-subtitle',
-        'Describe a chart — the assistant explores ClickHouse, writes the SQL and renders it.'
-      )}
+      // Custom header node (the Drawer renders string titles itself, but a
+      // ReactNode replaces the whole block): product name + Beta pill + tagline.
+      title={
+        <div className={styles.headerWrap}>
+          <div className={styles.headerRow}>
+            <span className={styles.headerTitle}>
+              <Trans i18nKey="dashboard.ai-panel.chat-title">AI Insider</Trans>
+            </span>
+            <span className={styles.betaBadge}>
+              <Trans i18nKey="dashboard.ai-panel.chat-beta">Beta</Trans>
+            </span>
+          </div>
+          <div className={styles.headerSub}>
+            <Trans i18nKey="dashboard.ai-panel.chat-subtitle">
+              Ask your data anything — AI Insider writes the query, uncovers patterns, and explains what matters.
+            </Trans>
+          </div>
+        </div>
+      }
       onClose={onClose}
       size="lg"
       // Analytix: open almost full-width, leaving only the left menu visible.
@@ -304,15 +332,27 @@ export function GenPanelChat({ onClose }: Props) {
               onChange={(e) => setInput(e.currentTarget.value)}
               onKeyDown={onKeyDown}
             />
-            <button
-              type="button"
-              className={styles.sendButton}
-              disabled={!canSend}
-              onClick={onSend}
-              aria-label={t('dashboard.ai-panel.chat-send', 'Send')}
-            >
-              <Icon name="arrow-up" size="lg" />
-            </button>
+            {busy ? (
+              <button
+                type="button"
+                className={cx(styles.sendButton, styles.stopButton)}
+                onClick={onStop}
+                aria-label={t('dashboard.ai-panel.chat-stop', 'Stop generation')}
+                title={t('dashboard.ai-panel.chat-stop', 'Stop generation')}
+              >
+                <Icon name="square-shape" size="lg" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className={styles.sendButton}
+                disabled={!canSend}
+                onClick={onSend}
+                aria-label={t('dashboard.ai-panel.chat-send', 'Send')}
+              >
+                <Icon name="arrow-up" size="lg" />
+              </button>
+            )}
           </div>
 
           <div className={styles.footerRow}>
@@ -340,6 +380,35 @@ const pulse = keyframes({
 });
 
 const getStyles = (theme: GrafanaTheme2) => ({
+  headerWrap: css({
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.5),
+  }),
+  headerRow: css({
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+  }),
+  headerTitle: css({
+    fontSize: theme.typography.h2.fontSize,
+    fontWeight: theme.typography.fontWeightBold,
+    color: analytix.text,
+    lineHeight: 1.1,
+  }),
+  betaBadge: css({
+    fontSize: theme.typography.bodySmall.fontSize,
+    fontWeight: theme.typography.fontWeightMedium,
+    color: '#a99cff',
+    background: 'rgb(124 108 255 / 14%)',
+    border: '1px solid rgb(124 108 255 / 38%)',
+    borderRadius: theme.shape.radius.pill,
+    padding: '1px 10px',
+  }),
+  headerSub: css({
+    color: analytix.textMuted,
+    fontSize: theme.typography.body.fontSize,
+  }),
   container: css({
     display: 'flex',
     flexDirection: 'column',
@@ -626,6 +695,20 @@ const getStyles = (theme: GrafanaTheme2) => ({
       background: analytix.control,
       color: analytix.textFaint,
       cursor: 'not-allowed',
+    },
+  }),
+  // The send circle turned into a stop control while a generation runs:
+  // neutral surface, no green glow — stopping is not the primary action.
+  stopButton: css({
+    background: analytix.control,
+    border: `1px solid ${analytix.borderControl}`,
+    color: analytix.text,
+    // Same specificity as the sendButton hover rule so the green glow loses.
+    '&:hover:not(:disabled)': {
+      background: analytix.control,
+      borderColor: theme.colors.error.border,
+      color: theme.colors.error.text,
+      boxShadow: 'none',
     },
   }),
   footerRow: css({

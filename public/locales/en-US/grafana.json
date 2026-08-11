@@ -4531,14 +4531,10 @@
   },
   "command-palette": {
     "action": {
-      "change-theme": "Change theme",
-      "dark-theme": "Dark",
       "dashboard-from-template": "Dashboard from template",
-      "light-theme": "Light",
       "scopes": "Scopes"
     },
     "empty-state": {
-      "button-title": "Search with Grafana Assistant",
       "message": "No results found"
     },
     "scopes": {
@@ -4553,7 +4549,6 @@
       "dashboard-search-results": "Dashboards",
       "folder-search-results": "Folders",
       "pages": "Pages",
-      "preferences": "Preferences",
       "recent-dashboards": "Recent dashboards",
       "recent-scopes": "Recent scopes"
     }
@@ -5597,9 +5592,6 @@
       "name-include-all-option": "Include All option",
       "name-multi-value": "Multi-value"
     },
-    "share-button": {
-      "aria-label-sharedropdownmenu": "Toggle share menu"
-    },
     "sharing": {
       "save-before-share": {
         "text": "You have unsaved changes to this dashboard. You need to save them before you can share it.",
@@ -5908,18 +5900,27 @@
       "visualization": "Visualization"
     },
     "ai-panel": {
-      "chat-clear": "Clear",
+      "chat-beta": "Beta",
+      "chat-clear": "Clear the conversation",
       "chat-demo": "Demo mode — any prompt renders a sample chart.",
-      "chat-empty": "Describe a panel and press Enter. Each request adds a chart below — keep refining.",
       "chat-error": "Could not generate the panel",
       "chat-placeholder": "e.g. Show the last 30 days as a pie chart",
       "chat-send": "Send",
-      "chat-thinking": "Generating…",
-      "chat-title": "AI panel chat",
+      "chat-stop": "Stop generation",
+      "chat-subtitle": "Ask your data anything — AI Insider writes the query, uncovers patterns, and explains what matters.",
+      "chat-title": "AI Insider",
       "datasource-label": "ClickHouse datasource",
-      "llm-disabled-body": "Install and configure the Grafana LLM app (grafana-llm-app) to enable panel generation.",
-      "llm-disabled-title": "AI is not configured",
-      "tooltip": "Generate a panel from a description"
+      "duration": "{{seconds}}s",
+      "empty-sub": "Ask in plain language — each request adds a chart below, and follow-ups refine it.",
+      "empty-title": "What should we chart?",
+      "hint": "Enter — send · Shift+Enter — new line",
+      "no-ds-body": "Add a ClickHouse datasource in Grafana first — the generated panel needs one to run its query.",
+      "no-ds-title": "No ClickHouse datasource",
+      "service-down-body": "The ai-grafana-helper service is not reachable. Start it locally (npm start) and reopen the chat.",
+      "service-down-title": "Assistant is offline",
+      "stopped": "Generation stopped.",
+      "tooltip": "Generate a panel from a description",
+      "working": "Analyzing the data…"
     },
     "alert-rules-drawer": {
       "redirect-link": "List in Grafana Alerting",
@@ -6898,7 +6899,6 @@
       "discard-panel": "Discard panel changes",
       "discard-panel-new": "Discard panel",
       "edit": {
-        "label": "Edit",
         "tooltip": "Enter edit mode"
       },
       "edit-button": {
@@ -6977,7 +6977,6 @@
       "save-dashboard-short": "Save",
       "save-library-panel": "Save library panel",
       "settings": "Dashboard settings",
-      "share-button": "Share",
       "snapshot": {
         "title": "Source"
       },
@@ -8210,7 +8209,6 @@
       "title": "Export dashboard"
     },
     "menu": {
-      "export-as-json-label": "Export",
       "export-as-json-tooltip": "Export"
     }
   },
@@ -10296,10 +10294,8 @@
     "error": {
       "blocked": "You have exceeded the number of login attempts for this user. Please try again later.",
       "invalid-user-or-password": "Invalid username or password",
-      "title": "Login failed",
       "unknown": "Unknown error occurred"
     },
-    "forgot-password": "Forgot your password?",
     "form": {
       "confirmation-code": "Confirmation code is required",
       "confirmation-code-label": "Confirmation code",
@@ -10309,14 +10305,14 @@
       "email-required": "Email is required",
       "name-label": "Name",
       "password-label": "Password",
-      "password-placeholder": "Enter password",
+      "password-placeholder": "password",
       "password-required": "Password is required",
       "passwordless-username-label": "Username",
       "submit-label": "Log in",
       "submit-loading-label": "Logging in...",
-      "username-label": "Email or Username",
-      "username-placeholder": "Enter email or username",
-      "username-required": "Email or Username is required",
+      "username-label": "Username",
+      "username-placeholder": "Username",
+      "username-required": "Username is required",
       "verify-email-label": "Send a verification email",
       "verify-email-loading-label": "Sending email..."
     },
@@ -11370,10 +11366,6 @@
       "upgrade-button": "Upgrade",
       "upgrade-tooltip": "Upgrade to add more users"
     },
-    "item": {
-      "add-bookmark": "Add to Bookmarks",
-      "remove-bookmark": "Remove from Bookmarks"
-    },
     "kiosk": {
       "tv-alert": "Press ESC to exit kiosk mode"
     },
@@ -11385,10 +11377,6 @@
       "open": "Open menu",
       "undock": "Undock menu"
     },
-    "megamenu-item": {
-      "collapse-aria-label": "Collapse section: {{sectionName}}",
-      "expand-aria-label": "Expand section: {{sectionName}}"
-    },
     "org-switcher": {
       "aria-label": "Change organization"
     },
@@ -11398,8 +11386,7 @@
     "quick-add": {
       "aria-label": "New",
       "new-template-dashboard-button": "Dashboard from template"
-    },
-    "rss-button": "Latest from the blog"
+    }
   },
   "news": {
     "category-news": "News",
@@ -12122,7 +12109,6 @@
       "strong-password-validation-register": "Password does not comply with the strong password policy"
     },
     "change-theme": "Change theme",
-    "enable-kiosk-mode": "Enable kiosk mode",
     "feature-toggle-page": {
       "profile-not-enabled": "Profile is not enabled."
     },
@@ -13488,8 +13474,7 @@
       "share-internally-title": "Share internally",
       "share-snapshot-title": "Share snapshot"
     },
-    "share-button": "Share",
-    "share-button-tooltip": "Copy link"
+    "share-button": "Share"
   },
   "share-drawer": {
     "confirm-action": {
@@ -14162,7 +14147,6 @@
       "select-time": "Select a time range"
     },
     "content": {
-      "empty-recent-list-docs": "<0><0>Read the documentation</0><1> to find out more about how to enter custom time ranges.</1></0>",
       "empty-recent-list-info": "It looks like you haven't used this time picker before. As soon as you enter some time intervals, recently used intervals will appear here.",
       "filter-placeholder": "Search quick ranges"
     },
@@ -15421,12 +15405,6 @@
   "visualization": {
     "data-hover-view": {
       "link": "Link"
-    }
-  },
-  "welcome": {
-    "welcome-banner": {
-      "need-help": "Need help?",
-      "welcome-to-grafana": "Welcome to Grafana"
     }
   },
   "xychart": {
