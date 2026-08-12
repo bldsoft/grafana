@@ -28,3 +28,9 @@ export const analytix = {
   radiusPanel: '10px',
   transitionFast: '160ms ease',
 } as const;
+
+// Analytix: the home page marks its content column as the `analytix-home`
+// container (see AnalytixHomePage `main`). Layout rules built with this helper
+// react to the actual column width — e.g. when the docked AI chat takes half
+// the screen — not just the viewport, mirroring theme.breakpoints.down().
+export const homeContainer = (maxWidth: number) => `@container analytix-home (max-width: ${maxWidth - 0.02}px)`;

@@ -2,11 +2,19 @@ import { css, cx, keyframes } from '@emotion/css';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAsync } from 'react-use';
 
-import { DataSourceInstanceSettings, DataSourceRef, GrafanaTheme2, getDataSourceRef, renderMarkdown } from '@grafana/data';
+import {
+  DataSourceInstanceSettings,
+  DataSourceRef,
+  GrafanaTheme2,
+  getDataSourceRef,
+  renderMarkdown,
+} from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
 import { DataSourcePicker, getDataSourceSrv } from '@grafana/runtime';
 import { EmbeddedScene } from '@grafana/scenes';
 import { Alert, Drawer, Icon, IconButton, TextArea, useStyles2 } from '@grafana/ui';
+import { DOCKED_MENU_COLLAPSED_WIDTH, DOCKED_MENU_WIDTH } from 'app/core/components/AppChrome/MegaMenu/MegaMenu';
+import { useGrafana } from 'app/core/context/GrafanaContext';
 import { analytix } from 'app/features/home/analytixTokens';
 
 import { AssistantProgress, checkAssistantHealth, generatePanel } from './assistantClient';
@@ -17,6 +25,12 @@ import { GeneratedPanelSpec } from './types';
 
 interface Props {
   onClose: () => void;
+  /**
+   * 'drawer' (default) — full-screen overlay Drawer (dashboard toolbars).
+   * 'docked' — plain panel for embedding into a page layout (home page splits
+   * the screen with it instead of covering the content).
+   */
+  variant?: 'drawer' | 'docked';
 }
 
 interface ChatEntry {
@@ -50,8 +64,15 @@ const EXAMPLE_PROMPTS = [
   'Requests per hour today as a time series',
 ];
 
-export function GenPanelChat({ onClose }: Props) {
+export function GenPanelChat({ onClose, variant = 'drawer' }: Props) {
   const styles = useStyles2(getStyles);
+
+  // Track the docked sidebar so the drawer stops at its edge in both states
+  // (collapsed and expanded) and follows live toggles while the chat is open.
+  const { chrome } = useGrafana();
+  const { megaMenuDocked, megaMenuOpen } = chrome.useState();
+  const menuWidth = megaMenuDocked ? (megaMenuOpen ? DOCKED_MENU_WIDTH : DOCKED_MENU_COLLAPSED_WIDTH) : 0;
+
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
@@ -60,7 +81,10 @@ export function GenPanelChat({ onClose }: Props) {
   // own credentials) — the panel must know which one. Pick it automatically:
   // the picker is only shown when there is more than one to choose from.
   const clickhouseDatasources = useMemo(
-    () => getDataSourceSrv().getList({ all: true }).filter((ds) => ds.type.includes('clickhouse')),
+    () =>
+      getDataSourceSrv()
+        .getList({ all: true })
+        .filter((ds) => ds.type.includes('clickhouse')),
     []
   );
   const [datasource, setDatasource] = useState<DataSourceRef | undefined>(() =>
@@ -176,199 +200,223 @@ export function GenPanelChat({ onClose }: Props) {
     }
   };
 
+  const header = (
+    <div className={styles.headerWrap}>
+      <div className={styles.headerRow}>
+        <span className={styles.headerTitle}>
+          <Trans i18nKey="dashboard.ai-panel.chat-title">AI Insider</Trans>
+        </span>
+        <span className={styles.betaBadge}>
+          <Trans i18nKey="dashboard.ai-panel.chat-beta">Beta</Trans>
+        </span>
+      </div>
+      <div className={styles.headerSub}>
+        <Trans i18nKey="dashboard.ai-panel.chat-subtitle">
+          Ask your data anything — AI Insider writes the query, uncovers patterns, and explains what matters.
+        </Trans>
+      </div>
+    </div>
+  );
+
+  const body = (
+    <div className={styles.container}>
+      <div className={styles.messages}>
+        {!AI_PANEL_DEMO_MODE && health && !health.ok && (
+          <Alert severity="warning" title={t('dashboard.ai-panel.service-down-title', 'Assistant is offline')}>
+            <Trans i18nKey="dashboard.ai-panel.service-down-body">
+              The ai-grafana-helper service is not reachable. Start it locally (npm start) and reopen the chat.
+            </Trans>
+          </Alert>
+        )}
+
+        {entries.length === 0 && (
+          <div className={styles.empty}>
+            <div className={styles.emptyGlow}>
+              <Icon name="ai" size="xxl" />
+            </div>
+            <div className={styles.emptyTitle}>
+              <Trans i18nKey="dashboard.ai-panel.empty-title">What should we chart?</Trans>
+            </div>
+            <div className={styles.emptySub}>
+              <Trans i18nKey="dashboard.ai-panel.empty-sub">
+                Ask in plain language — each request adds a chart below, and follow-ups refine it.
+              </Trans>
+            </div>
+            <div className={styles.chips}>
+              {EXAMPLE_PROMPTS.map((example) => (
+                <button key={example} type="button" className={styles.chip} onClick={() => setInput(example)}>
+                  {example}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {entries.map((entry) => (
+          <div key={entry.id} className={styles.exchange}>
+            <div className={styles.userBubble}>{entry.prompt}</div>
+
+            {entry.status === 'running' && (
+              <div className={styles.agentCard}>
+                <div className={styles.agentHeader}>
+                  <span className={styles.pulseDot} />
+                  <span className={styles.agentTitle}>
+                    <Trans i18nKey="dashboard.ai-panel.working">Analyzing the data…</Trans>
+                  </span>
+                  <span className={styles.toolChips}>
+                    {Object.entries(entry.toolCounts || {}).map(([tool, count]) => (
+                      <span key={tool} className={styles.toolChip}>
+                        {tool}
+                        {count > 1 ? ` ×${count}` : ''}
+                      </span>
+                    ))}
+                  </span>
+                </div>
+                {entry.progressText && (
+                  <MarkdownText className={cx(styles.progressText, styles.markdownBody)} text={entry.progressText} />
+                )}
+              </div>
+            )}
+
+            {entry.status === 'error' && (
+              <Alert severity="error" title={t('dashboard.ai-panel.chat-error', 'Could not generate the panel')}>
+                {entry.error}
+              </Alert>
+            )}
+
+            {entry.status === 'message' && (
+              <MarkdownText className={cx(styles.assistantBubble, styles.markdownBody)} text={entry.message || ''} />
+            )}
+
+            {entry.status === 'done' && entry.scene && (
+              <div className={styles.chartCard}>
+                <div className={styles.chartBody}>
+                  <entry.scene.Component model={entry.scene} />
+                </div>
+                <div className={styles.chartFooter}>
+                  {entry.spec && <span className={styles.typeBadge}>{entry.spec.panelType}</span>}
+                  {entry.message && <MarkdownText className={styles.chartNote} text={entry.message} />}
+                  {entry.durationMs != null && (
+                    <span className={styles.duration}>
+                      {t('dashboard.ai-panel.duration', '{{seconds}}s', {
+                        seconds: (entry.durationMs / 1000).toFixed(1),
+                      })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+
+        <div ref={bottomRef} />
+      </div>
+
+      <div className={styles.composer}>
+        {AI_PANEL_DEMO_MODE && (
+          <div className={styles.demoHint}>
+            <Trans i18nKey="dashboard.ai-panel.chat-demo">Demo mode — any prompt renders a sample chart.</Trans>
+          </div>
+        )}
+        {!AI_PANEL_DEMO_MODE && clickhouseDatasources.length === 0 && (
+          <Alert severity="warning" title={t('dashboard.ai-panel.no-ds-title', 'No ClickHouse datasource')}>
+            <Trans i18nKey="dashboard.ai-panel.no-ds-body">
+              Add a ClickHouse datasource in Grafana first — the generated panel needs one to run its query.
+            </Trans>
+          </Alert>
+        )}
+        {/* One datasource = zero questions; the picker appears only when there is a real choice. */}
+        {!AI_PANEL_DEMO_MODE && clickhouseDatasources.length > 1 && (
+          <div className={styles.dsRow}>
+            <span className={styles.dsLabel}>
+              <Trans i18nKey="dashboard.ai-panel.datasource-label">ClickHouse datasource</Trans>
+            </span>
+            <DataSourcePicker
+              current={datasource ?? null}
+              filter={(ds: DataSourceInstanceSettings) => ds.type.includes('clickhouse')}
+              onChange={(ds: DataSourceInstanceSettings) => setDatasource(getDataSourceRef(ds))}
+              noDefault
+            />
+          </div>
+        )}
+
+        <div className={styles.inputRow}>
+          <TextArea
+            className={styles.textarea}
+            rows={2}
+            placeholder={t('dashboard.ai-panel.chat-placeholder', 'e.g. Show the last 30 days as a pie chart')}
+            value={input}
+            onChange={(e) => setInput(e.currentTarget.value)}
+            onKeyDown={onKeyDown}
+          />
+          {busy ? (
+            <button
+              type="button"
+              className={cx(styles.sendButton, styles.stopButton)}
+              onClick={onStop}
+              aria-label={t('dashboard.ai-panel.chat-stop', 'Stop generation')}
+              title={t('dashboard.ai-panel.chat-stop', 'Stop generation')}
+            >
+              <Icon name="square-shape" size="lg" />
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={styles.sendButton}
+              disabled={!canSend}
+              onClick={onSend}
+              aria-label={t('dashboard.ai-panel.chat-send', 'Send')}
+            >
+              <Icon name="arrow-up" size="lg" />
+            </button>
+          )}
+        </div>
+
+        <div className={styles.footerRow}>
+          <span className={styles.hint}>
+            <Trans i18nKey="dashboard.ai-panel.hint">Enter — send · Shift+Enter — new line</Trans>
+          </span>
+          <IconButton
+            name="trash-alt"
+            size="sm"
+            tooltip={t('dashboard.ai-panel.chat-clear', 'Clear the conversation')}
+            disabled={!entries.length}
+            onClick={onClear}
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  if (variant === 'docked') {
+    return (
+      <section className={styles.docked} aria-label={t('dashboard.ai-panel.chat-title', 'AI Insider')}>
+        <div className={styles.dockedHeader}>
+          {header}
+          <IconButton
+            name="times"
+            size="lg"
+            tooltip={t('dashboard.ai-panel.chat-close', 'Close the assistant')}
+            onClick={onClose}
+          />
+        </div>
+        {body}
+      </section>
+    );
+  }
+
   return (
     <Drawer
       // Custom header node (the Drawer renders string titles itself, but a
       // ReactNode replaces the whole block): product name + Beta pill + tagline.
-      title={
-        <div className={styles.headerWrap}>
-          <div className={styles.headerRow}>
-            <span className={styles.headerTitle}>
-              <Trans i18nKey="dashboard.ai-panel.chat-title">AI Insider</Trans>
-            </span>
-            <span className={styles.betaBadge}>
-              <Trans i18nKey="dashboard.ai-panel.chat-beta">Beta</Trans>
-            </span>
-          </div>
-          <div className={styles.headerSub}>
-            <Trans i18nKey="dashboard.ai-panel.chat-subtitle">
-              Ask your data anything — AI Insider writes the query, uncovers patterns, and explains what matters.
-            </Trans>
-          </div>
-        </div>
-      }
+      title={header}
       onClose={onClose}
       size="lg"
-      // Analytix: open almost full-width, leaving only the left menu visible.
-      width="calc(100vw - 72px)"
+      // Analytix: open almost full-width, leaving the left menu visible —
+      // the width tracks the sidebar state so the drawer never covers it.
+      width={`calc(100vw - ${menuWidth}px)`}
     >
-      <div className={styles.container}>
-        <div className={styles.messages}>
-          {!AI_PANEL_DEMO_MODE && health && !health.ok && (
-            <Alert severity="warning" title={t('dashboard.ai-panel.service-down-title', 'Assistant is offline')}>
-              <Trans i18nKey="dashboard.ai-panel.service-down-body">
-                The ai-grafana-helper service is not reachable. Start it locally (npm start) and reopen the chat.
-              </Trans>
-            </Alert>
-          )}
-
-          {entries.length === 0 && (
-            <div className={styles.empty}>
-              <div className={styles.emptyGlow}>
-                <Icon name="ai" size="xxl" />
-              </div>
-              <div className={styles.emptyTitle}>
-                <Trans i18nKey="dashboard.ai-panel.empty-title">What should we chart?</Trans>
-              </div>
-              <div className={styles.emptySub}>
-                <Trans i18nKey="dashboard.ai-panel.empty-sub">
-                  Ask in plain language — each request adds a chart below, and follow-ups refine it.
-                </Trans>
-              </div>
-              <div className={styles.chips}>
-                {EXAMPLE_PROMPTS.map((example) => (
-                  <button key={example} type="button" className={styles.chip} onClick={() => setInput(example)}>
-                    {example}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {entries.map((entry) => (
-            <div key={entry.id} className={styles.exchange}>
-              <div className={styles.userBubble}>{entry.prompt}</div>
-
-              {entry.status === 'running' && (
-                <div className={styles.agentCard}>
-                  <div className={styles.agentHeader}>
-                    <span className={styles.pulseDot} />
-                    <span className={styles.agentTitle}>
-                      <Trans i18nKey="dashboard.ai-panel.working">Analyzing the data…</Trans>
-                    </span>
-                    <span className={styles.toolChips}>
-                      {Object.entries(entry.toolCounts || {}).map(([tool, count]) => (
-                        <span key={tool} className={styles.toolChip}>
-                          {tool}
-                          {count > 1 ? ` ×${count}` : ''}
-                        </span>
-                      ))}
-                    </span>
-                  </div>
-                  {entry.progressText && (
-                    <MarkdownText className={cx(styles.progressText, styles.markdownBody)} text={entry.progressText} />
-                  )}
-                </div>
-              )}
-
-              {entry.status === 'error' && (
-                <Alert severity="error" title={t('dashboard.ai-panel.chat-error', 'Could not generate the panel')}>
-                  {entry.error}
-                </Alert>
-              )}
-
-              {entry.status === 'message' && (
-                <MarkdownText className={cx(styles.assistantBubble, styles.markdownBody)} text={entry.message || ''} />
-              )}
-
-              {entry.status === 'done' && entry.scene && (
-                <div className={styles.chartCard}>
-                  <div className={styles.chartBody}>
-                    <entry.scene.Component model={entry.scene} />
-                  </div>
-                  <div className={styles.chartFooter}>
-                    {entry.spec && <span className={styles.typeBadge}>{entry.spec.panelType}</span>}
-                    {entry.message && <MarkdownText className={styles.chartNote} text={entry.message} />}
-                    {entry.durationMs != null && (
-                      <span className={styles.duration}>
-                        {t('dashboard.ai-panel.duration', '{{seconds}}s', {
-                          seconds: (entry.durationMs / 1000).toFixed(1),
-                        })}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-
-          <div ref={bottomRef} />
-        </div>
-
-        <div className={styles.composer}>
-          {AI_PANEL_DEMO_MODE && (
-            <div className={styles.demoHint}>
-              <Trans i18nKey="dashboard.ai-panel.chat-demo">Demo mode — any prompt renders a sample chart.</Trans>
-            </div>
-          )}
-          {!AI_PANEL_DEMO_MODE && clickhouseDatasources.length === 0 && (
-            <Alert severity="warning" title={t('dashboard.ai-panel.no-ds-title', 'No ClickHouse datasource')}>
-              <Trans i18nKey="dashboard.ai-panel.no-ds-body">
-                Add a ClickHouse datasource in Grafana first — the generated panel needs one to run its query.
-              </Trans>
-            </Alert>
-          )}
-          {/* One datasource = zero questions; the picker appears only when there is a real choice. */}
-          {!AI_PANEL_DEMO_MODE && clickhouseDatasources.length > 1 && (
-            <div className={styles.dsRow}>
-              <span className={styles.dsLabel}>
-                <Trans i18nKey="dashboard.ai-panel.datasource-label">ClickHouse datasource</Trans>
-              </span>
-              <DataSourcePicker
-                current={datasource ?? null}
-                filter={(ds: DataSourceInstanceSettings) => ds.type.includes('clickhouse')}
-                onChange={(ds: DataSourceInstanceSettings) => setDatasource(getDataSourceRef(ds))}
-                noDefault
-              />
-            </div>
-          )}
-
-          <div className={styles.inputRow}>
-            <TextArea
-              className={styles.textarea}
-              rows={2}
-              placeholder={t('dashboard.ai-panel.chat-placeholder', 'e.g. Show the last 30 days as a pie chart')}
-              value={input}
-              onChange={(e) => setInput(e.currentTarget.value)}
-              onKeyDown={onKeyDown}
-            />
-            {busy ? (
-              <button
-                type="button"
-                className={cx(styles.sendButton, styles.stopButton)}
-                onClick={onStop}
-                aria-label={t('dashboard.ai-panel.chat-stop', 'Stop generation')}
-                title={t('dashboard.ai-panel.chat-stop', 'Stop generation')}
-              >
-                <Icon name="square-shape" size="lg" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className={styles.sendButton}
-                disabled={!canSend}
-                onClick={onSend}
-                aria-label={t('dashboard.ai-panel.chat-send', 'Send')}
-              >
-                <Icon name="arrow-up" size="lg" />
-              </button>
-            )}
-          </div>
-
-          <div className={styles.footerRow}>
-            <span className={styles.hint}>
-              <Trans i18nKey="dashboard.ai-panel.hint">Enter — send · Shift+Enter — new line</Trans>
-            </span>
-            <IconButton
-              name="trash-alt"
-              size="sm"
-              tooltip={t('dashboard.ai-panel.chat-clear', 'Clear the conversation')}
-              disabled={!entries.length}
-              onClick={onClear}
-            />
-          </div>
-        </div>
-      </div>
+      {body}
     </Drawer>
   );
 }
@@ -380,6 +428,27 @@ const pulse = keyframes({
 });
 
 const getStyles = (theme: GrafanaTheme2) => ({
+  // Docked variant: styled like the home-page panels (same surface, border
+  // and radius as WelcomePanel / DashboardCatalog) so the chat reads as one
+  // more block of the page rather than an overlay.
+  docked: css({
+    height: '100%',
+    minHeight: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(1),
+    padding: '12px 16px 16px',
+    border: `1px solid ${analytix.border}`,
+    borderRadius: analytix.radiusPanel,
+    background: theme.colors.background.secondary,
+  }),
+  dockedHeader: css({
+    display: 'flex',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1),
+    paddingBottom: theme.spacing(0.5),
+  }),
   headerWrap: css({
     display: 'flex',
     flexDirection: 'column',
@@ -438,7 +507,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     placeItems: 'center',
     borderRadius: theme.shape.radius.circle,
     color: analytix.greenBright,
-    background: `radial-gradient(circle at 50% 35%, rgb(53 185 68 / 22%), transparent 70%), ${analytix.surfaceRaised}`,
+    background: `radial-gradient(circle at 50% 35%, rgb(53 185 68 / 22%), transparent 70%), ${theme.colors.background.elevated}`,
     border: `1px solid ${analytix.border}`,
     boxShadow: '0 0 32px rgb(53 185 68 / 18%)',
   }),
@@ -459,7 +528,8 @@ const getStyles = (theme: GrafanaTheme2) => ({
     marginTop: theme.spacing(1),
   }),
   chip: css({
-    background: analytix.control,
+    // Home-page control surface (same as the catalog filter buttons).
+    background: theme.colors.background.elevated,
     color: analytix.textDim,
     border: `1px solid ${analytix.borderControl}`,
     borderRadius: theme.shape.radius.pill,
@@ -482,7 +552,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
   userBubble: css({
     alignSelf: 'flex-end',
     maxWidth: '78%',
-    background: analytix.control,
+    background: theme.colors.background.elevated,
     border: `1px solid ${analytix.borderControl}`,
     borderRadius: analytix.radiusPanel,
     borderBottomRightRadius: theme.shape.radius.default,
@@ -492,7 +562,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
   assistantBubble: css({
     alignSelf: 'flex-start',
     maxWidth: '85%',
-    background: analytix.surfaceRaised,
+    background: theme.colors.background.elevated,
     border: `1px solid ${analytix.border}`,
     borderRadius: analytix.radiusPanel,
     borderBottomLeftRadius: theme.shape.radius.default,
@@ -525,16 +595,17 @@ const getStyles = (theme: GrafanaTheme2) => ({
     '& th': {
       color: analytix.text,
       fontWeight: theme.typography.fontWeightMedium,
-      background: analytix.control,
+      // One surface step below the elevated bubble so accents stay visible.
+      background: theme.colors.background.primary,
     },
     '& code': {
-      background: analytix.control,
+      background: theme.colors.background.primary,
       borderRadius: theme.shape.radius.default,
       padding: '1px 4px',
       fontSize: theme.typography.bodySmall.fontSize,
     },
     '& pre': {
-      background: analytix.controlSunken,
+      background: theme.colors.background.primary,
       border: `1px solid ${analytix.borderControl}`,
       borderRadius: analytix.radiusControl,
       padding: theme.spacing(1),
@@ -550,7 +621,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   agentCard: css({
     alignSelf: 'stretch',
-    background: analytix.surfaceRaised,
+    background: theme.colors.background.elevated,
     border: `1px solid ${analytix.border}`,
     borderRadius: analytix.radiusPanel,
     padding: theme.spacing(1.5),
@@ -597,7 +668,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     overflowY: 'auto',
   }),
   chartCard: css({
-    background: analytix.surfaceRaised,
+    background: theme.colors.background.elevated,
     border: `1px solid ${analytix.border}`,
     borderRadius: analytix.radiusPanel,
     padding: theme.spacing(1),
@@ -662,11 +733,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   inputRow: css({
     display: 'flex',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: theme.spacing(1),
   }),
   textarea: css({
-    background: analytix.control,
+    // Same raised grey as the home-page search field.
+    background: theme.colors.background.elevated,
     borderColor: analytix.borderControl,
     borderRadius: analytix.radiusControl,
     '&:focus': {
@@ -692,7 +764,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
       boxShadow: '0 0 16px rgb(53 185 68 / 45%)',
     },
     '&:disabled': {
-      background: analytix.control,
+      background: theme.colors.background.elevated,
       color: analytix.textFaint,
       cursor: 'not-allowed',
     },
@@ -700,12 +772,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
   // The send circle turned into a stop control while a generation runs:
   // neutral surface, no green glow — stopping is not the primary action.
   stopButton: css({
-    background: analytix.control,
+    background: theme.colors.background.elevated,
     border: `1px solid ${analytix.borderControl}`,
     color: analytix.text,
     // Same specificity as the sendButton hover rule so the green glow loses.
     '&:hover:not(:disabled)': {
-      background: analytix.control,
+      background: theme.colors.background.elevated,
       borderColor: theme.colors.error.border,
       color: theme.colors.error.text,
       boxShadow: 'none',

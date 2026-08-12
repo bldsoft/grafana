@@ -5902,6 +5902,7 @@
     "ai-panel": {
       "chat-beta": "Beta",
       "chat-clear": "Clear the conversation",
+      "chat-close": "Close the assistant",
       "chat-demo": "Demo mode — any prompt renders a sample chart.",
       "chat-error": "Could not generate the panel",
       "chat-placeholder": "e.g. Show the last 30 days as a pie chart",

@@ -6,7 +6,7 @@ import { useStyles2 } from '@grafana/ui';
 
 import { NeuralCoreAnimation } from './NeuralCoreAnimation';
 import { GridIcon } from './analytixIcons';
-import { analytix } from './analytixTokens';
+import { analytix, homeContainer } from './analytixTokens';
 
 interface Props {
   /** Called when the primary CTA is activated. */
@@ -101,17 +101,17 @@ const getStyles = (theme: GrafanaTheme2) => ({
       maskImage: 'radial-gradient(ellipse 70% 80% at 70% 50%, #000 20%, transparent 75%)',
     },
 
-    [theme.breakpoints.down(1100)]: {
+    [homeContainer(1100)]: {
       gridTemplateColumns: 'minmax(180px, .85fr) minmax(0, 1.2fr)',
     },
-    [theme.breakpoints.down('lg')]: {
+    [homeContainer(theme.breakpoints.values.lg)]: {
       gridTemplateColumns: '1fr',
       // Stacked: the copy and the scene each bring their own height.
       minHeight: 0,
       gap: 4,
       padding: '12px 10px 6px',
     },
-    [theme.breakpoints.down('md')]: {
+    [homeContainer(theme.breakpoints.values.md)]: {
       padding: '10px 8px 4px',
     },
   }),
@@ -121,7 +121,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     zIndex: 1,
     alignSelf: 'center',
 
-    [theme.breakpoints.down('lg')]: {
+    [homeContainer(theme.breakpoints.values.lg)]: {
       maxWidth: 480,
     },
   }),
@@ -203,12 +203,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
     // Analytix: nudge the scene towards the right half of the panel
     transform: 'translateX(70px)',
 
-    [theme.breakpoints.down('lg')]: {
+    [homeContainer(theme.breakpoints.values.lg)]: {
       margin: '0 -4px -2px',
       // Stacked layout: the scene is centered under the copy again.
       transform: 'none',
     },
-    [theme.breakpoints.down('md')]: {
+    [homeContainer(theme.breakpoints.values.md)]: {
       margin: '2px -2px 0',
     },
   }),

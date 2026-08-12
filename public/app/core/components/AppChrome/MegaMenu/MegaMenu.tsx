@@ -18,6 +18,11 @@ import { enrichWithInteractionTracking, getActiveItem } from './utils';
 
 export const MENU_WIDTH = '240px';
 
+// Footprint of the docked sidebar (AppChrome layout). Shared with overlays
+// (e.g. the AI Insider drawer) that must stop at the sidebar edge.
+export const DOCKED_MENU_WIDTH = 240;
+export const DOCKED_MENU_COLLAPSED_WIDTH = 68;
+
 export interface Props extends DOMAttributes {
   onClose: () => void;
 }

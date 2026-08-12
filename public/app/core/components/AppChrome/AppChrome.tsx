@@ -20,7 +20,7 @@ import {
   MIN_EXTENSION_SIDEBAR_WIDTH,
 } from './ExtensionSidebar/ExtensionSidebar';
 import { useExtensionSidebarContext } from './ExtensionSidebar/ExtensionSidebarProvider';
-import { MegaMenu } from './MegaMenu/MegaMenu';
+import { DOCKED_MENU_COLLAPSED_WIDTH, DOCKED_MENU_WIDTH, MegaMenu } from './MegaMenu/MegaMenu';
 import { useMegaMenuFocusHelper } from './MegaMenu/utils';
 import { ReturnToPrevious } from './ReturnToPrevious/ReturnToPrevious';
 import { SingleTopBar } from './TopBar/SingleTopBar';
@@ -191,7 +191,7 @@ const getStyles = (theme: GrafanaTheme2, megaMenuOpen: boolean) => {
       background: theme.colors.background.constPrimary,
       display: 'block',
       flexShrink: 0,
-      width: megaMenuOpen ? 240 : 68,
+      width: megaMenuOpen ? DOCKED_MENU_WIDTH : DOCKED_MENU_COLLAPSED_WIDTH,
       // Keep the sidebar (and its collapse button) pinned to the viewport while the page scrolls
       position: 'sticky',
       top: 0,

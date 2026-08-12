@@ -9,7 +9,7 @@ import { useStarItem } from 'app/features/stars/hooks';
 
 import { DashboardCard } from './DashboardCard';
 import { FavoriteIcon, GridIcon, RecentIcon, SearchIcon } from './analytixIcons';
-import { analytix } from './analytixTokens';
+import { analytix, homeContainer } from './analytixTokens';
 import { AnalytixDashboard, STAR_GROUP, STAR_KIND, useAnalytixDashboards } from './useAnalytixDashboards';
 
 type Filter = 'all' | 'favorites' | 'recent';
@@ -40,8 +40,7 @@ export function DashboardCatalog({ onOpen }: Props) {
         favorite: pendingFavorites[dashboard.uid] ?? dashboard.favorite,
       }))
       .filter((dashboard) => {
-        const matchesQuery =
-          !needle || `${dashboard.title} ${dashboard.description}`.toLowerCase().includes(needle);
+        const matchesQuery = !needle || `${dashboard.title} ${dashboard.description}`.toLowerCase().includes(needle);
         const matchesFilter =
           filter === 'all' ||
           (filter === 'favorites' && dashboard.favorite) ||
@@ -91,9 +90,17 @@ export function DashboardCatalog({ onOpen }: Props) {
       </h2>
 
       <div className={styles.toolbar}>
-        <div className={styles.filters} role="group" aria-label={t('analytix.home.catalog.filters', 'Filter dashboards')}>
+        <div
+          className={styles.filters}
+          role="group"
+          aria-label={t('analytix.home.catalog.filters', 'Filter dashboards')}
+        >
           {filterButton('all', t('analytix.home.catalog.all', 'All'), <GridIcon />)}
-          {filterButton('favorites', t('analytix.home.catalog.favorites', 'Favorites'), <FavoriteIcon filled={false} />)}
+          {filterButton(
+            'favorites',
+            t('analytix.home.catalog.favorites', 'Favorites'),
+            <FavoriteIcon filled={false} />
+          )}
           {filterButton('recent', t('analytix.home.catalog.recent', 'Recently viewed'), <RecentIcon />)}
         </div>
 
@@ -292,10 +299,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
     gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
     gap: '12px 14px',
 
-    [theme.breakpoints.down('xl')]: {
+    // Analytix: container-based so the grid reflows when the docked AI chat
+    // halves the content column, not only when the viewport shrinks.
+    [homeContainer(theme.breakpoints.values.xl)]: {
       gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
     },
-    [theme.breakpoints.down('md')]: {
+    [homeContainer(theme.breakpoints.values.md)]: {
       gridTemplateColumns: '1fr',
     },
   }),

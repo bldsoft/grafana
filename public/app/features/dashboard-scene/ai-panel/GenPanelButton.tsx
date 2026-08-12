@@ -16,6 +16,15 @@ const GenPanelChat = lazy(() => import('./GenPanelChat').then((m) => ({ default:
  */
 export const AI_PANEL_ENABLED = false;
 
+interface Props {
+  /**
+   * When provided the button is a plain trigger and the caller owns the chat
+   * (the home page docks it into its own layout). Without it the button keeps
+   * the legacy self-contained behavior: open the chat as an overlay drawer.
+   */
+  onClick?: () => void;
+}
+
 /**
  * Toolbar action that opens the "generate panel from a description" chat.
  * Rendered in the header of the home page ({@link ../../home/AnalytixHomePage.tsx}).
@@ -23,8 +32,18 @@ export const AI_PANEL_ENABLED = false;
  * {@link ../scene/NavToolbarActions.tsx} (legacy toolbar) and
  * {@link ../scene/new-toolbar/RightActions.tsx} (new toolbar).
  */
-export function GenPanelButton() {
+export function GenPanelButton({ onClick }: Props) {
   const [isOpen, setIsOpen] = useState(false);
+
+  if (onClick) {
+    return (
+      <ToolbarButton
+        icon="ai"
+        tooltip={t('dashboard.ai-panel.tooltip', 'Generate a panel from a description')}
+        onClick={onClick}
+      />
+    );
+  }
 
   return (
     <>

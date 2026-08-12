@@ -50,7 +50,8 @@ export const RightActions = ({ dashboard }: { dashboard: DashboardScene }) => {
           ...getDynamicActions(dynamicDashNavActions.right, '', !isEditingPanel && !isEditingDashboard),
           {
             key: 'gen-panel-button',
-            component: GenPanelButton,
+            // Wrapped: GenPanelButton's own props are not ToolbarActionProps.
+            component: () => <GenPanelButton />,
             group: 'ai',
             condition: AI_PANEL_ENABLED && isShowingDashboard && !isPlaying,
           },
