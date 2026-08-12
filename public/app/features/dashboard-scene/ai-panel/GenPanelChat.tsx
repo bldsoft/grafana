@@ -59,9 +59,11 @@ function MarkdownText({ text, className }: { text: string; className?: string })
 }
 
 const EXAMPLE_PROMPTS = [
-  'Top 10 channels by views this week as a bar chart',
-  'Daily active subscribers for the last 30 days',
-  'Requests per hour today as a time series',
+  'Top 10 content by unique viewers this week — bar chart',
+  'Daily active users this month — timeseries',
+  'Device breakdown by platform this week — bar chart',
+  'Top 10 most active viewers this week — bar chart',
+  'Most used location by unique viewers this week — bar chart',
 ];
 
 export function GenPanelChat({ onClose, variant = 'drawer' }: Props) {
