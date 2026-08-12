@@ -132,7 +132,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     lineHeight: 1.15,
     letterSpacing: '-.02em',
 
-    [theme.breakpoints.down('md')]: {
+    [homeContainer(theme.breakpoints.values.md)]: {
       fontSize: 'clamp(24px, 7vw, 32px)',
     },
   }),
@@ -145,7 +145,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     fontSize: 'clamp(14px, 1.5vw, 16px)',
     lineHeight: 1.5,
 
-    [theme.breakpoints.down('md')]: {
+    [homeContainer(theme.breakpoints.values.md)]: {
       maxWidth: 'none',
     },
   }),
@@ -179,7 +179,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
       boxShadow: analytix.focusRing,
     },
 
-    [theme.breakpoints.down('md')]: {
+    [homeContainer(theme.breakpoints.values.md)]: {
       width: '100%',
     },
   }),

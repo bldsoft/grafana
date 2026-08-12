@@ -5,6 +5,8 @@ import { GrafanaTheme2 } from '@grafana/data';
 import { useStyles2 } from '@grafana/ui';
 import coreIconSvg from 'img/analytix_min_icon.svg';
 
+import { homeContainer } from './analytixTokens';
+
 // Analytix: "Neural Core" welcome hero animation - devices around the edge
 // stream data into the Analytix core. Ported from the approved standalone
 // package (analytix-neural-core): pure SVG + CSS, no JS runtime for motion.
@@ -327,13 +329,13 @@ const getStyles = (theme: GrafanaTheme2) => ({
     maskImage: SCENE_MASK,
     WebkitMaskImage: SCENE_MASK,
 
-    [theme.breakpoints.down('lg')]: {
+    [homeContainer(theme.breakpoints.values.lg)]: {
       // Stacked layout: the column is already as wide as the panel, so the
       // aspect ratio alone decides the height.
       minHeight: 0,
       maxWidth: 314,
     },
-    [theme.breakpoints.down('md')]: {
+    [homeContainer(theme.breakpoints.values.md)]: {
       aspectRatio: '450 / 352',
       maskImage: SCENE_MASK_MOBILE,
       WebkitMaskImage: SCENE_MASK_MOBILE,
@@ -352,7 +354,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
       animation: `${haloBreathe} 4s ease-in-out infinite`,
     },
 
-    [theme.breakpoints.down('md')]: {
+    [homeContainer(theme.breakpoints.values.md)]: {
       width: 'clamp(59px, 20.6vw, 98px)',
       filter: 'blur(10px)',
     },
@@ -368,7 +370,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     // the tightest ratios - let them paint rather than clip mid-glyph.
     overflow: 'visible',
 
-    [theme.breakpoints.down('md')]: {
+    [homeContainer(theme.breakpoints.values.md)]: {
       aspectRatio: '450 / 352',
     },
   }),

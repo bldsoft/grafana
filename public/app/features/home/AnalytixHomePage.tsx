@@ -124,6 +124,10 @@ const getStyles = (theme: GrafanaTheme2, headerHeight = 0) => ({
     // breakpoints would not fire in that case).
     containerType: 'inline-size',
     containerName: 'analytix-home',
+    // Analytix: cards and the welcome block use local zIndex:1 layers (e.g.
+    // the favorite stars); isolate them so they cannot paint over the sticky
+    // chat pane, which has no z-index of its own.
+    isolation: 'isolate',
   }),
   // Analytix: the docked chat takes the right half of the screen and stays
   // pinned to the viewport (its message list scrolls internally) while the

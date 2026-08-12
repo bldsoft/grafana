@@ -6,7 +6,7 @@ import { t } from '@grafana/i18n';
 import { useStyles2 } from '@grafana/ui';
 
 import { FavoriteIcon, OpenArrowIcon, getDashboardIcon } from './analytixIcons';
-import { analytix } from './analytixTokens';
+import { analytix, homeContainer } from './analytixTokens';
 import { AnalytixDashboard } from './useAnalytixDashboards';
 
 interface Props {
@@ -64,7 +64,9 @@ export function DashboardCard({ dashboard, onOpen, onToggleFavorite }: Props) {
         <FavoriteIcon filled={dashboard.favorite} />
       </button>
 
-      <div className={styles.meta}>{dashboard.folderName && <span className={styles.folder}>{dashboard.folderName}</span>}</div>
+      <div className={styles.meta}>
+        {dashboard.folderName && <span className={styles.folder}>{dashboard.folderName}</span>}
+      </div>
 
       <span className={styles.open} data-analytix-open="" aria-hidden={true}>
         <OpenArrowIcon />
@@ -108,10 +110,10 @@ const getStyles = (theme: GrafanaTheme2) => ({
       boxShadow: analytix.focusRing,
     },
 
-    [theme.breakpoints.down('md')]: {
+    [homeContainer(theme.breakpoints.values.md)]: {
       height: 122,
     },
-    [theme.breakpoints.down('sm')]: {
+    [homeContainer(theme.breakpoints.values.sm)]: {
       gridTemplateColumns: '62px minmax(0, 1fr) 34px',
       paddingLeft: 11,
     },
@@ -130,7 +132,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
 
     '& svg': { width: 38, height: 38 },
 
-    [theme.breakpoints.down('sm')]: {
+    [homeContainer(theme.breakpoints.values.sm)]: {
       width: 50,
       height: 50,
       '& svg': { width: 34, height: 34 },
@@ -149,7 +151,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     whiteSpace: 'nowrap',
     textOverflow: 'ellipsis',
 
-    [theme.breakpoints.down('sm')]: {
+    [homeContainer(theme.breakpoints.values.sm)]: {
       fontSize: 15,
     },
   }),

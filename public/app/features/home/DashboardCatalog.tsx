@@ -169,7 +169,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     // Analytix: same grey surface as the welcome panel (see WelcomePanel)
     background: theme.colors.background.secondary,
 
-    [theme.breakpoints.down('sm')]: {
+    [homeContainer(theme.breakpoints.values.sm)]: {
       paddingInline: 10,
     },
   }),
@@ -187,7 +187,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     alignItems: 'center',
     gap: 16,
 
-    [theme.breakpoints.down('md')]: {
+    [homeContainer(theme.breakpoints.values.md)]: {
       flexDirection: 'column',
       alignItems: 'stretch',
     },
@@ -196,7 +196,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     display: 'flex',
     gap: 10,
 
-    [theme.breakpoints.down('sm')]: {
+    [homeContainer(theme.breakpoints.values.sm)]: {
       width: '100%',
     },
   }),
@@ -218,7 +218,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     '&:active': { transform: 'translateY(1px)' },
     '&:focus-visible': { outline: 0, boxShadow: analytix.focusRing },
 
-    [theme.breakpoints.down('sm')]: {
+    [homeContainer(theme.breakpoints.values.sm)]: {
       flex: 1,
       paddingInline: 7,
       justifyContent: 'center',
@@ -241,7 +241,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     '&:active': { transform: 'translateY(1px)' },
     '&:focus-visible': { outline: 0, boxShadow: analytix.focusRing },
 
-    [theme.breakpoints.down('sm')]: {
+    [homeContainer(theme.breakpoints.values.sm)]: {
       flex: 1,
       paddingInline: 7,
       justifyContent: 'center',
@@ -255,7 +255,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   filterLabel: css({
     // Analytix: labels collapse to icons on the narrowest layout
-    [theme.breakpoints.down('sm')]: {
+    [homeContainer(theme.breakpoints.values.sm)]: {
       display: 'none',
     },
   }),
@@ -273,7 +273,7 @@ const getStyles = (theme: GrafanaTheme2) => ({
     background: theme.colors.background.elevated,
     color: analytix.textMuted,
 
-    [theme.breakpoints.down('md')]: {
+    [homeContainer(theme.breakpoints.values.md)]: {
       width: '100%',
     },
   }),
