@@ -235,11 +235,11 @@ export function GenPanelChat({ onClose, variant = 'drawer' }: Props) {
               <Icon name="ai" size="xxl" />
             </div>
             <div className={styles.emptyTitle}>
-              <Trans i18nKey="dashboard.ai-panel.empty-title">What should we chart?</Trans>
+              <Trans i18nKey="dashboard.ai-panel.empty-title">What should we explore?</Trans>
             </div>
             <div className={styles.emptySub}>
               <Trans i18nKey="dashboard.ai-panel.empty-sub">
-                Ask in plain language — each request adds a chart below, and follow-ups refine it.
+                Ask in plain language — I’ll chart the data and surface the key insights.
               </Trans>
             </div>
             <div className={styles.chips}>
