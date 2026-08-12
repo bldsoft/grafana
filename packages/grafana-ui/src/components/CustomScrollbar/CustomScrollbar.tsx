@@ -168,8 +168,21 @@ const getStyles = (theme: GrafanaTheme2) => {
         display: 'flex',
         flexGrow: 1,
         flexDirection: 'column',
+        // Analytix: the library sizes the view for `overflow: scroll` and pulls
+        // the native scrollbars out of sight with negative margins. With the
+        // `overflow: auto` override below a fitting content renders no native
+        // scrollbar, so the uncompensated negative margin would make the view
+        // wider/taller than its container and clip the content (e.g. the
+        // rounded right edge of the active mega menu item on systems with
+        // classic scrollbars). Zero both margins and hide the native
+        // scrollbars instead - the custom thumbs stay.
         marginBottom: '0 !important',
-        overflow: 'auto !important'
+        marginRight: '0 !important',
+        overflow: 'auto !important',
+        scrollbarWidth: 'none',
+        '&::-webkit-scrollbar': {
+          display: 'none',
+        },
       },
       '.track-vertical': {
         borderRadius: theme.shape.borderRadius(2),
