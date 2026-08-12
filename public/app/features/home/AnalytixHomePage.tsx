@@ -1,4 +1,4 @@
-import { css } from '@emotion/css';
+import { css, cx } from '@emotion/css';
 import { Suspense, lazy, useState } from 'react';
 import { useAsync } from 'react-use';
 
@@ -75,8 +75,8 @@ export function AnalytixHomePage() {
             <Spinner />
           </div>
         ) : (
-          <div className={styles.split}>
-            <div className={styles.main}>
+          <div className={cx(styles.split, chatOpen && styles.splitWithChat)}>
+            <div className={cx(styles.main, chatOpen && styles.mainWithChat)}>
               <WelcomePanel onBrowse={handleBrowse} />
               <DashboardCatalog onOpen={handleOpen} />
             </div>
@@ -114,6 +114,21 @@ const getStyles = (theme: GrafanaTheme2, headerHeight = 0) => ({
       alignItems: 'stretch',
     },
   }),
+  // Analytix: with the chat open the split pins itself to the viewport and
+  // the page stops scrolling — each half scrolls on its own instead (the
+  // dashboards scrollbar lands on the column edge, i.e. mid-screen).
+  // Offsets: sticky header + canvas padding.
+  splitWithChat: css({
+    height: `calc(100vh - ${headerHeight + 32}px)`,
+    alignItems: 'stretch',
+    overflow: 'hidden',
+
+    [theme.breakpoints.down('lg')]: {
+      // Stacked layout: back to normal page scrolling.
+      height: 'auto',
+      overflow: 'visible',
+    },
+  }),
   main: css({
     flex: '1 1 50%',
     minWidth: 0,
@@ -125,23 +140,29 @@ const getStyles = (theme: GrafanaTheme2, headerHeight = 0) => ({
     containerType: 'inline-size',
     containerName: 'analytix-home',
     // Analytix: cards and the welcome block use local zIndex:1 layers (e.g.
-    // the favorite stars); isolate them so they cannot paint over the sticky
-    // chat pane, which has no z-index of its own.
+    // the favorite stars); isolate them so they cannot paint over the chat
+    // pane, which has no z-index of its own.
     isolation: 'isolate',
   }),
-  // Analytix: the docked chat takes the right half of the screen and stays
-  // pinned to the viewport (its message list scrolls internally) while the
-  // dashboards half scrolls as usual. Offsets: sticky header + canvas padding.
+  mainWithChat: css({
+    height: '100%',
+    overflowY: 'auto',
+    // A stretched grid would rather grow its rows than overflow: cap the
+    // content so the column actually scrolls.
+    alignContent: 'start',
+
+    [theme.breakpoints.down('lg')]: {
+      height: 'auto',
+      overflowY: 'visible',
+    },
+  }),
   chatPane: css({
     flex: '1 1 50%',
     minWidth: 0,
-    position: 'sticky',
-    top: headerHeight + 16,
-    height: `calc(100vh - ${headerHeight + 32}px)`,
+    height: '100%',
 
     [theme.breakpoints.down('lg')]: {
       // Stacked layout: the chat opens above the dashboards at a fixed height.
-      position: 'static',
       order: -1,
       height: '70vh',
     },
