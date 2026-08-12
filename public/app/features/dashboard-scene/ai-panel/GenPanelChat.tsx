@@ -25,12 +25,6 @@ import { GeneratedPanelSpec } from './types';
 
 interface Props {
   onClose: () => void;
-  /**
-   * 'drawer' (default) — full-screen overlay Drawer (dashboard toolbars).
-   * 'docked' — plain panel for embedding into a page layout (home page splits
-   * the screen with it instead of covering the content).
-   */
-  variant?: 'drawer' | 'docked';
 }
 
 interface ChatEntry {
@@ -66,7 +60,7 @@ const EXAMPLE_PROMPTS = [
   'Most used location by unique viewers this week — bar chart',
 ];
 
-export function GenPanelChat({ onClose, variant = 'drawer' }: Props) {
+export function GenPanelChat({ onClose }: Props) {
   const styles = useStyles2(getStyles);
 
   // Track the docked sidebar so the drawer stops at its edge in both states
@@ -74,6 +68,19 @@ export function GenPanelChat({ onClose, variant = 'drawer' }: Props) {
   const { chrome } = useGrafana();
   const { megaMenuDocked, megaMenuOpen } = chrome.useState();
   const menuWidth = megaMenuDocked ? (megaMenuOpen ? DOCKED_MENU_WIDTH : DOCKED_MENU_COLLAPSED_WIDTH) : 0;
+
+  // The drawer mask dims the page but wheel events would still scroll the
+  // document behind it (this fork scrolls the document, not an inner pane).
+  // Freeze the viewport scroller while the chat is open. The lock goes on
+  // <html>: the global styles force `body { overflow-y: auto !important }`
+  // (a react-select workaround), so an inline style on body would lose.
+  useEffect(() => {
+    const previous = document.documentElement.style.overflowY;
+    document.documentElement.style.overflowY = 'hidden';
+    return () => {
+      document.documentElement.style.overflowY = previous;
+    };
+  }, []);
 
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState('');
@@ -390,23 +397,6 @@ export function GenPanelChat({ onClose, variant = 'drawer' }: Props) {
     </div>
   );
 
-  if (variant === 'docked') {
-    return (
-      <section className={styles.docked} aria-label={t('dashboard.ai-panel.chat-title', 'AI Insider')}>
-        <div className={styles.dockedHeader}>
-          {header}
-          <IconButton
-            name="times"
-            size="lg"
-            tooltip={t('dashboard.ai-panel.chat-close', 'Close the assistant')}
-            onClick={onClose}
-          />
-        </div>
-        {body}
-      </section>
-    );
-  }
-
   return (
     <Drawer
       // Custom header node (the Drawer renders string titles itself, but a
@@ -430,27 +420,6 @@ const pulse = keyframes({
 });
 
 const getStyles = (theme: GrafanaTheme2) => ({
-  // Docked variant: styled like the home-page panels (same surface, border
-  // and radius as WelcomePanel / DashboardCatalog) so the chat reads as one
-  // more block of the page rather than an overlay.
-  docked: css({
-    height: '100%',
-    minHeight: 0,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: theme.spacing(1),
-    padding: '12px 16px 16px',
-    border: `1px solid ${analytix.border}`,
-    borderRadius: analytix.radiusPanel,
-    background: theme.colors.background.secondary,
-  }),
-  dockedHeader: css({
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: theme.spacing(1),
-    paddingBottom: theme.spacing(0.5),
-  }),
   headerWrap: css({
     display: 'flex',
     flexDirection: 'column',

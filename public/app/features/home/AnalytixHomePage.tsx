@@ -1,4 +1,4 @@
-import { css, cx } from '@emotion/css';
+import { css } from '@emotion/css';
 import { Suspense, lazy, useState } from 'react';
 import { useAsync } from 'react-use';
 
@@ -6,7 +6,6 @@ import { GrafanaTheme2, PageLayoutType, locationUtil } from '@grafana/data';
 import { getBackendSrv, locationService, reportInteraction } from '@grafana/runtime';
 import { Spinner, useStyles2 } from '@grafana/ui';
 import { AppChromeUpdate } from 'app/core/components/AppChrome/AppChromeUpdate';
-import { useChromeHeaderHeight } from 'app/core/components/AppChrome/TopBar/useChromeHeaderHeight';
 import { Page } from 'app/core/components/Page/Page';
 import { GenPanelButton } from 'app/features/dashboard-scene/ai-panel/GenPanelButton';
 import { DashboardDTO, HomeDashboardRedirectDTO, isRedirectResponse } from 'app/types/dashboard';
@@ -29,12 +28,10 @@ const GenPanelChat = lazy(() =>
 // /api/dashboards/home first and honour a redirect response exactly the way
 // initDashboard.ts does, so tenants that set their own home dashboard keep it.
 export function AnalytixHomePage() {
-  // Analytix: the AI Insider chat docks into the page as the right half of a
-  // split layout (the welcome block and the catalog adapt to the left half)
-  // instead of covering the content with an overlay drawer.
+  // Analytix: the AI Insider chat opens as an overlay drawer covering the page
+  // content up to the docked menu edge (see GenPanelChat).
   const [chatOpen, setChatOpen] = useState(false);
-  const headerHeight = useChromeHeaderHeight();
-  const styles = useStyles2(getStyles, headerHeight);
+  const styles = useStyles2(getStyles);
 
   const { loading } = useAsync(async () => {
     const dto = await getBackendSrv().get<DashboardDTO | HomeDashboardRedirectDTO>('/api/dashboards/home');
@@ -75,25 +72,15 @@ export function AnalytixHomePage() {
             <Spinner />
           </div>
         ) : (
-          <div className={cx(styles.split, chatOpen && styles.splitWithChat)}>
-            <div className={cx(styles.main, chatOpen && styles.mainWithChat)}>
-              <WelcomePanel onBrowse={handleBrowse} />
-              <DashboardCatalog onOpen={handleOpen} />
-            </div>
-            {chatOpen && (
-              <div className={styles.chatPane}>
-                <Suspense
-                  fallback={
-                    <div className={styles.loading}>
-                      <Spinner />
-                    </div>
-                  }
-                >
-                  <GenPanelChat variant="docked" onClose={() => setChatOpen(false)} />
-                </Suspense>
-              </div>
-            )}
+          <div className={styles.main}>
+            <WelcomePanel onBrowse={handleBrowse} />
+            <DashboardCatalog onOpen={handleOpen} />
           </div>
+        )}
+        {chatOpen && (
+          <Suspense fallback={null}>
+            <GenPanelChat onClose={() => setChatOpen(false)} />
+          </Suspense>
         )}
       </Page.Contents>
     </Page>
@@ -102,70 +89,15 @@ export function AnalytixHomePage() {
 
 export default AnalytixHomePage;
 
-const getStyles = (theme: GrafanaTheme2, headerHeight = 0) => ({
-  split: css({
-    width: '100%',
-    display: 'flex',
-    alignItems: 'flex-start',
-    gap: 14,
-
-    [theme.breakpoints.down('lg')]: {
-      flexDirection: 'column',
-      alignItems: 'stretch',
-    },
-  }),
-  // Analytix: with the chat open the split pins itself to the viewport and
-  // the page stops scrolling — each half scrolls on its own instead (the
-  // dashboards scrollbar lands on the column edge, i.e. mid-screen).
-  // Offsets: sticky header + canvas padding.
-  splitWithChat: css({
-    height: `calc(100vh - ${headerHeight + 32}px)`,
-    alignItems: 'stretch',
-    overflow: 'hidden',
-
-    [theme.breakpoints.down('lg')]: {
-      // Stacked layout: back to normal page scrolling.
-      height: 'auto',
-      overflow: 'visible',
-    },
-  }),
+const getStyles = (theme: GrafanaTheme2) => ({
   main: css({
-    flex: '1 1 50%',
-    minWidth: 0,
     display: 'grid',
     gap: 14,
-    // Analytix: the welcome/catalog grids adapt via container queries, so
-    // they reflow when the docked chat halves the available width (viewport
-    // breakpoints would not fire in that case).
+    // Analytix: the welcome/catalog grids adapt via container queries (see
+    // homeContainer in analytixTokens), so the container name must stay even
+    // though the container now always spans the full content width.
     containerType: 'inline-size',
     containerName: 'analytix-home',
-    // Analytix: cards and the welcome block use local zIndex:1 layers (e.g.
-    // the favorite stars); isolate them so they cannot paint over the chat
-    // pane, which has no z-index of its own.
-    isolation: 'isolate',
-  }),
-  mainWithChat: css({
-    height: '100%',
-    overflowY: 'auto',
-    // A stretched grid would rather grow its rows than overflow: cap the
-    // content so the column actually scrolls.
-    alignContent: 'start',
-
-    [theme.breakpoints.down('lg')]: {
-      height: 'auto',
-      overflowY: 'visible',
-    },
-  }),
-  chatPane: css({
-    flex: '1 1 50%',
-    minWidth: 0,
-    height: '100%',
-
-    [theme.breakpoints.down('lg')]: {
-      // Stacked layout: the chat opens above the dashboards at a fixed height.
-      order: -1,
-      height: '70vh',
-    },
   }),
   loading: css({
     display: 'flex',

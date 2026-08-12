@@ -19,8 +19,8 @@ export const AI_PANEL_ENABLED = false;
 interface Props {
   /**
    * When provided the button is a plain trigger and the caller owns the chat
-   * (the home page docks it into its own layout). Without it the button keeps
-   * the legacy self-contained behavior: open the chat as an overlay drawer.
+   * state (the home page does, to report its own analytics). Without it the
+   * button is self-contained: it opens the chat drawer itself.
    */
   onClick?: () => void;
 }

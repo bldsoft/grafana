@@ -162,6 +162,10 @@ export function DashboardCatalog({ onOpen }: Props) {
 
 const getStyles = (theme: GrafanaTheme2) => ({
   panel: css({
+    // Analytix: containing block for the absolutely positioned visually-hidden
+    // helpers below - without it they anchor to the page wrapper and can
+    // stretch the document with phantom scroll space below the panel.
+    position: 'relative',
     minHeight: 530,
     padding: '12px 16px 16px',
     border: `1px solid ${analytix.border}`,
