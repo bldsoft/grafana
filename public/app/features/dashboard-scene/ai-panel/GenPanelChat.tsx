@@ -329,7 +329,7 @@ export function GenPanelChat({ onClose, variant = 'drawer' }: Props) {
         {!AI_PANEL_DEMO_MODE && clickhouseDatasources.length > 1 && (
           <div className={styles.dsRow}>
             <span className={styles.dsLabel}>
-              <Trans i18nKey="dashboard.ai-panel.datasource-label">ClickHouse datasource</Trans>
+              <Trans i18nKey="dashboard.ai-panel.datasource-label">Datasource</Trans>
             </span>
             <DataSourcePicker
               current={datasource ?? null}
