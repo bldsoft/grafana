@@ -12,6 +12,8 @@ import { GeneratedPanelSpec, SupportedPanelType } from './types';
 const ANALYTIX_BLUE = '#8ab8ff';
 // Pale green of the big stat values ("98.0 k") on the Home dashboard.
 const ANALYTIX_GREEN_SOFT = '#a9e0b0';
+// Fixed Y-axis width (px): fits up to 9-digit tick labels without clipping.
+const AXIS_LABEL_WIDTH = 70;
 
 function fieldConfigFor(panelType: SupportedPanelType) {
   switch (panelType) {
@@ -28,6 +30,9 @@ function fieldConfigFor(panelType: SupportedPanelType) {
             showPoints: 'never',
             spanNulls: true,
             pointSize: 4,
+            // Auto axis sizing under-measures inside the chat card and clips
+            // the first digits of the Y-axis labels; reserve a fixed width.
+            axisWidth: AXIS_LABEL_WIDTH,
           },
         },
         overrides: [],
@@ -42,6 +47,8 @@ function fieldConfigFor(panelType: SupportedPanelType) {
             lineWidth: 0,
             fillOpacity: 100,
             gradientMode: 'none',
+            // Same clipping fix as timeseries (see above).
+            axisWidth: AXIS_LABEL_WIDTH,
           },
         },
         overrides: [],

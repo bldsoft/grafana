@@ -712,9 +712,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
     background: theme.colors.background.elevated,
     borderColor: analytix.borderControl,
     borderRadius: analytix.radiusControl,
+    // Quiet focus: no green ring/border — a subtle border lift is enough to
+    // show the caret owner without pulling attention from the conversation.
     '&:focus': {
-      boxShadow: analytix.focusRing,
-      borderColor: analytix.green,
+      outline: 'none',
+      boxShadow: 'none',
+      borderColor: analytix.borderHover,
     },
   }),
   sendButton: css({
