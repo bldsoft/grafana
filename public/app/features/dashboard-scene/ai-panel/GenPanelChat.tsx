@@ -52,6 +52,12 @@ function MarkdownText({ text, className }: { text: string; className?: string })
   return <div className={className} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
+// Friendly labels for backend tool names shown as progress chips; tools
+// without an entry render under their raw name.
+const TOOL_LABELS: Record<string, string> = {
+  escalate: 'глубокий анализ',
+};
+
 const EXAMPLE_PROMPTS = [
   'Top 10 content by unique viewers this week — bar chart',
   'Daily active users this month — timeseries',
@@ -275,7 +281,7 @@ export function GenPanelChat({ onClose }: Props) {
                   <span className={styles.toolChips}>
                     {Object.entries(entry.toolCounts || {}).map(([tool, count]) => (
                       <span key={tool} className={styles.toolChip}>
-                        {tool}
+                        {TOOL_LABELS[tool] ?? tool}
                         {count > 1 ? ` ×${count}` : ''}
                       </span>
                     ))}
