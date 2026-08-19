@@ -12,12 +12,19 @@ import {
 import { Trans, t } from '@grafana/i18n';
 import { DataSourcePicker, getDataSourceSrv } from '@grafana/runtime';
 import { EmbeddedScene } from '@grafana/scenes';
-import { Alert, Drawer, Icon, IconButton, TextArea, useStyles2 } from '@grafana/ui';
+import { Alert, Button, ConfirmModal, Drawer, Icon, IconButton, TextArea, useStyles2 } from '@grafana/ui';
 import { DOCKED_MENU_COLLAPSED_WIDTH, DOCKED_MENU_WIDTH } from 'app/core/components/AppChrome/MegaMenu/MegaMenu';
 import { useGrafana } from 'app/core/context/GrafanaContext';
 import { analytix } from 'app/features/home/analytixTokens';
 
-import { AssistantProgress, SuggestedPrompt, checkAssistantHealth, fetchSuggestions, generatePanel } from './assistantClient';
+import {
+  AssistantError,
+  AssistantProgress,
+  SuggestedPrompt,
+  checkAssistantHealth,
+  fetchSuggestions,
+  generatePanel,
+} from './assistantClient';
 import { buildGeneratedPanel } from './buildPanel';
 import { AI_PANEL_DEMO_MODE, buildDemoPanel } from './demo';
 import { buildInlineChartScene } from './inlineScene';
@@ -104,6 +111,9 @@ export function GenPanelChat({ onClose }: Props) {
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
+  // Closing the drawer kills the in-flight agent run (see the unmount effect),
+  // and multi-minute runs die to a stray Esc — so a running generation asks first.
+  const [confirmClose, setConfirmClose] = useState(false);
 
   // The generated SQL is executed by a Grafana ClickHouse datasource (with its
   // own credentials) — the panel must know which one. Pick it automatically:
@@ -164,13 +174,14 @@ export function GenPanelChat({ onClose }: Props) {
     setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
   };
 
-  const onSend = async () => {
-    const prompt = input.trim();
+  // Shared by the composer send button and the per-entry retry: retries replay
+  // the same prompt with the session id kept, so a timed-out agent resumes
+  // from everything it already discovered instead of starting over.
+  const runPrompt = async (prompt: string) => {
     if (prompt === '' || busy) {
       return;
     }
 
-    setInput('');
     const id = ++idRef.current;
 
     if (AI_PANEL_DEMO_MODE) {
@@ -225,6 +236,11 @@ export function GenPanelChat({ onClose }: Props) {
           message: t('dashboard.ai-panel.stopped', 'Generation stopped.'),
         });
       } else {
+        if (e instanceof AssistantError && e.sessionId) {
+          // The failed run's session survives on the backend — keep its id so
+          // a retry resumes with the agent's progress instead of a cold start.
+          sessionRef.current = e.sessionId;
+        }
         const error = e instanceof Error ? e.message : String(e);
         patchEntry(id, { status: 'error', error });
       }
@@ -232,6 +248,15 @@ export function GenPanelChat({ onClose }: Props) {
       abortRef.current = null;
       setBusy(false);
     }
+  };
+
+  const onSend = () => {
+    const prompt = input.trim();
+    if (prompt === '' || busy) {
+      return;
+    }
+    setInput('');
+    runPrompt(prompt);
   };
 
   // Stop the current generation: aborting the SSE fetch closes the stream,
@@ -338,7 +363,17 @@ export function GenPanelChat({ onClose }: Props) {
 
             {entry.status === 'error' && (
               <Alert severity="error" title={t('dashboard.ai-panel.chat-error', 'Could not generate the panel')}>
-                {entry.error}
+                <div>{entry.error}</div>
+                <Button
+                  className={styles.retryButton}
+                  size="sm"
+                  variant="secondary"
+                  icon="sync"
+                  disabled={busy}
+                  onClick={() => runPrompt(entry.prompt)}
+                >
+                  <Trans i18nKey="dashboard.ai-panel.chat-retry">Retry</Trans>
+                </Button>
               </Alert>
             )}
 
@@ -446,19 +481,44 @@ export function GenPanelChat({ onClose }: Props) {
     </div>
   );
 
+  const handleClose = () => {
+    if (busy) {
+      setConfirmClose(true);
+      return;
+    }
+    onClose();
+  };
+
   return (
-    <Drawer
-      // Custom header node (the Drawer renders string titles itself, but a
-      // ReactNode replaces the whole block): product name + Beta pill + tagline.
-      title={header}
-      onClose={onClose}
-      size="lg"
-      // Analytix: open almost full-width, leaving the left menu visible —
-      // the width tracks the sidebar state so the drawer never covers it.
-      width={`calc(100vw - ${menuWidth}px)`}
-    >
-      {body}
-    </Drawer>
+    <>
+      <Drawer
+        // Custom header node (the Drawer renders string titles itself, but a
+        // ReactNode replaces the whole block): product name + Beta pill + tagline.
+        title={header}
+        onClose={handleClose}
+        size="lg"
+        // Analytix: open almost full-width, leaving the left menu visible —
+        // the width tracks the sidebar state so the drawer never covers it.
+        width={`calc(100vw - ${menuWidth}px)`}
+      >
+        {body}
+      </Drawer>
+      <ConfirmModal
+        isOpen={confirmClose}
+        title={t('dashboard.ai-panel.close-confirm-title', 'Generation in progress')}
+        body={t(
+          'dashboard.ai-panel.close-confirm-body',
+          'Closing the chat stops the current generation. Stop it and close?'
+        )}
+        confirmText={t('dashboard.ai-panel.close-confirm-yes', 'Stop and close')}
+        dismissText={t('dashboard.ai-panel.close-confirm-no', 'Keep working')}
+        onConfirm={() => {
+          setConfirmClose(false);
+          onClose();
+        }}
+        onDismiss={() => setConfirmClose(false)}
+      />
+    </>
   );
 }
 
@@ -748,6 +808,9 @@ const getStyles = (theme: GrafanaTheme2) => ({
     marginLeft: 'auto',
     color: analytix.textFaint,
     fontSize: theme.typography.bodySmall.fontSize,
+  }),
+  retryButton: css({
+    marginTop: theme.spacing(1),
   }),
   composer: css({
     borderTop: `1px solid ${analytix.border}`,

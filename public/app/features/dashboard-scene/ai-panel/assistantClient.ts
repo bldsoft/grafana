@@ -24,6 +24,21 @@ export interface AssistantResult {
   costUsd?: number | null;
 }
 
+/**
+ * A failed generation still carries the backend session id: the agent's
+ * discoveries survive the failure (e.g. a timeout), so retrying with this id
+ * resumes from where it stopped instead of starting over.
+ */
+export class AssistantError extends Error {
+  sessionId: string | null;
+
+  constructor(message: string, sessionId: string | null = null) {
+    super(message);
+    this.name = 'AssistantError';
+    this.sessionId = sessionId;
+  }
+}
+
 const DEFAULT_URL = 'http://localhost:8765';
 const URL_OVERRIDE_KEY = 'analytix.aiAssistantUrl';
 const TOKEN_KEY = 'analytix.aiAssistantToken';
@@ -225,7 +240,11 @@ export async function generatePanel({ prompt, datasource, sessionId, signal, onP
     } else if (event === 'result') {
       result = normalizeResult(payload);
     } else if (event === 'error') {
-      throw new Error(isRecord(payload) && typeof payload.message === 'string' ? payload.message : 'unknown error');
+      const body: Record<string, unknown> = isRecord(payload) ? payload : {};
+      throw new AssistantError(
+        typeof body.message === 'string' ? body.message : 'unknown error',
+        typeof body.sessionId === 'string' ? body.sessionId : null
+      );
     }
   };
 
