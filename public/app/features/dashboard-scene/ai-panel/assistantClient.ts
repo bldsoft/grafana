@@ -70,6 +70,61 @@ export async function checkAssistantHealth(): Promise<{ ok: boolean }> {
   }
 }
 
+/** Suggestion chip for the chat empty state: a past prompt plus what it produced. */
+export interface SuggestedPrompt {
+  prompt: string;
+  /** Panel type of the generated chart, or 'summary' for a text answer. */
+  kind: string;
+}
+
+// Hard caps on strings coming back from the service: the base URL can be
+// overridden via localStorage, so a hostile backend must not be able to
+// inflate the DOM (or the input box) with megabyte-long "prompts".
+const MAX_SUGGESTIONS = 5;
+const MAX_SUGGESTION_PROMPT_CHARS = 300;
+const MAX_SUGGESTION_KIND_CHARS = 40;
+
+/**
+ * Recent successful prompts of the current Grafana user, newest first.
+ * POST keeps the login out of URLs (tunnel/proxy access logs). Best-effort:
+ * any failure (service down, no user, bad shape) resolves to an empty list
+ * and the chat falls back to the built-in default suggestions.
+ */
+export async function fetchSuggestions(): Promise<SuggestedPrompt[]> {
+  const user = config.bootData?.user?.login;
+  if (!user) {
+    return [];
+  }
+  try {
+    const res = await fetch(`${getAssistantBaseUrl()}/api/suggestions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ user }),
+      signal: AbortSignal.timeout(4000),
+    });
+    if (!res.ok) {
+      return [];
+    }
+    const body = await res.json();
+    if (!isRecord(body) || !Array.isArray(body.suggestions)) {
+      return [];
+    }
+    const suggestions: SuggestedPrompt[] = [];
+    for (const item of body.suggestions.slice(0, MAX_SUGGESTIONS)) {
+      if (isRecord(item) && typeof item.prompt === 'string' && item.prompt.trim() !== '') {
+        suggestions.push({
+          prompt: item.prompt.trim().slice(0, MAX_SUGGESTION_PROMPT_CHARS),
+          kind:
+            typeof item.kind === 'string' && item.kind ? item.kind.slice(0, MAX_SUGGESTION_KIND_CHARS) : 'summary',
+        });
+      }
+    }
+    return suggestions;
+  } catch {
+    return [];
+  }
+}
+
 interface GenerateArgs {
   prompt: string;
   /** ClickHouse datasource that executes the agent's exploration queries (and later the panel). */

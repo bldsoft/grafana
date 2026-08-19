@@ -17,7 +17,7 @@ import { DOCKED_MENU_COLLAPSED_WIDTH, DOCKED_MENU_WIDTH } from 'app/core/compone
 import { useGrafana } from 'app/core/context/GrafanaContext';
 import { analytix } from 'app/features/home/analytixTokens';
 
-import { AssistantProgress, checkAssistantHealth, generatePanel } from './assistantClient';
+import { AssistantProgress, SuggestedPrompt, checkAssistantHealth, fetchSuggestions, generatePanel } from './assistantClient';
 import { buildGeneratedPanel } from './buildPanel';
 import { AI_PANEL_DEMO_MODE, buildDemoPanel } from './demo';
 import { buildInlineChartScene } from './inlineScene';
@@ -58,13 +58,26 @@ const TOOL_LABELS: Record<string, string> = {
   escalate: 'глубокий анализ',
 };
 
-const EXAMPLE_PROMPTS = [
-  'Top 10 content by unique viewers this week — bar chart',
-  'Daily active users this month — timeseries',
-  'Device breakdown by platform this week — bar chart',
-  'Top 10 most active viewers this week — bar chart',
-  'Most used location by unique viewers this week — bar chart',
+// Cold-start suggestions: shown while the user has no history yet, and used
+// to pad the personal list up to five. The kind ("summary", a panel type)
+// renders as a badge on the chip — only the prompt text goes to the agent.
+const DEFAULT_PROMPTS: SuggestedPrompt[] = [
+  { prompt: 'Yesterday’s key metrics and insights', kind: 'summary' },
+  { prompt: 'What changed vs last week', kind: 'summary' },
+  { prompt: 'Watch time by content this week', kind: 'barchart' },
+  { prompt: 'Peak viewing hours yesterday', kind: 'timeseries' },
+  { prompt: 'Daily active users last month', kind: 'timeseries' },
 ];
+
+// Human-readable badge labels; unknown kinds render under their raw name.
+const KIND_LABELS: Record<string, string> = {
+  summary: 'summary',
+  timeseries: 'time series',
+  barchart: 'bar chart',
+  piechart: 'pie chart',
+  table: 'table',
+  stat: 'stat',
+};
 
 export function GenPanelChat({ onClose }: Props) {
   const styles = useStyles2(getStyles);
@@ -112,6 +125,30 @@ export function GenPanelChat({ onClose }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const { value: health } = useAsync(() => checkAssistantHealth(), []);
+
+  // Personal suggestions from the backend (the user's last successful
+  // prompts); on any error the list is empty and the defaults fill all
+  // five slots — the cold-start behavior.
+  const { value: fetchedSuggestions } = useAsync(
+    () => (AI_PANEL_DEMO_MODE ? Promise.resolve<SuggestedPrompt[]>([]) : fetchSuggestions()),
+    []
+  );
+  const suggestions = useMemo(() => {
+    const seen = new Set<string>();
+    const merged: SuggestedPrompt[] = [];
+    for (const suggestion of [...(fetchedSuggestions ?? []), ...DEFAULT_PROMPTS]) {
+      const key = suggestion.prompt.trim().toLowerCase();
+      if (key === '' || seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      merged.push(suggestion);
+      if (merged.length === DEFAULT_PROMPTS.length) {
+        break;
+      }
+    }
+    return merged;
+  }, [fetchedSuggestions]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -258,9 +295,15 @@ export function GenPanelChat({ onClose }: Props) {
               </Trans>
             </div>
             <div className={styles.chips}>
-              {EXAMPLE_PROMPTS.map((example) => (
-                <button key={example} type="button" className={styles.chip} onClick={() => setInput(example)}>
-                  {example}
+              {suggestions.map((suggestion) => (
+                <button
+                  key={suggestion.prompt}
+                  type="button"
+                  className={styles.chip}
+                  onClick={() => setInput(suggestion.prompt)}
+                >
+                  <span className={styles.chipText}>{suggestion.prompt}</span>
+                  <span className={styles.chipKind}>{KIND_LABELS[suggestion.kind] ?? suggestion.kind}</span>
                 </button>
               ))}
             </div>
@@ -506,6 +549,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   chip: css({
     // Home-page control surface (same as the catalog filter buttons).
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.75),
+    // Personal suggestions replay real prompts, which can be long — the text
+    // span ellipsizes inside this cap so a chip never spans the whole row.
+    maxWidth: 420,
     background: theme.colors.background.elevated,
     color: analytix.textDim,
     border: `1px solid ${analytix.borderControl}`,
@@ -520,6 +569,16 @@ const getStyles = (theme: GrafanaTheme2) => ({
       color: analytix.text,
       boxShadow: analytix.focusRing,
     },
+  }),
+  chipText: css({
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  }),
+  chipKind: css({
+    flexShrink: 0,
+    fontSize: theme.typography.bodySmall.fontSize,
+    color: analytix.textFaint,
   }),
   exchange: css({
     display: 'flex',
