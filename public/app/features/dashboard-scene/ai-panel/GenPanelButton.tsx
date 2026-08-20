@@ -39,7 +39,7 @@ export function GenPanelButton({ onClick }: Props) {
     return (
       <ToolbarButton
         icon="ai"
-        tooltip={t('dashboard.ai-panel.tooltip', 'Generate a panel from a description')}
+        tooltip={t('dashboard.ai-panel.tooltip', 'Ask AI Insider')}
         onClick={onClick}
       />
     );
@@ -49,7 +49,7 @@ export function GenPanelButton({ onClick }: Props) {
     <>
       <ToolbarButton
         icon="ai"
-        tooltip={t('dashboard.ai-panel.tooltip', 'Generate a panel from a description')}
+        tooltip={t('dashboard.ai-panel.tooltip', 'Ask AI Insider')}
         onClick={() => setIsOpen(true)}
       />
       {isOpen && (

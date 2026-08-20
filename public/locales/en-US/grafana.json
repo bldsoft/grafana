@@ -5919,12 +5919,12 @@
       "empty-sub": "Ask in plain language — I’ll chart the data and surface the key insights.",
       "empty-title": "What should we explore?",
       "hint": "Enter — send · Shift+Enter — new line",
-      "no-ds-body": "Add a ClickHouse datasource in Grafana first — the generated panel needs one to run its query.",
+      "no-ds-body": "Add a ClickHouse datasource in Analytix first — the generated panel needs one to run its query.",
       "no-ds-title": "No ClickHouse datasource",
       "service-down-body": "The ai-grafana-helper service is not reachable. Start it locally (npm start) and reopen the chat.",
       "service-down-title": "Assistant is offline",
       "stopped": "Generation stopped.",
-      "tooltip": "Generate a panel from a description",
+      "tooltip": "Ask AI Insider",
       "working": "Analyzing the data…"
     },
     "alert-rules-drawer": {

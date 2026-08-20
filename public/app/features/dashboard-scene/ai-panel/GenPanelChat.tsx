@@ -56,7 +56,8 @@ interface ChatEntry {
  */
 function MarkdownText({ text, className }: { text: string; className?: string }) {
   const html = useMemo(() => renderMarkdown(text, { breaks: true }), [text]);
-  return <div className={className} dangerouslySetInnerHTML={{ __html: html }} />;
+  // dir="auto": RTL languages (Arabic, Hebrew) align right and read правильно.
+  return <div className={className} dir="auto" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
 // Friendly labels for backend tool names shown as progress chips; tools
@@ -327,7 +328,9 @@ export function GenPanelChat({ onClose }: Props) {
                   className={styles.chip}
                   onClick={() => setInput(suggestion.prompt)}
                 >
-                  <span className={styles.chipText}>{suggestion.prompt}</span>
+                  <span className={styles.chipText} dir="auto">
+                    {suggestion.prompt}
+                  </span>
                   <span className={styles.chipKind}>{KIND_LABELS[suggestion.kind] ?? suggestion.kind}</span>
                 </button>
               ))}
@@ -337,7 +340,9 @@ export function GenPanelChat({ onClose }: Props) {
 
         {entries.map((entry) => (
           <div key={entry.id} className={styles.exchange}>
-            <div className={styles.userBubble}>{entry.prompt}</div>
+            <div className={styles.userBubble} dir="auto">
+              {entry.prompt}
+            </div>
 
             {entry.status === 'running' && (
               <div className={styles.agentCard}>
@@ -414,7 +419,7 @@ export function GenPanelChat({ onClose }: Props) {
         {!AI_PANEL_DEMO_MODE && clickhouseDatasources.length === 0 && (
           <Alert severity="warning" title={t('dashboard.ai-panel.no-ds-title', 'No ClickHouse datasource')}>
             <Trans i18nKey="dashboard.ai-panel.no-ds-body">
-              Add a ClickHouse datasource in Grafana first — the generated panel needs one to run its query.
+              Add a ClickHouse datasource in Analytix first — the generated panel needs one to run its query.
             </Trans>
           </Alert>
         )}
@@ -436,6 +441,7 @@ export function GenPanelChat({ onClose }: Props) {
         <div className={styles.inputRow}>
           <TextArea
             className={styles.textarea}
+            dir="auto"
             rows={2}
             placeholder={t('dashboard.ai-panel.chat-placeholder', 'e.g. Show the last 30 days as a pie chart')}
             value={input}

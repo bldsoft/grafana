@@ -86,6 +86,11 @@ function optionsFor(panelType: SupportedPanelType): Record<string, unknown> {
         tooltip: { mode: 'single' },
         showValue: 'auto',
         barWidth: 0.6,
+        // Generated charts often have long categorical labels (provider or
+        // content names) that overlap horizontally; slant them like Grafana's
+        // own rotated-tick layout and ellipsize the extra-long ones.
+        xTickLabelRotation: -45,
+        xTickLabelMaxLength: 24,
       };
     case 'piechart':
       return {

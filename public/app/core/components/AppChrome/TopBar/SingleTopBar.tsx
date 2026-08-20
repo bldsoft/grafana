@@ -22,7 +22,6 @@ import { QuickAdd } from '../QuickAdd/QuickAdd';
 import { ProfileButton } from './ProfileButton';
 import { SingleTopBarActions } from './SingleTopBarActions';
 import { TopBarExtensionPoint } from './TopBarExtensionPoint';
-import { TopSearchBarCommandPaletteTrigger } from './TopSearchBarCommandPaletteTrigger';
 import { getChromeHeaderLevelHeight } from './useChromeHeaderHeight';
 
 interface Props {
@@ -95,7 +94,7 @@ export const SingleTopBar = memo(function SingleTopBar({
           {inlineActions}
           {!showToolbarLevel && actions}
           <TopBarExtensionPoint />
-          <TopSearchBarCommandPaletteTrigger />
+          {/* Analytix: the command-palette search trigger is hidden — search is not part of this product. */}
           {!isSmallScreen && <QuickAdd />}
           {!isSmallScreen && <ExtensionToolbarItem compact={isSmallScreen} />}
           {profileNode && <ProfileButton profileNode={profileNode} onToggleKioskMode={onToggleKioskMode} />}
