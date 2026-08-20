@@ -1,6 +1,7 @@
 import { DataSourceRef, FieldColorModeId, FieldType, LoadingState, PanelData } from '@grafana/data';
 import { SceneQueryRunner, VizPanel } from '@grafana/scenes';
 
+import { isSafeBridgeSql } from './datasourceQuery';
 import { GeneratedPanelSpec, SupportedPanelType } from './types';
 
 /**
@@ -194,6 +195,13 @@ function applyDynamicTickRotation(panel: VizPanel<BarChartTickOptions>, runner: 
  * renders happily inside an EmbeddedScene.
  */
 export function buildGeneratedPanel(spec: GeneratedPanelSpec, datasource: DataSourceRef): VizPanel {
+  // Final execution boundary: the panel query runs through the user's datasource
+  // on every refresh, so it clears the same read-only gate as the bridge queries.
+  // normalizeResult already drops unsafe specs; this is defense in depth for any
+  // other caller and keeps the guarantee close to where the SQL is executed.
+  if (!isSafeBridgeSql(spec.rawSql)) {
+    throw new Error('Refusing to build a panel: the generated SQL is not a single read-only query.');
+  }
   const runner = new SceneQueryRunner({
     datasource,
     // `rawSql`/`query` cover both the official and community ClickHouse plugins.

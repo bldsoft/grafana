@@ -71,7 +71,10 @@ export async function runRawQuery(datasource: DataSourceRef, sql: string, maxRow
   }
 
   const request: DataQueryRequest<SqlQuery> = {
-    requestId: `ai-panel-bridge-${Date.now()}`,
+    // A unique id per call: Grafana cancels an in-flight request that reuses a
+    // request id, so a time-based id could cancel a previous bridge query that
+    // started in the same millisecond. randomUUID is collision-free.
+    requestId: `ai-panel-bridge-${crypto.randomUUID()}`,
     interval: '1h',
     intervalMs: 3600000,
     range: getDefaultTimeRange(),

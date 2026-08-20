@@ -5,8 +5,22 @@
 import { DataSourceRef, store } from '@grafana/data';
 import { config } from '@grafana/runtime';
 
-import { runRawQuery } from './datasourceQuery';
+import { isSafeBridgeSql, runRawQuery } from './datasourceQuery';
 import { GeneratedPanelSpec, SUPPORTED_PANEL_TYPES } from './types';
+
+// Silence watchdog: the backend sends an SSE heartbeat every 15s, so no bytes
+// at all for this long means the connection died silently (dropped tunnel,
+// laptop sleep, NAT timeout) — surface an error instead of spinning forever.
+const SSE_IDLE_TIMEOUT_MS = 40000;
+
+// A Grafana time expression the inline scene's SceneTimeRange understands:
+// `now`, `now-30d`, `now-1h/h`, `now/d`, an ISO date, or epoch millis. Anything
+// else from a version-skewed (or hostile) backend is dropped to the defaults.
+const GRAFANA_TIME_RE = /^(now([-+]\d+[smhdwMy]+)?(\/[smhdwMy]+)?|\d{4}-\d{2}-\d{2}[^\s]*|\d+)$/;
+
+function sanitizeTime(value: unknown): string | undefined {
+  return typeof value === 'string' && GRAFANA_TIME_RE.test(value.trim()) ? value.trim() : undefined;
+}
 
 /** Live progress from the agent while it explores the schema and writes SQL. */
 export interface AssistantProgress {
@@ -251,7 +265,9 @@ export async function generatePanel({ prompt, datasource, sessionId, signal, onP
   // Minimal SSE parser: events are separated by a blank line; we only emit
   // single-line JSON payloads, so one `data:` line per event is guaranteed.
   const processChunk = (chunk: string) => {
-    buffer += chunk;
+    // Normalize CRLF so a proxy that rewrites line endings does not break the
+    // blank-line (`\n\n`) event separator search below.
+    buffer = (buffer + chunk).replace(/\r\n/g, '\n');
     let sep;
     while ((sep = buffer.indexOf('\n\n')) !== -1) {
       const raw = buffer.slice(0, sep);
@@ -273,14 +289,29 @@ export async function generatePanel({ prompt, datasource, sessionId, signal, onP
 
   try {
     while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
+      // Race each read against an idle watchdog: heartbeats keep it fed, so a
+      // timeout means the stream went silent and we should fail instead of hang.
+      let idleTimer: ReturnType<typeof setTimeout> | undefined;
+      const idle = new Promise<never>((_, reject) => {
+        idleTimer = setTimeout(
+          () => reject(new Error('The assistant stopped responding. Check your connection and try again.')),
+          SSE_IDLE_TIMEOUT_MS
+        );
+      });
+      let chunk: ReadableStreamReadResult<Uint8Array>;
+      try {
+        chunk = await Promise.race([reader.read(), idle]);
+      } finally {
+        clearTimeout(idleTimer);
+      }
+      if (chunk.done) {
         break;
       }
-      processChunk(decoder.decode(value, { stream: true }));
+      processChunk(decoder.decode(chunk.value, { stream: true }));
     }
   } finally {
-    // Release the connection if we bail out mid-stream (error event thrown).
+    // Release the connection if we bail out mid-stream (error event or the idle
+    // watchdog firing).
     try {
       await reader.cancel();
     } catch {}
@@ -301,13 +332,18 @@ function normalizeResult(payload: unknown): AssistantResult {
     // The service already validates with zod; this guard only protects
     // against a version-skewed service returning an unknown shape.
     const panelType = SUPPORTED_PANEL_TYPES.find((candidate) => candidate === raw.panelType);
-    if (panelType && typeof raw.rawSql === 'string' && raw.rawSql.trim() !== '') {
+    const rawSql = typeof raw.rawSql === 'string' ? raw.rawSql.trim() : '';
+    // Defense in depth: the panel query executes through the user's datasource
+    // just like the bridge queries do, so it must clear the same read-only gate.
+    // A hostile backend (reached via the localStorage URL override) can't smuggle
+    // a mutating or SSRF-style statement in through the final spec.
+    if (panelType && rawSql !== '' && isSafeBridgeSql(rawSql)) {
       spec = {
         panelType,
         title: typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : 'AI panel',
-        rawSql: raw.rawSql.trim(),
-        timeFrom: typeof raw.timeFrom === 'string' ? raw.timeFrom : undefined,
-        timeTo: typeof raw.timeTo === 'string' ? raw.timeTo : undefined,
+        rawSql,
+        timeFrom: sanitizeTime(raw.timeFrom),
+        timeTo: sanitizeTime(raw.timeTo),
       };
     }
   }

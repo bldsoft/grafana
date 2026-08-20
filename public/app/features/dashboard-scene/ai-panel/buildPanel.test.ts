@@ -1,6 +1,7 @@
 import { FieldType, LoadingState, PanelData, toDataFrame, getDefaultTimeRange } from '@grafana/data';
 
-import { barLabelsFitHorizontally } from './buildPanel';
+import { barLabelsFitHorizontally, buildGeneratedPanel } from './buildPanel';
+import { GeneratedPanelSpec } from './types';
 
 function panelData(labels: unknown[], values: number[]): PanelData {
   return {
@@ -49,5 +50,27 @@ describe('barLabelsFitHorizontally', () => {
 
   it('handles null label cells', () => {
     expect(barLabelsFitHorizontally(panelData(['Android', null, 'iOS'], [1, 2, 3]))).toBe(true);
+  });
+});
+
+describe('buildGeneratedPanel SQL gate', () => {
+  const datasource = { uid: 'ch-uid', type: 'clickhouse' };
+  const spec = (rawSql: string): GeneratedPanelSpec => ({ panelType: 'table', title: 'T', rawSql });
+
+  it('builds a panel for a read-only query', () => {
+    const panel = buildGeneratedPanel(spec('SELECT count() FROM stat.events'), datasource);
+    expect(panel.state.pluginId).toBe('table');
+  });
+
+  it('rejects a mutating statement', () => {
+    expect(() => buildGeneratedPanel(spec('INSERT INTO t VALUES (1)'), datasource)).toThrow();
+  });
+
+  it('rejects a multi-statement query', () => {
+    expect(() => buildGeneratedPanel(spec('SELECT 1; DROP TABLE t'), datasource)).toThrow();
+  });
+
+  it('rejects an external table function (SSRF vector)', () => {
+    expect(() => buildGeneratedPanel(spec("SELECT * FROM url('http://169.254.169.254/', CSV)"), datasource)).toThrow();
   });
 });

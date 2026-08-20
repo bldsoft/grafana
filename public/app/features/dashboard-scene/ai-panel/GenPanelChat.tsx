@@ -60,11 +60,49 @@ function MarkdownText({ text, className }: { text: string; className?: string })
   return <div className={className} dir="auto" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
-// Friendly labels for backend tool names shown as progress chips; tools
-// without an entry render under their raw name.
-const TOOL_LABELS: Record<string, string> = {
-  escalate: 'глубокий анализ',
-};
+// Human-readable, localized labels for the backend tool names shown as progress
+// chips — never the raw `ch_query` / `emit_panel` jargon, and never a language
+// hardcoded independently of the UI locale. Unknown tools fall back to their id.
+function toolLabel(tool: string): string {
+  switch (tool) {
+    case 'ch_query':
+      return t('dashboard.ai-panel.tool-query', 'querying data');
+    case 'ch_databases':
+      return t('dashboard.ai-panel.tool-databases', 'listing databases');
+    case 'ch_tables':
+      return t('dashboard.ai-panel.tool-tables', 'listing tables');
+    case 'ch_describe':
+      return t('dashboard.ai-panel.tool-describe', 'reading schema');
+    case 'skill_doc':
+      return t('dashboard.ai-panel.tool-docs', 'reading docs');
+    case 'emit_panel':
+      return t('dashboard.ai-panel.tool-emit', 'building panel');
+    case 'escalate':
+      return t('dashboard.ai-panel.tool-escalate', 'deep analysis');
+    default:
+      return tool;
+  }
+}
+
+// Turn a raw backend/transport error into one calm, localized sentence for a
+// non-technical user. The raw text (429s, SDK/ClickHouse stack messages, dev
+// hints) is never shown verbatim; unknown errors get a generic line.
+function humanizeError(raw: string): string {
+  const r = (raw || '').toLowerCase();
+  if (r.includes('daily usage limit') || r.includes('quota')) {
+    return t('dashboard.ai-panel.err-quota', 'The daily usage limit has been reached. Please try again later.');
+  }
+  if (r.includes('too many concurrent') || r.includes('rate limit') || r.includes('slow down') || r.includes('429')) {
+    return t('dashboard.ai-panel.err-busy', 'AI Insider is busy right now. Please try again in a moment.');
+  }
+  if (r.includes('did not finish within') || r.includes('stopped responding') || r.includes('timeout') || r.includes('timed out')) {
+    return t('dashboard.ai-panel.err-timeout', 'This took longer than expected. Please try again.');
+  }
+  if (r.includes('failed to fetch') || r.includes('networkerror') || r.includes('service error') || r.includes('load failed')) {
+    return t('dashboard.ai-panel.err-offline', 'Can’t reach AI Insider right now. Please try again shortly.');
+  }
+  return raw;
+}
 
 // Cold-start suggestions: shown while the user has no history yet, and used
 // to pad the personal list up to five. The kind ("summary", a panel type)
@@ -134,6 +172,26 @@ export function GenPanelChat({ onClose }: Props) {
   const sessionRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  // Auto-scroll only follows the stream while the user is already at the bottom;
+  // if they scroll up to read a previous chart, progress ticks stop yanking them
+  // back down (~4/s during a multi-minute run).
+  const stickToBottomRef = useRef(true);
+  // Bumped on Clear so a still-in-flight run that resolves afterwards cannot
+  // write its session id / result back into the freshly-cleared conversation.
+  const genRef = useRef(0);
+  // Per-entry expand toggle for the insight text under a chart.
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
+  const toggleExpanded = (id: number) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
 
   const { value: health } = useAsync(() => checkAssistantHealth(), []);
 
@@ -162,8 +220,22 @@ export function GenPanelChat({ onClose }: Props) {
   }, [fetchedSuggestions]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (stickToBottomRef.current) {
+      // Instant (not smooth): a smooth animation fires intermediate scroll
+      // events at non-bottom positions, which onMessagesScroll would misread as
+      // "user scrolled up" and switch auto-follow off mid-stream.
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+    }
   }, [entries, busy]);
+
+  // Track whether the user is pinned to the bottom; a small threshold absorbs
+  // sub-pixel rounding and the smooth-scroll tail.
+  const onMessagesScroll = () => {
+    const el = messagesRef.current;
+    if (el) {
+      stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+    }
+  };
 
   // Stop the agent run (and stop burning tokens) when the drawer unmounts.
   useEffect(() => () => abortRef.current?.abort(), []);
@@ -195,6 +267,11 @@ export function GenPanelChat({ onClose }: Props) {
       return;
     }
 
+    // Snapshot the conversation generation: if the user hits Clear while this
+    // run streams, genRef changes and the guards below drop the late result.
+    const myGen = genRef.current;
+    stickToBottomRef.current = true; // a new prompt always scrolls into view
+
     setBusy(true);
     setEntries((prev) => [...prev, { id, prompt, status: 'running', progressText: '', toolCounts: {} }]);
 
@@ -210,9 +287,14 @@ export function GenPanelChat({ onClose }: Props) {
         sessionId: sessionRef.current,
         signal: abortController.signal,
         onProgress: (p: AssistantProgress) => {
-          patchEntry(id, { progressText: p.text, toolCounts: p.toolCounts });
+          if (genRef.current === myGen) {
+            patchEntry(id, { progressText: p.text, toolCounts: p.toolCounts });
+          }
         },
       });
+      if (genRef.current !== myGen) {
+        return; // conversation was cleared mid-run — discard this result
+      }
       sessionRef.current = result.sessionId ?? sessionRef.current;
 
       if (result.spec) {
@@ -230,6 +312,9 @@ export function GenPanelChat({ onClose }: Props) {
         patchEntry(id, { status: 'message', message: result.message || '—' });
       }
     } catch (e) {
+      if (genRef.current !== myGen) {
+        return; // conversation was cleared mid-run — discard this outcome
+      }
       if (abortController.signal.aborted) {
         // User pressed stop (or closed the drawer) — not a failure.
         patchEntry(id, {
@@ -237,17 +322,20 @@ export function GenPanelChat({ onClose }: Props) {
           message: t('dashboard.ai-panel.stopped', 'Generation stopped.'),
         });
       } else {
-        if (e instanceof AssistantError && e.sessionId) {
-          // The failed run's session survives on the backend — keep its id so
-          // a retry resumes with the agent's progress instead of a cold start.
+        if (e instanceof AssistantError) {
+          // Trust the backend's verdict on the session: a resumable id keeps a
+          // retry warm; a null id (the backend detected a dead/expired session)
+          // clears ours so the retry starts fresh instead of replaying a ghost.
           sessionRef.current = e.sessionId;
         }
         const error = e instanceof Error ? e.message : String(e);
         patchEntry(id, { status: 'error', error });
       }
     } finally {
-      abortRef.current = null;
-      setBusy(false);
+      if (genRef.current === myGen) {
+        abortRef.current = null;
+        setBusy(false);
+      }
     }
   };
 
@@ -267,8 +355,15 @@ export function GenPanelChat({ onClose }: Props) {
   };
 
   const onClear = () => {
+    // Abort any in-flight run and invalidate it (genRef) so its late result
+    // can't land back in the cleared conversation or revive the old session id.
+    genRef.current++;
+    abortRef.current?.abort();
+    abortRef.current = null;
     setEntries([]);
+    setExpanded(new Set());
     sessionRef.current = null; // fresh conversation on the service side too
+    setBusy(false);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -298,11 +393,11 @@ export function GenPanelChat({ onClose }: Props) {
 
   const body = (
     <div className={styles.container}>
-      <div className={styles.messages}>
+      <div className={styles.messages} ref={messagesRef} onScroll={onMessagesScroll}>
         {!AI_PANEL_DEMO_MODE && health && !health.ok && (
-          <Alert severity="warning" title={t('dashboard.ai-panel.service-down-title', 'Assistant is offline')}>
+          <Alert severity="warning" title={t('dashboard.ai-panel.service-down-title', 'AI Insider is unavailable')}>
             <Trans i18nKey="dashboard.ai-panel.service-down-body">
-              The ai-grafana-helper service is not reachable. Start it locally (npm start) and reopen the chat.
+              AI Insider can’t be reached right now. Please try again shortly.
             </Trans>
           </Alert>
         )}
@@ -345,7 +440,7 @@ export function GenPanelChat({ onClose }: Props) {
             </div>
 
             {entry.status === 'running' && (
-              <div className={styles.agentCard}>
+              <div className={styles.agentCard} role="status" aria-live="polite">
                 <div className={styles.agentHeader}>
                   <span className={styles.pulseDot} />
                   <span className={styles.agentTitle}>
@@ -354,7 +449,7 @@ export function GenPanelChat({ onClose }: Props) {
                   <span className={styles.toolChips}>
                     {Object.entries(entry.toolCounts || {}).map(([tool, count]) => (
                       <span key={tool} className={styles.toolChip}>
-                        {TOOL_LABELS[tool] ?? tool}
+                        {toolLabel(tool)}
                         {count > 1 ? ` ×${count}` : ''}
                       </span>
                     ))}
@@ -368,7 +463,7 @@ export function GenPanelChat({ onClose }: Props) {
 
             {entry.status === 'error' && (
               <Alert severity="error" title={t('dashboard.ai-panel.chat-error', 'Could not generate the panel')}>
-                <div>{entry.error}</div>
+                <div>{humanizeError(entry.error || '')}</div>
                 <Button
                   className={styles.retryButton}
                   size="sm"
@@ -393,7 +488,21 @@ export function GenPanelChat({ onClose }: Props) {
                 </div>
                 <div className={styles.chartFooter}>
                   {entry.spec && <span className={styles.typeBadge}>{entry.spec.panelType}</span>}
-                  {entry.message && <MarkdownText className={styles.chartNote} text={entry.message} />}
+                  {entry.message && (
+                    <div className={styles.noteWrap}>
+                      <MarkdownText
+                        className={cx(styles.chartNote, expanded.has(entry.id) && styles.chartNoteExpanded)}
+                        text={entry.message}
+                      />
+                      {entry.message.length > 80 && (
+                        <button type="button" className={styles.noteToggle} onClick={() => toggleExpanded(entry.id)}>
+                          {expanded.has(entry.id)
+                            ? t('dashboard.ai-panel.note-collapse', 'Show less')
+                            : t('dashboard.ai-panel.note-expand', 'Show more')}
+                        </button>
+                      )}
+                    </div>
+                  )}
                   {entry.durationMs != null && (
                     <span className={styles.duration}>
                       {t('dashboard.ai-panel.duration', '{{seconds}}s', {
@@ -443,6 +552,7 @@ export function GenPanelChat({ onClose }: Props) {
             className={styles.textarea}
             dir="auto"
             rows={2}
+            aria-label={t('dashboard.ai-panel.chat-input-label', 'Describe the panel you want')}
             placeholder={t('dashboard.ai-panel.chat-placeholder', 'e.g. Show the last 30 days as a pie chart')}
             value={input}
             onChange={(e) => setInput(e.currentTarget.value)}
@@ -488,7 +598,9 @@ export function GenPanelChat({ onClose }: Props) {
   );
 
   const handleClose = () => {
-    if (busy) {
+    // Confirm before discarding real work: a running generation, or a
+    // conversation with results the user cannot get back (nothing is persisted).
+    if (busy || entries.length > 0) {
       setConfirmClose(true);
       return;
     }
@@ -503,6 +615,10 @@ export function GenPanelChat({ onClose }: Props) {
         title={header}
         onClose={handleClose}
         size="lg"
+        // Never close on an accidental backdrop click — the conversation and its
+        // panels are in-memory only and a stray click would lose them silently.
+        // Esc and the close button still route through handleClose (which confirms).
+        closeOnMaskClick={false}
         // Analytix: open almost full-width, leaving the left menu visible —
         // the width tracks the sidebar state so the drawer never covers it.
         width={`calc(100vw - ${menuWidth}px)`}
@@ -511,12 +627,23 @@ export function GenPanelChat({ onClose }: Props) {
       </Drawer>
       <ConfirmModal
         isOpen={confirmClose}
-        title={t('dashboard.ai-panel.close-confirm-title', 'Generation in progress')}
-        body={t(
-          'dashboard.ai-panel.close-confirm-body',
-          'Closing the chat stops the current generation. Stop it and close?'
-        )}
-        confirmText={t('dashboard.ai-panel.close-confirm-yes', 'Stop and close')}
+        title={
+          busy
+            ? t('dashboard.ai-panel.close-confirm-title', 'Generation in progress')
+            : t('dashboard.ai-panel.close-discard-title', 'Discard this conversation?')
+        }
+        body={
+          busy
+            ? t(
+                'dashboard.ai-panel.close-confirm-body',
+                'Closing the chat stops the current generation and discards this conversation. Close anyway?'
+              )
+            : t(
+                'dashboard.ai-panel.close-discard-body',
+                'Closing the chat discards this conversation and its panels — they are not saved. Close anyway?'
+              )
+        }
+        confirmText={t('dashboard.ai-panel.close-confirm-yes', 'Close')}
         dismissText={t('dashboard.ai-panel.close-confirm-no', 'Keep working')}
         onConfirm={() => {
           setConfirmClose(false);
@@ -786,9 +913,26 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   chartFooter: css({
     display: 'flex',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: theme.spacing(1),
     padding: theme.spacing(0.5, 0.5, 0),
+  }),
+  noteWrap: css({
+    flex: 1,
+    minWidth: 0,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: theme.spacing(0.25),
+  }),
+  noteToggle: css({
+    background: 'none',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+    color: analytix.green,
+    fontSize: theme.typography.bodySmall.fontSize,
+    '&:hover': { textDecoration: 'underline' },
   }),
   typeBadge: css({
     fontSize: theme.typography.bodySmall.fontSize,
@@ -801,14 +945,22 @@ const getStyles = (theme: GrafanaTheme2) => ({
   chartNote: css({
     color: analytix.textFaint,
     fontSize: theme.typography.bodySmall.fontSize,
+    // Collapsed: clamp to two lines (multi-line ellipsis) instead of a single
+    // truncated line, so the insight is readable at a glance and fully via the
+    // Show more toggle. Keep markdown blocks inline so the clamp applies.
+    display: '-webkit-box',
+    WebkitBoxOrient: 'vertical',
+    WebkitLineClamp: 2,
     overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
-    flex: 1,
-    // The note is a one-line summary: keep markdown blocks inline so the
-    // ellipsis still applies, and bold stays subtle at footer contrast.
     '& p': { display: 'inline', margin: 0 },
     '& strong': { fontWeight: theme.typography.fontWeightMedium },
+  }),
+  chartNoteExpanded: css({
+    // Expanded: show the whole insight, wrapping normally.
+    display: 'block',
+    WebkitLineClamp: 'unset',
+    overflow: 'visible',
+    '& p': { display: 'block', margin: 0 },
   }),
   duration: css({
     marginLeft: 'auto',
