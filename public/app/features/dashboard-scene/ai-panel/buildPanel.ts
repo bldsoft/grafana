@@ -98,7 +98,10 @@ function optionsFor(panelType: SupportedPanelType): Record<string, unknown> {
         // set is measured and short sets switch to horizontal — see
         // applyDynamicTickRotation.
         xTickLabelRotation: BARCHART_ROTATED_TICK_ANGLE,
-        xTickLabelMaxLength: 24,
+        // No explicit max length: a fixed cap disables the panel's own
+        // height-based auto-ellipsis, and rotated labels longer than the
+        // reserved space get clipped without an ellipsis. The auto mode trims
+        // to what fits the panel height (full value stays in the tooltip).
       };
     case 'piechart':
       return {
