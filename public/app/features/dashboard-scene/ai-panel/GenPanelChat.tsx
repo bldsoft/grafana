@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAsync } from 'react-use';
 
 import {
+  AppEvents,
   DataSourceInstanceSettings,
   DataSourceRef,
   GrafanaTheme2,
@@ -10,9 +11,9 @@ import {
   renderMarkdown,
 } from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
-import { DataSourcePicker, getDataSourceSrv } from '@grafana/runtime';
-import { EmbeddedScene } from '@grafana/scenes';
-import { Alert, Button, ConfirmModal, Drawer, Icon, IconButton, TextArea, useStyles2 } from '@grafana/ui';
+import { DataSourcePicker, getAppEvents, getDataSourceSrv } from '@grafana/runtime';
+import { EmbeddedScene, VizPanel } from '@grafana/scenes';
+import { Alert, Button, ConfirmModal, Drawer, Icon, IconButton, TextArea, useStyles2, useTheme2 } from '@grafana/ui';
 import { DOCKED_MENU_COLLAPSED_WIDTH, DOCKED_MENU_WIDTH } from 'app/core/components/AppChrome/MegaMenu/MegaMenu';
 import { useGrafana } from 'app/core/context/GrafanaContext';
 import { analytix } from 'app/features/home/analytixTokens';
@@ -27,6 +28,7 @@ import {
 } from './assistantClient';
 import { buildGeneratedPanel } from './buildPanel';
 import { AI_PANEL_DEMO_MODE, buildDemoPanel } from './demo';
+import { canExportImage, ExportState, exportPanelCsv, exportPanelPng, exportState } from './exportPanel';
 import { buildInlineChartScene } from './inlineScene';
 import { GeneratedPanelSpec } from './types';
 
@@ -42,6 +44,8 @@ interface ChatEntry {
   progressText?: string;
   toolCounts?: Record<string, number>;
   scene?: EmbeddedScene;
+  /** The built panel, kept so CSV export can read its live query result. */
+  panel?: VizPanel;
   spec?: GeneratedPanelSpec;
   /** Assistant text reply (with or without a chart). */
   message?: string;
@@ -132,6 +136,7 @@ const KIND_LABELS: Record<string, string> = {
 
 export function GenPanelChat({ onClose }: Props) {
   const styles = useStyles2(getStyles);
+  const theme = useTheme2();
 
   // Track the docked sidebar so the drawer stops at its edge in both states
   // (collapsed and expanded) and follows live toggles while the chat is open.
@@ -287,7 +292,11 @@ export function GenPanelChat({ onClose }: Props) {
 
     if (AI_PANEL_DEMO_MODE) {
       const panel = buildDemoPanel(prompt, entries.length);
-      setEntries((prev) => [...prev, { id, prompt, status: 'done', scene: buildInlineChartScene(panel) }].slice(-MAX_ENTRIES));
+      // Keep the panel too so CSV export works offline (PNG stays hidden without
+      // a spec/panelType).
+      setEntries((prev) =>
+        [...prev, { id, prompt, status: 'done', scene: buildInlineChartScene(panel), panel }].slice(-MAX_ENTRIES)
+      );
       return;
     }
 
@@ -338,6 +347,7 @@ export function GenPanelChat({ onClose }: Props) {
         patchEntry(id, {
           status: 'done',
           scene,
+          panel,
           spec: result.spec,
           message: result.message,
           durationMs: result.durationMs,
@@ -399,6 +409,48 @@ export function GenPanelChat({ onClose }: Props) {
     setExpanded(new Set());
     sessionRef.current = null; // fresh conversation on the service side too
     setBusy(false);
+  };
+
+  // A state-specific message: "still loading" only when the query really is in
+  // flight — a finished-but-empty or failed panel says so instead, so the user
+  // does not click retry forever.
+  const notifyExport = (state: ExportState) => {
+    const message =
+      state === 'error'
+        ? t('dashboard.ai-panel.export-error', 'The chart could not load, so there is nothing to export.')
+        : state === 'empty'
+          ? t('dashboard.ai-panel.export-empty', 'This chart has no data to export.')
+          : t('dashboard.ai-panel.export-loading', 'The chart is still loading — try the export again in a moment.');
+    getAppEvents().publish({ type: AppEvents.alertWarning.name, payload: [message] });
+  };
+
+  // Export the chart's data as CSV (all panel types) or the chart itself as PNG
+  // (canvas panels only). Both are best-effort: until the query resolves the
+  // helper reports why and we surface the matching message.
+  const onExportCsv = (entry: ChatEntry) => {
+    if (!entry.panel) {
+      notifyExport('loading');
+      return;
+    }
+    const state = exportPanelCsv(entry.panel, entry.spec?.title || 'panel', theme);
+    if (state !== 'ready') {
+      notifyExport(state);
+    }
+  };
+
+  const onExportPng = (event: React.MouseEvent<HTMLElement>, entry: ChatEntry) => {
+    const root = event.currentTarget.closest<HTMLElement>('[data-chart-export-root]');
+    const started = exportPanelPng(root, entry.spec?.title || 'panel', {
+      background: theme.colors.background.elevated,
+      text: theme.colors.text.primary,
+      fontFamily: theme.typography.fontFamily,
+    });
+    if (!started) {
+      // No canvas yet: report the panel's real state (a ready panel whose canvas
+      // is momentarily absent counts as still-rendering).
+      const state = entry.panel ? exportState(entry.panel) : 'loading';
+      notifyExport(state === 'ready' ? 'loading' : state);
+    }
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -517,7 +569,7 @@ export function GenPanelChat({ onClose }: Props) {
             )}
 
             {entry.status === 'done' && entry.scene && (
-              <div className={styles.chartCard}>
+              <div className={styles.chartCard} data-chart-export-root>
                 <div className={styles.chartBody}>
                   <entry.scene.Component model={entry.scene} />
                 </div>
@@ -538,13 +590,29 @@ export function GenPanelChat({ onClose }: Props) {
                       )}
                     </div>
                   )}
-                  {entry.durationMs != null && (
-                    <span className={styles.duration}>
-                      {t('dashboard.ai-panel.duration', '{{seconds}}s', {
-                        seconds: (entry.durationMs / 1000).toFixed(1),
-                      })}
-                    </span>
-                  )}
+                  <div className={styles.chartActions}>
+                    <IconButton
+                      name="download-alt"
+                      size="sm"
+                      tooltip={t('dashboard.ai-panel.export-csv', 'Download CSV')}
+                      onClick={() => onExportCsv(entry)}
+                    />
+                    {entry.spec && canExportImage(entry.spec.panelType) && (
+                      <IconButton
+                        name="camera"
+                        size="sm"
+                        tooltip={t('dashboard.ai-panel.export-png', 'Download PNG')}
+                        onClick={(e) => onExportPng(e, entry)}
+                      />
+                    )}
+                    {entry.durationMs != null && (
+                      <span className={styles.duration}>
+                        {t('dashboard.ai-panel.duration', '{{seconds}}s', {
+                          seconds: (entry.durationMs / 1000).toFixed(1),
+                        })}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -997,10 +1065,18 @@ const getStyles = (theme: GrafanaTheme2) => ({
     overflow: 'visible',
     '& p': { display: 'block', margin: 0 },
   }),
-  duration: css({
+  chartActions: css({
+    // Right-aligned group: export controls + generation time.
     marginLeft: 'auto',
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(0.5),
+    flexShrink: 0,
+  }),
+  duration: css({
     color: analytix.textFaint,
     fontSize: theme.typography.bodySmall.fontSize,
+    whiteSpace: 'nowrap',
   }),
   retryButton: css({
     marginTop: theme.spacing(1),
