@@ -1,4 +1,4 @@
-import { DataSourceRef, FieldColorModeId } from '@grafana/data';
+import { DataSourceRef, FieldColorModeId, FieldType, LoadingState, PanelData } from '@grafana/data';
 import { SceneQueryRunner, VizPanel } from '@grafana/scenes';
 
 import { GeneratedPanelSpec, SupportedPanelType } from './types';
@@ -14,6 +14,13 @@ const ANALYTIX_BLUE = '#8ab8ff';
 const ANALYTIX_GREEN_SOFT = '#a9e0b0';
 // Fixed Y-axis width (px): fits up to 9-digit tick labels without clipping.
 const AXIS_LABEL_WIDTH = 70;
+// Barchart X-tick labels: default slant for long categorical label sets.
+const BARCHART_ROTATED_TICK_ANGLE = -45;
+// Approximate axis-font character width (px) for the fits-horizontally check.
+const TICK_CHAR_PX = 8;
+// Conservative plot width (px): the chat card is normally wider, so a set that
+// fits at this width fits everywhere the panel is rendered.
+const ASSUMED_PLOT_WIDTH = 600;
 
 function fieldConfigFor(panelType: SupportedPanelType) {
   switch (panelType) {
@@ -86,10 +93,11 @@ function optionsFor(panelType: SupportedPanelType): Record<string, unknown> {
         tooltip: { mode: 'single' },
         showValue: 'auto',
         barWidth: 0.6,
-        // Generated charts often have long categorical labels (provider or
-        // content names) that overlap horizontally; slant them like Grafana's
-        // own rotated-tick layout and ellipsize the extra-long ones.
-        xTickLabelRotation: -45,
+        // Rotation starts at -45 as the safe default for long categorical
+        // labels (provider/content names); once the query returns, the label
+        // set is measured and short sets switch to horizontal — see
+        // applyDynamicTickRotation.
+        xTickLabelRotation: BARCHART_ROTATED_TICK_ANGLE,
         xTickLabelMaxLength: 24,
       };
     case 'piechart':
@@ -120,21 +128,86 @@ function optionsFor(panelType: SupportedPanelType): Record<string, unknown> {
 }
 
 /**
+ * True when every X label of a bar chart fits horizontally under its bar at a
+ * conservative panel width; undefined when the shape gives nothing to measure.
+ */
+export function barLabelsFitHorizontally(data: PanelData | undefined): boolean | undefined {
+  const frame = data?.series?.[0];
+  if (!frame || frame.length === 0) {
+    return undefined;
+  }
+  // The X (label) field: first string field, mirroring the barchart panel's
+  // own field mapping; numeric-only frames have nothing to rotate.
+  const labelField = frame.fields.find((f) => f.type === FieldType.string);
+  if (!labelField) {
+    return undefined;
+  }
+  let maxLen = 0;
+  for (const value of labelField.values) {
+    maxLen = Math.max(maxLen, String(value ?? '').length);
+  }
+  const barCount = frame.length;
+  // Each bar's slot must hold its widest label plus a little breathing room.
+  return (maxLen + 2) * TICK_CHAR_PX * barCount <= ASSUMED_PLOT_WIDTH;
+}
+
+// The one barchart option this module adjusts after the data arrives.
+interface BarChartTickOptions {
+  xTickLabelRotation: number;
+}
+
+/**
+ * Once the bar chart's query resolves, re-decide the X-tick label rotation
+ * from the actual label set: a few short labels (e.g. 3 platforms) read best
+ * horizontally, while long crowded sets keep the -45 slant. The rotated
+ * default stays in place until data arrives, so long sets never flash
+ * horizontal (clipped) labels first.
+ */
+function applyDynamicTickRotation(panel: VizPanel<BarChartTickOptions>, runner: SceneQueryRunner): void {
+  runner.subscribeToState((state) => {
+    if (state.data?.state !== LoadingState.Done) {
+      return;
+    }
+    const fits = barLabelsFitHorizontally(state.data);
+    if (fits === undefined) {
+      return;
+    }
+    // onOptionsChange re-applies plugin defaults and needs the plugin loaded;
+    // in the unlikely case data beats the plugin, keep the rotated default.
+    if (!panel.getPlugin()) {
+      return;
+    }
+    const rotation = fits ? 0 : BARCHART_ROTATED_TICK_ANGLE;
+    const current = panel.state.options.xTickLabelRotation;
+    if (current !== rotation) {
+      panel.onOptionsChange({ xTickLabelRotation: rotation });
+    }
+  });
+}
+
+/**
  * Build a panel from a generated spec for inline rendering (not attached to a
  * dashboard). It is a bare VizPanel — no dashboard menu/behaviours — so it
  * renders happily inside an EmbeddedScene.
  */
 export function buildGeneratedPanel(spec: GeneratedPanelSpec, datasource: DataSourceRef): VizPanel {
-  return new VizPanel({
+  const runner = new SceneQueryRunner({
+    datasource,
+    // `rawSql`/`query` cover both the official and community ClickHouse plugins.
+    queries: [{ refId: 'A', rawSql: spec.rawSql, query: spec.rawSql }],
+  });
+  const panel = new VizPanel({
     title: spec.title,
     pluginId: spec.panelType,
     displayMode: 'transparent',
     fieldConfig: fieldConfigFor(spec.panelType),
     options: optionsFor(spec.panelType),
-    $data: new SceneQueryRunner({
-      datasource,
-      // `rawSql`/`query` cover both the official and community ClickHouse plugins.
-      queries: [{ refId: 'A', rawSql: spec.rawSql, query: spec.rawSql }],
-    }),
+    $data: runner,
   });
+  if (spec.panelType === 'barchart') {
+    // The subscription shares the panel's lifetime: the runner is a child of
+    // the panel, so both are released together with the chat entry.
+    applyDynamicTickRotation(panel, runner);
+  }
+  return panel;
 }
