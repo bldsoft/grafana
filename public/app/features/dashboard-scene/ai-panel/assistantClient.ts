@@ -59,10 +59,16 @@ const TOKEN_KEY = 'analytix.aiAssistantToken';
 
 export function getAssistantBaseUrl(): string {
   try {
-    return store.get(URL_OVERRIDE_KEY) || DEFAULT_URL;
-  } catch {
-    return DEFAULT_URL;
-  }
+    const override = store.get(URL_OVERRIDE_KEY);
+    // Accept only a plain http(s) base — a corrupted/hostile override with any
+    // other scheme (javascript:, data:, ...) falls back to the default instead
+    // of ending up in fetch() URLs. Trailing slashes are trimmed because the
+    // callers append `/api/...` themselves.
+    if (typeof override === 'string' && /^https?:\/\//i.test(override.trim())) {
+      return override.trim().replace(/\/+$/, '');
+    }
+  } catch {}
+  return DEFAULT_URL;
 }
 
 /** Auth headers for a non-localhost backend (see AUTH_TOKEN on the service). */
@@ -161,6 +167,12 @@ interface GenerateArgs {
   sessionId?: string | null;
   signal?: AbortSignal;
   onProgress?: (progress: AssistantProgress) => void;
+  /**
+   * Fired as soon as the backend announces the full-agent session id — long
+   * before the terminal event. Storing it lets a Stop press keep the resume
+   * context instead of losing everything the agent had discovered.
+   */
+  onSession?: (sessionId: string) => void;
 }
 
 /**
@@ -168,7 +180,11 @@ interface GenerateArgs {
  * through the user's datasource and POST the result back to the backend.
  * Errors are shipped back too — the agent reads them and self-corrects.
  */
-async function answerQueryEvent(datasource: DataSourceRef, payload: Record<string, unknown>): Promise<void> {
+async function answerQueryEvent(
+  datasource: DataSourceRef,
+  payload: Record<string, unknown>,
+  signal?: AbortSignal
+): Promise<void> {
   const requestId = typeof payload.requestId === 'string' ? payload.requestId : '';
   const sql = typeof payload.sql === 'string' ? payload.sql : '';
   const maxRows = typeof payload.maxRows === 'number' && payload.maxRows > 0 ? payload.maxRows : 200;
@@ -181,7 +197,9 @@ async function answerQueryEvent(datasource: DataSourceRef, payload: Record<strin
     if (!sql) {
       throw new Error('empty SQL statement');
     }
-    const result = await runRawQuery(datasource, sql, maxRows);
+    // The generation's abort signal cancels the datasource HTTP call too, so a
+    // Stop press does not leave a heavy ClickHouse query running to completion.
+    const result = await runRawQuery(datasource, sql, maxRows, signal);
     body = { requestId, ok: true, data: result.data, rows: result.rows, meta: result.meta };
   } catch (e) {
     body = { requestId, ok: false, error: e instanceof Error ? e.message : String(e) };
@@ -202,7 +220,7 @@ async function answerQueryEvent(datasource: DataSourceRef, payload: Record<strin
  * POST /api/generate and consume the SSE stream. Resolves with the terminal
  * `result` event; rejects on `error` events, HTTP errors or malformed specs.
  */
-export async function generatePanel({ prompt, datasource, sessionId, signal, onProgress }: GenerateArgs): Promise<AssistantResult> {
+export async function generatePanel({ prompt, datasource, sessionId, signal, onProgress, onSession }: GenerateArgs): Promise<AssistantResult> {
   const res = await fetch(`${getAssistantBaseUrl()}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -250,7 +268,11 @@ export async function generatePanel({ prompt, datasource, sessionId, signal, onP
     } else if (event === 'query' && isRecord(payload)) {
       // Fire-and-forget: the SSE reader must keep draining while the
       // datasource executes; the backend blocks on its own promise.
-      void answerQueryEvent(datasource, payload);
+      void answerQueryEvent(datasource, payload, signal);
+    } else if (event === 'session' && isRecord(payload)) {
+      if (onSession && typeof payload.sessionId === 'string' && payload.sessionId) {
+        onSession(payload.sessionId);
+      }
     } else if (event === 'result') {
       result = normalizeResult(payload);
     } else if (event === 'error') {
@@ -323,7 +345,8 @@ export async function generatePanel({ prompt, datasource, sessionId, signal, onP
   return result;
 }
 
-function normalizeResult(payload: unknown): AssistantResult {
+/** Exported for tests: the spec/time/SQL gate that guards the terminal event. */
+export function normalizeResult(payload: unknown): AssistantResult {
   const body: Record<string, unknown> = isRecord(payload) ? payload : {};
   let spec: GeneratedPanelSpec | null = null;
 

@@ -115,6 +115,11 @@ const DEFAULT_PROMPTS: SuggestedPrompt[] = [
   { prompt: 'Daily active users last month', kind: 'timeseries' },
 ];
 
+// Bound the in-memory conversation: every entry can hold a live chart scene and
+// the drawer may stay open all day — past the cap the oldest exchanges are
+// dropped (they are not persisted anywhere anyway).
+const MAX_ENTRIES = 50;
+
 // Human-readable badge labels; unknown kinds render under their raw name.
 const KIND_LABELS: Record<string, string> = {
   summary: 'summary',
@@ -193,7 +198,30 @@ export function GenPanelChat({ onClose }: Props) {
       return next;
     });
 
-  const { value: health } = useAsync(() => checkAssistantHealth(), []);
+  // Health is re-checked on an interval, not just once per mount: a service
+  // that was briefly down (or not yet up) no longer locks the composer into a
+  // false "offline" state until the user reopens the chat — and a service that
+  // goes down mid-conversation is noticed too.
+  const [health, setHealth] = useState<{ ok: boolean } | undefined>();
+  useEffect(() => {
+    if (AI_PANEL_DEMO_MODE) {
+      return undefined;
+    }
+    let cancelled = false;
+    const check = () => {
+      checkAssistantHealth().then((h) => {
+        if (!cancelled) {
+          setHealth(h);
+        }
+      });
+    };
+    check();
+    const timer = window.setInterval(check, 30000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, []);
 
   // Personal suggestions from the backend (the user's last successful
   // prompts); on any error the list is empty and the defaults fill all
@@ -259,7 +287,7 @@ export function GenPanelChat({ onClose }: Props) {
 
     if (AI_PANEL_DEMO_MODE) {
       const panel = buildDemoPanel(prompt, entries.length);
-      setEntries((prev) => [...prev, { id, prompt, status: 'done', scene: buildInlineChartScene(panel) }]);
+      setEntries((prev) => [...prev, { id, prompt, status: 'done', scene: buildInlineChartScene(panel) }].slice(-MAX_ENTRIES));
       return;
     }
 
@@ -273,7 +301,7 @@ export function GenPanelChat({ onClose }: Props) {
     stickToBottomRef.current = true; // a new prompt always scrolls into view
 
     setBusy(true);
-    setEntries((prev) => [...prev, { id, prompt, status: 'running', progressText: '', toolCounts: {} }]);
+    setEntries((prev) => [...prev, { id, prompt, status: 'running', progressText: '', toolCounts: {} }].slice(-MAX_ENTRIES));
 
     const abortController = new AbortController();
     abortRef.current = abortController;
@@ -289,6 +317,13 @@ export function GenPanelChat({ onClose }: Props) {
         onProgress: (p: AssistantProgress) => {
           if (genRef.current === myGen) {
             patchEntry(id, { progressText: p.text, toolCounts: p.toolCounts });
+          }
+        },
+        // Keep the session id from the moment the agent opens it: a Stop press
+        // then still leaves the next message resuming the agent's discoveries.
+        onSession: (sid) => {
+          if (genRef.current === myGen) {
+            sessionRef.current = sid;
           }
         },
       });
