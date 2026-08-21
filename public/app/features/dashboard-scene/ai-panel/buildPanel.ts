@@ -17,6 +17,19 @@ const ANALYTIX_GREEN_SOFT = '#a9e0b0';
 const AXIS_LABEL_WIDTH = 70;
 // Barchart X-tick labels: default slant for long categorical label sets.
 const BARCHART_ROTATED_TICK_ANGLE = -45;
+// Ellipsis cap for ROTATED labels. Without an explicit option the barchart
+// panel never shortens X labels at all: BarChartPanel recomputes an "auto"
+// cap from the panel height, but only uses it as a memo dependency — the
+// axis renderer reads the RAW option (prepConfig → formatShortValue), which
+// is undefined by default. So a 21-char channel name rendered full-length
+// and was clipped by the canvas edge mid-word, with no "..." at all. An
+// explicit cap makes the ellipsis deterministic. Derivation for the chat
+// card at -45°: ~260px of plot height (320 minus panel chrome), half of it
+// is the rotated-label budget → 130 / sin(45°) ≈ 184px ≈ 19 worst-case
+// chars, minus 3 for the "..." suffix. The same raw option is applied by
+// the panel at ANY rotation, so applyDynamicTickRotation clears it when it
+// switches to horizontal. The tooltip always shows the full value.
+const BARCHART_ROTATED_LABEL_MAX_CHARS = 16;
 // Approximate axis-font character width (px) for the fits-horizontally check.
 const TICK_CHAR_PX = 8;
 // Conservative plot width (px): the chat card is normally wider, so a set that
@@ -99,10 +112,10 @@ function optionsFor(panelType: SupportedPanelType): Record<string, unknown> {
         // set is measured and short sets switch to horizontal — see
         // applyDynamicTickRotation.
         xTickLabelRotation: BARCHART_ROTATED_TICK_ANGLE,
-        // No explicit max length: a fixed cap disables the panel's own
-        // height-based auto-ellipsis, and rotated labels longer than the
-        // reserved space get clipped without an ellipsis. The auto mode trims
-        // to what fits the panel height (full value stays in the tooltip).
+        // Explicit cap: see BARCHART_ROTATED_LABEL_MAX_CHARS — the panel's
+        // height-based auto mode under-shortens in the chat card, clipping
+        // long rotated labels without an ellipsis.
+        xTickLabelMaxLength: BARCHART_ROTATED_LABEL_MAX_CHARS,
       };
     case 'piechart':
       return {
@@ -155,9 +168,10 @@ export function barLabelsFitHorizontally(data: PanelData | undefined): boolean |
   return (maxLen + 2) * TICK_CHAR_PX * barCount <= ASSUMED_PLOT_WIDTH;
 }
 
-// The one barchart option this module adjusts after the data arrives.
+// The barchart options this module adjusts after the data arrives.
 interface BarChartTickOptions {
   xTickLabelRotation: number;
+  xTickLabelMaxLength?: number;
 }
 
 /**
@@ -184,7 +198,14 @@ function applyDynamicTickRotation(panel: VizPanel<BarChartTickOptions>, runner: 
     const rotation = fits ? 0 : BARCHART_ROTATED_TICK_ANGLE;
     const current = panel.state.options.xTickLabelRotation;
     if (current !== rotation) {
-      panel.onOptionsChange({ xTickLabelRotation: rotation });
+      // The ellipsis cap travels with the rotation: the panel applies the raw
+      // xTickLabelMaxLength option at ANY angle, so horizontal labels must
+      // clear it or short fitting sets would still be truncated. The scenes
+      // options merge writes `undefined` through, removing the cap.
+      panel.onOptionsChange({
+        xTickLabelRotation: rotation,
+        xTickLabelMaxLength: fits ? undefined : BARCHART_ROTATED_LABEL_MAX_CHARS,
+      });
     }
   });
 }

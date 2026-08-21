@@ -24,6 +24,7 @@ import {
   toCSV,
 } from '@grafana/data';
 import { sceneGraph, VizPanel } from '@grafana/scenes';
+import analytixLogoSvg from 'img/analytix_icon.svg';
 
 import { SupportedPanelType } from './types';
 
@@ -133,6 +134,40 @@ export interface PngExportStyle {
   fontFamily: string;
 }
 
+// Analytix wordmark stamped into the top-right corner of every exported PNG.
+// The SVG is bundled/same-origin (no canvas tainting) and white-filled — drawn
+// on the dark theme backgrounds this (dark-only) build exports on.
+const LOGO_URL: string = analytixLogoSvg;
+// Fallback aspect for the text-wordmark reserve (the SVG's intrinsic 185x44);
+// a loaded logo uses its own naturalWidth/naturalHeight.
+const LOGO_ASPECT = 185 / 44;
+// Give a slow first load a moment; past it the text wordmark is drawn instead.
+const LOGO_LOAD_TIMEOUT_MS = 1500;
+
+let logoPromise: Promise<HTMLImageElement | null> | null = null;
+
+function loadLogo(): Promise<HTMLImageElement | null> {
+  if (!logoPromise) {
+    logoPromise = new Promise((resolve) => {
+      const img = new Image();
+      // The asset URL follows __webpack_public_path__, which a deployment can
+      // point at a CDN. Anonymous CORS keeps a cross-origin logo from tainting
+      // the export canvas (toBlob would throw and PNG export would die
+      // silently); on a CORS-less host the load just fails into the text
+      // fallback. Same-origin loads are unaffected.
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => {
+        // Drop the cached failure so a later export retries the load.
+        logoPromise = null;
+        resolve(null);
+      };
+      img.src = LOGO_URL;
+    });
+  }
+  return logoPromise;
+}
+
 function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
   if (ctx.measureText(text).width <= maxWidth) {
     return text;
@@ -147,21 +182,31 @@ function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number):
 /**
  * Save the panel's chart as PNG. The uPlot canvas is transparent (the panel
  * background is CSS), so it is composited onto `background` with the title
- * captioned above the plot. The legend (separate DOM) is not included. Returns
- * false when no canvas is present yet (still loading, or a non-canvas type).
+ * captioned above the plot and the Analytix wordmark in the top-right corner.
+ * The legend (separate DOM) is not included. Resolves false when no canvas is
+ * present yet (still loading, or a non-canvas type).
  */
-export function exportPanelPng(rootEl: HTMLElement | null, title: string, style: PngExportStyle): boolean {
+export async function exportPanelPng(rootEl: HTMLElement | null, title: string, style: PngExportStyle): Promise<boolean> {
   const src = rootEl ? largestCanvas(rootEl) : null;
   if (!src) {
     return false;
   }
+  // Capture layout metrics before awaiting: the element may leave the DOM
+  // while the logo loads (its canvas bitmap stays drawable regardless).
+  const rect = src.getBoundingClientRect();
+  const logo = await Promise.race([
+    loadLogo(),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), LOGO_LOAD_TIMEOUT_MS)),
+  ]);
   try {
     // The canvas backing store is at device-pixel resolution; derive that scale
     // from its rendered size so the caption text matches the chart's crispness.
-    const rect = src.getBoundingClientRect();
     const scale = rect.width > 0 ? src.width / rect.width : window.devicePixelRatio || 1;
     const caption = title.trim();
-    const band = caption ? Math.round(30 * scale) : 0;
+    // The top band always exists now — it carries the wordmark even for an
+    // (unlikely) empty caption.
+    const band = Math.round(30 * scale);
+    const padding = Math.round(12 * scale);
 
     const out = document.createElement('canvas');
     out.width = src.width;
@@ -172,13 +217,31 @@ export function exportPanelPng(rootEl: HTMLElement | null, title: string, style:
     }
     ctx.fillStyle = style.background;
     ctx.fillRect(0, 0, out.width, out.height);
-    if (band) {
-      const padding = Math.round(12 * scale);
+
+    // Watermark first, so the caption knows how much width remains. Aspect
+    // comes from the loaded asset itself; the constant only covers the
+    // text-fallback reserve.
+    const aspect = logo && logo.naturalHeight > 0 ? logo.naturalWidth / logo.naturalHeight : LOGO_ASPECT;
+    const logoHeight = Math.round(14 * scale);
+    const logoWidth = Math.round(logoHeight * aspect);
+    if (logo) {
+      ctx.drawImage(logo, out.width - padding - logoWidth, Math.round((band - logoHeight) / 2), logoWidth, logoHeight);
+    } else {
+      // Fallback wordmark when the SVG could not be fetched in time.
+      ctx.fillStyle = style.text;
+      ctx.font = `bold ${Math.round(13 * scale)}px ${style.fontFamily}`;
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'right';
+      ctx.fillText('Analytix', out.width - padding, band / 2);
+      ctx.textAlign = 'left';
+    }
+
+    if (caption) {
       ctx.fillStyle = style.text;
       ctx.font = `${Math.round(13 * scale)}px ${style.fontFamily}`;
       ctx.textBaseline = 'middle';
       ctx.direction = 'inherit';
-      ctx.fillText(fitText(ctx, caption, out.width - padding * 2), padding, band / 2);
+      ctx.fillText(fitText(ctx, caption, out.width - padding * 3 - logoWidth), padding, band / 2);
     }
     ctx.drawImage(src, 0, band);
     out.toBlob((blob) => {

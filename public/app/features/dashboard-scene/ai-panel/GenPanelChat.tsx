@@ -1,5 +1,5 @@
 import { css, cx, keyframes } from '@emotion/css';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAsync } from 'react-use';
 
 import {
@@ -58,10 +58,73 @@ interface ChatEntry {
  * which looked like raw `**` and `|` pipes as plain text. renderMarkdown
  * sanitizes the HTML, so dangerouslySetInnerHTML is safe here.
  */
-function MarkdownText({ text, className }: { text: string; className?: string }) {
+function MarkdownText({
+  text,
+  className,
+  innerRef,
+}: {
+  text: string;
+  className?: string;
+  innerRef?: React.Ref<HTMLDivElement>;
+}) {
   const html = useMemo(() => renderMarkdown(text, { breaks: true }), [text]);
   // dir="auto": RTL languages (Arabic, Hebrew) align right and read правильно.
-  return <div className={className} dir="auto" dangerouslySetInnerHTML={{ __html: html }} />;
+  return <div ref={innerRef} className={className} dir="auto" dangerouslySetInnerHTML={{ __html: html }} />;
+}
+
+/**
+ * The insight text under a chart: clamped to two lines, with a Show more/less
+ * toggle rendered ONLY when the text actually overflows the clamp — a short
+ * one-line note gets no dangling "Show more". Overflow is re-measured on
+ * resize (the drawer tracks the sidebar and changes width while open).
+ */
+function ChartNote({ text, expanded, onToggle }: { text: string; expanded: boolean; onToggle: () => void }) {
+  const styles = useStyles2(getStyles);
+  const noteRef = useRef<HTMLDivElement>(null);
+  const [clamped, setClamped] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = noteRef.current;
+    // While expanded nothing is clipped (scrollHeight == clientHeight), so
+    // measuring would wrongly clear the flag; the toggle stays via `expanded`
+    // below and the clamp state is re-measured after the user collapses.
+    if (!el || expanded) {
+      return undefined;
+    }
+    let disposed = false;
+    const measure = () => {
+      if (!disposed) {
+        setClamped(el.scrollHeight - el.clientHeight > 1);
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    // A late web-font swap can reflow the text without changing the clamped
+    // box size (which is all the observer sees) — re-measure once fonts load.
+    document.fonts?.ready.then(measure).catch(() => {});
+    return () => {
+      disposed = true;
+      observer.disconnect();
+    };
+  }, [text, expanded]);
+
+  return (
+    <div className={styles.noteWrap}>
+      <MarkdownText
+        innerRef={noteRef}
+        className={cx(styles.chartNote, expanded && styles.chartNoteExpanded)}
+        text={text}
+      />
+      {(clamped || expanded) && (
+        <button type="button" className={styles.noteToggle} onClick={onToggle}>
+          {expanded
+            ? t('dashboard.ai-panel.note-collapse', 'Show less')
+            : t('dashboard.ai-panel.note-expand', 'Show more')}
+        </button>
+      )}
+    </div>
+  );
 }
 
 // Human-readable, localized labels for the backend tool names shown as progress
@@ -179,6 +242,9 @@ export function GenPanelChat({ onClose }: Props) {
   );
 
   const idRef = useRef(0);
+  // Guards against a duplicate PNG download while the first export awaits the
+  // logo preload (see onExportPng).
+  const pngExportingRef = useRef(false);
   const sessionRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -293,10 +359,10 @@ export function GenPanelChat({ onClose }: Props) {
     if (AI_PANEL_DEMO_MODE) {
       const panel = buildDemoPanel(prompt, entries.length);
       // Keep the panel too so CSV export works offline (PNG stays hidden without
-      // a spec/panelType).
-      setEntries((prev) =>
-        [...prev, { id, prompt, status: 'done', scene: buildInlineChartScene(panel), panel }].slice(-MAX_ENTRIES)
-      );
+      // a spec/panelType). The explicit ChatEntry annotation stops TS from
+      // widening the status literal inside the array-spread + slice chain.
+      const demoEntry: ChatEntry = { id, prompt, status: 'done', scene: buildInlineChartScene(panel), panel };
+      setEntries((prev) => [...prev, demoEntry].slice(-MAX_ENTRIES));
       return;
     }
 
@@ -310,7 +376,9 @@ export function GenPanelChat({ onClose }: Props) {
     stickToBottomRef.current = true; // a new prompt always scrolls into view
 
     setBusy(true);
-    setEntries((prev) => [...prev, { id, prompt, status: 'running', progressText: '', toolCounts: {} }].slice(-MAX_ENTRIES));
+    // Annotated for the same literal-widening reason as the demo entry above.
+    const runningEntry: ChatEntry = { id, prompt, status: 'running', progressText: '', toolCounts: {} };
+    setEntries((prev) => [...prev, runningEntry].slice(-MAX_ENTRIES));
 
     const abortController = new AbortController();
     abortRef.current = abortController;
@@ -438,13 +506,27 @@ export function GenPanelChat({ onClose }: Props) {
     }
   };
 
-  const onExportPng = (event: React.MouseEvent<HTMLElement>, entry: ChatEntry) => {
+  const onExportPng = async (event: React.MouseEvent<HTMLElement>, entry: ChatEntry) => {
+    // The first export may await the logo fetch (up to ~1.5s) with no visible
+    // feedback; without this guard an impatient second click would download a
+    // duplicate PNG.
+    if (pngExportingRef.current) {
+      return;
+    }
+    pngExportingRef.current = true;
+    // Resolve the card root before the first await: currentTarget is only
+    // valid synchronously during the event dispatch.
     const root = event.currentTarget.closest<HTMLElement>('[data-chart-export-root]');
-    const started = exportPanelPng(root, entry.spec?.title || 'panel', {
-      background: theme.colors.background.elevated,
-      text: theme.colors.text.primary,
-      fontFamily: theme.typography.fontFamily,
-    });
+    let started = false;
+    try {
+      started = await exportPanelPng(root, entry.spec?.title || 'panel', {
+        background: theme.colors.background.elevated,
+        text: theme.colors.text.primary,
+        fontFamily: theme.typography.fontFamily,
+      });
+    } finally {
+      pngExportingRef.current = false;
+    }
     if (!started) {
       // No canvas yet: report the panel's real state (a ready panel whose canvas
       // is momentarily absent counts as still-rendering).
@@ -570,49 +652,43 @@ export function GenPanelChat({ onClose }: Props) {
 
             {entry.status === 'done' && entry.scene && (
               <div className={styles.chartCard} data-chart-export-root>
+                {/* Export controls overlay the panel's empty top-right header
+                    corner, reading as panel actions (the title stays left). */}
+                <div className={styles.exportButtons}>
+                  <IconButton
+                    name="download-alt"
+                    size="lg"
+                    tooltip={t('dashboard.ai-panel.export-csv', 'Download CSV')}
+                    onClick={() => onExportCsv(entry)}
+                  />
+                  {entry.spec && canExportImage(entry.spec.panelType) && (
+                    <IconButton
+                      name="camera"
+                      size="lg"
+                      tooltip={t('dashboard.ai-panel.export-png', 'Download PNG')}
+                      onClick={(e) => onExportPng(e, entry)}
+                    />
+                  )}
+                </div>
                 <div className={styles.chartBody}>
                   <entry.scene.Component model={entry.scene} />
                 </div>
                 <div className={styles.chartFooter}>
                   {entry.spec && <span className={styles.typeBadge}>{entry.spec.panelType}</span>}
                   {entry.message && (
-                    <div className={styles.noteWrap}>
-                      <MarkdownText
-                        className={cx(styles.chartNote, expanded.has(entry.id) && styles.chartNoteExpanded)}
-                        text={entry.message}
-                      />
-                      {entry.message.length > 80 && (
-                        <button type="button" className={styles.noteToggle} onClick={() => toggleExpanded(entry.id)}>
-                          {expanded.has(entry.id)
-                            ? t('dashboard.ai-panel.note-collapse', 'Show less')
-                            : t('dashboard.ai-panel.note-expand', 'Show more')}
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  <div className={styles.chartActions}>
-                    <IconButton
-                      name="download-alt"
-                      size="sm"
-                      tooltip={t('dashboard.ai-panel.export-csv', 'Download CSV')}
-                      onClick={() => onExportCsv(entry)}
+                    <ChartNote
+                      text={entry.message}
+                      expanded={expanded.has(entry.id)}
+                      onToggle={() => toggleExpanded(entry.id)}
                     />
-                    {entry.spec && canExportImage(entry.spec.panelType) && (
-                      <IconButton
-                        name="camera"
-                        size="sm"
-                        tooltip={t('dashboard.ai-panel.export-png', 'Download PNG')}
-                        onClick={(e) => onExportPng(e, entry)}
-                      />
-                    )}
-                    {entry.durationMs != null && (
-                      <span className={styles.duration}>
-                        {t('dashboard.ai-panel.duration', '{{seconds}}s', {
-                          seconds: (entry.durationMs / 1000).toFixed(1),
-                        })}
-                      </span>
-                    )}
-                  </div>
+                  )}
+                  {entry.durationMs != null && (
+                    <span className={cx(styles.duration, styles.durationEnd)}>
+                      {t('dashboard.ai-panel.duration', '{{seconds}}s', {
+                        seconds: (entry.durationMs / 1000).toFixed(1),
+                      })}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -1000,6 +1076,8 @@ const getStyles = (theme: GrafanaTheme2) => ({
     overflowY: 'auto',
   }),
   chartCard: css({
+    // Anchor for the export-buttons overlay in the top-right corner.
+    position: 'relative',
     background: theme.colors.background.elevated,
     border: `1px solid ${analytix.border}`,
     borderRadius: analytix.radiusPanel,
@@ -1065,18 +1143,32 @@ const getStyles = (theme: GrafanaTheme2) => ({
     overflow: 'visible',
     '& p': { display: 'block', margin: 0 },
   }),
-  chartActions: css({
-    // Right-aligned group: export controls + generation time.
-    marginLeft: 'auto',
+  exportButtons: css({
+    // Overlaid on the panel's own (empty) top-right header corner so the
+    // export controls read as panel actions.
+    position: 'absolute',
+    top: theme.spacing(1),
+    right: theme.spacing(1.5),
+    zIndex: 1,
     display: 'flex',
     alignItems: 'center',
-    gap: theme.spacing(0.5),
-    flexShrink: 0,
+    gap: theme.spacing(1),
+    // Opaque pill: a very long generated panel title truncates only at the
+    // card's right edge and would otherwise render beneath the transparent
+    // icon buttons.
+    background: theme.colors.background.elevated,
+    borderRadius: theme.shape.radius.pill,
+    padding: theme.spacing(0.25, 0.75),
   }),
   duration: css({
     color: analytix.textFaint,
     fontSize: theme.typography.bodySmall.fontSize,
     whiteSpace: 'nowrap',
+  }),
+  durationEnd: css({
+    // Right edge of the chart footer, after the (flexible) insight note.
+    marginLeft: 'auto',
+    flexShrink: 0,
   }),
   retryButton: css({
     marginTop: theme.spacing(1),
