@@ -8,10 +8,14 @@ import { config } from '@grafana/runtime';
 import { isSafeBridgeSql, runRawQuery } from './datasourceQuery';
 import { GeneratedPanelSpec, SUPPORTED_PANEL_TYPES } from './types';
 
-// Silence watchdog: the backend sends an SSE heartbeat every 15s, so no bytes
-// at all for this long means the connection died silently (dropped tunnel,
-// laptop sleep, NAT timeout) — surface an error instead of spinning forever.
-const SSE_IDLE_TIMEOUT_MS = 40000;
+// Silence watchdog: the backend sends a padded SSE heartbeat every 15s, so no
+// bytes at all for this long means the connection died silently (dropped
+// tunnel, laptop sleep, NAT timeout) — surface an error instead of spinning
+// forever. Generous on purpose: a false positive aborts a paid generation
+// mid-flight (2026-08-21 three identical remote-user runs died at the old 40s
+// limit behind a chunk-buffering proxy and were retried from scratch at full
+// cost), while a true positive only delays the error message a bit.
+const SSE_IDLE_TIMEOUT_MS = 90000;
 
 // A Grafana time expression the inline scene's SceneTimeRange understands:
 // `now`, `now-30d`, `now-1h/h`, `now/d`, an ISO date, or epoch millis. Anything
