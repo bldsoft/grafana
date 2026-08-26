@@ -164,6 +164,29 @@ export async function fetchSuggestions(): Promise<SuggestedPrompt[]> {
   }
 }
 
+/**
+ * Wipe the current user's server-side prompt history and personalized
+ * suggestion chips, so the chat empty state falls back to the cold-start
+ * defaults. Resolves false when the service refused or is unreachable.
+ */
+export async function resetAssistantHistory(): Promise<boolean> {
+  const user = config.bootData?.user?.login;
+  if (!user) {
+    return false;
+  }
+  try {
+    const res = await fetch(`${getAssistantBaseUrl()}/api/history-reset`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify({ user }),
+      signal: AbortSignal.timeout(6000),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 interface GenerateArgs {
   prompt: string;
   /** ClickHouse datasource that executes the agent's exploration queries (and later the panel). */

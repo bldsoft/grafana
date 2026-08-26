@@ -1,5 +1,5 @@
-import { DataSourceRef, FieldColorModeId, FieldType, LoadingState, PanelData } from '@grafana/data';
-import { SceneQueryRunner, VizPanel } from '@grafana/scenes';
+import { DataFrame, DataSourceRef, FieldColorModeId, FieldType, LoadingState, PanelData } from '@grafana/data';
+import { SceneDataTransformer, SceneQueryRunner, VizPanel } from '@grafana/scenes';
 
 import { isSafeBridgeSql } from './datasourceQuery';
 import { GeneratedPanelSpec, SupportedPanelType } from './types';
@@ -89,6 +89,60 @@ function fieldConfigFor(panelType: SupportedPanelType) {
         },
         overrides: [],
       };
+    case 'bargauge':
+      return {
+        defaults: {
+          color: { mode: FieldColorModeId.Fixed, fixedColor: ANALYTIX_BLUE },
+        },
+        overrides: [],
+      };
+    case 'histogram':
+      return {
+        defaults: {
+          color: { mode: FieldColorModeId.Shades, fixedColor: ANALYTIX_BLUE },
+          custom: { lineWidth: 1, fillOpacity: 80 },
+        },
+        overrides: [],
+      };
+    case 'trend':
+      return {
+        defaults: {
+          color: { mode: FieldColorModeId.PaletteClassic },
+          custom: {
+            drawStyle: 'line',
+            lineInterpolation: 'linear',
+            lineWidth: 1,
+            fillOpacity: 0,
+            gradientMode: 'none',
+            showPoints: 'never',
+            spanNulls: true,
+            pointSize: 4,
+            axisWidth: AXIS_LABEL_WIDTH,
+          },
+        },
+        overrides: [],
+      };
+    case 'state-timeline':
+    case 'status-history':
+      return {
+        defaults: {
+          // Discrete states (strings or small ints) get distinct palette
+          // colors; a continuous scheme would collapse strings to one color.
+          color: { mode: FieldColorModeId.PaletteClassic },
+          custom: { lineWidth: 0, fillOpacity: 70 },
+        },
+        overrides: [],
+      };
+    case 'xychart':
+      return {
+        defaults: {
+          color: { mode: FieldColorModeId.PaletteClassic },
+        },
+        overrides: [],
+      };
+    // gauge / heatmap read best on their plugin defaults (threshold colors and
+    // the spectral value scale respectively) — don't flatten them to the brand
+    // palette.
     default:
       return { defaults: {}, overrides: [] };
   }
@@ -138,6 +192,60 @@ function optionsFor(panelType: SupportedPanelType): Record<string, unknown> {
       return {
         cellHeight: 'sm',
         footer: { show: false },
+      };
+    case 'gauge':
+      return {
+        showThresholdLabels: false,
+        showThresholdMarkers: true,
+        // One gauge per row when the query returns labeled rows; a single-row
+        // single-value result still renders as one gauge.
+        reduceOptions: { calcs: ['lastNotNull'], fields: '', values: true },
+      };
+    case 'bargauge':
+      return {
+        displayMode: 'basic',
+        orientation: 'horizontal',
+        valueMode: 'color',
+        reduceOptions: { calcs: ['lastNotNull'], fields: '', values: true },
+      };
+    case 'histogram':
+      return {
+        legend: { showLegend: true, displayMode: 'list', placement: 'bottom' },
+        tooltip: { mode: 'single' },
+      };
+    case 'heatmap':
+      return {
+        // Bucket the raw (time, value) rows client-side; the model is told to
+        // return raw-ish rows rather than pre-bucketed matrices.
+        calculate: true,
+        legend: { show: true },
+      };
+    case 'state-timeline':
+      return {
+        legend: { showLegend: true, displayMode: 'list', placement: 'bottom' },
+        tooltip: { mode: 'single' },
+        showValue: 'auto',
+        rowHeight: 0.85,
+        mergeValues: true,
+      };
+    case 'status-history':
+      return {
+        legend: { showLegend: true, displayMode: 'list', placement: 'bottom' },
+        tooltip: { mode: 'single' },
+        showValue: 'auto',
+        rowHeight: 0.85,
+      };
+    case 'trend':
+      return {
+        legend: { showLegend: true, displayMode: 'list', placement: 'bottom' },
+        tooltip: { mode: 'multi', sort: 'desc' },
+      };
+    case 'xychart':
+      return {
+        // Auto mapping: first numeric field is X, remaining numerics are Y.
+        mapping: 'auto',
+        legend: { showLegend: true, displayMode: 'list', placement: 'bottom' },
+        tooltip: { mode: 'single' },
       };
     default:
       return {};
@@ -211,6 +319,47 @@ function applyDynamicTickRotation(panel: VizPanel<BarChartTickOptions>, runner: 
 }
 
 /**
+ * The long-row shape SQL naturally produces for timeline panels: a time axis,
+ * ONE entity (discriminator) column right after it, and at least one value
+ * column. Exported for tests.
+ */
+export function timelinePartitionField(data: PanelData | undefined): string | undefined {
+  if (!data || data.series.length !== 1) {
+    return undefined; // already multi-frame (or nothing) — leave as-is
+  }
+  const frame: DataFrame = data.series[0];
+  if (frame.fields.length < 3) {
+    return undefined;
+  }
+  const [first, second] = frame.fields;
+  return first.type === FieldType.time && second.type === FieldType.string ? second.name : undefined;
+}
+
+/**
+ * state-timeline / status-history want one field per tracked entity, but SQL
+ * returns long rows (time, entity, state) — a ClickHouse pivot would need the
+ * entity list hardcoded into the query. Once the data arrives, partition the
+ * long frame by the entity column instead; wide results pass through untouched.
+ */
+function applyTimelinePartition(transformer: SceneDataTransformer, runner: SceneQueryRunner): void {
+  runner.subscribeToState((state) => {
+    if (state.data?.state !== LoadingState.Done) {
+      return;
+    }
+    const field = timelinePartitionField(state.data);
+    const current = transformer.state.transformations;
+    const wanted = field ? [{ id: 'partitionByValues', options: { fields: [field], keepFields: false } }] : [];
+    if (JSON.stringify(current) !== JSON.stringify(wanted)) {
+      transformer.setState({ transformations: wanted });
+      transformer.reprocessTransformations();
+    }
+  });
+}
+
+// Timeline panels get the long-format partition treatment above.
+const TIMELINE_PANEL_TYPES: readonly SupportedPanelType[] = ['state-timeline', 'status-history'];
+
+/**
  * Build a panel from a generated spec for inline rendering (not attached to a
  * dashboard). It is a bare VizPanel — no dashboard menu/behaviours — so it
  * renders happily inside an EmbeddedScene.
@@ -228,18 +377,25 @@ export function buildGeneratedPanel(spec: GeneratedPanelSpec, datasource: DataSo
     // `rawSql`/`query` cover both the official and community ClickHouse plugins.
     queries: [{ refId: 'A', rawSql: spec.rawSql, query: spec.rawSql }],
   });
+  // Timeline panels sit behind a (initially pass-through) transformer so long
+  // results can be partitioned by entity once the shape is known.
+  const isTimeline = TIMELINE_PANEL_TYPES.includes(spec.panelType);
+  const data = isTimeline ? new SceneDataTransformer({ $data: runner, transformations: [] }) : runner;
   const panel = new VizPanel({
     title: spec.title,
     pluginId: spec.panelType,
     displayMode: 'transparent',
     fieldConfig: fieldConfigFor(spec.panelType),
     options: optionsFor(spec.panelType),
-    $data: runner,
+    $data: data,
   });
   if (spec.panelType === 'barchart') {
     // The subscription shares the panel's lifetime: the runner is a child of
     // the panel, so both are released together with the chat entry.
     applyDynamicTickRotation(panel, runner);
+  }
+  if (isTimeline && data instanceof SceneDataTransformer) {
+    applyTimelinePartition(data, runner);
   }
   return panel;
 }

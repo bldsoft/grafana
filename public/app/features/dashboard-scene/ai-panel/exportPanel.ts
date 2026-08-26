@@ -6,11 +6,11 @@
 //   - CSV: the panel's query result, run through applyFieldOverrides first so
 //          the time column and units are FORMATTED (as Grafana's own CSV is),
 //          and with a spreadsheet formula-injection guard on string cells.
-//   - PNG: the panel's uPlot <canvas> composited onto an opaque background with
-//          the title captioned on top. Only timeseries/barchart draw on a
-//          canvas; table/piechart/stat are DOM/SVG with no client-side
-//          rasterizer here, so PNG is offered only for the canvas panel types
-//          (see canExportImage). The legend is separate DOM and is NOT captured.
+//   - PNG: the panel's plot <canvas> composited onto an opaque background with
+//          the title captioned on top. Offered only for panel types that draw
+//          on a canvas (uPlot charts and the flot gauge — see canExportImage);
+//          table/piechart/stat/bargauge are DOM/SVG with no client-side
+//          rasterizer here. The legend is separate DOM and is NOT captured.
 import saveAs from 'file-saver';
 
 import {
@@ -31,7 +31,19 @@ import { SupportedPanelType } from './types';
 /** Why an export could not run — drives the message shown to the user. */
 export type ExportState = 'ready' | 'loading' | 'empty' | 'error';
 
-const CANVAS_PANEL_TYPES: readonly SupportedPanelType[] = ['timeseries', 'barchart'];
+// uPlot-based panels plus the flot-drawn gauge — all raster onto a <canvas>
+// largestCanvas can grab. Excluded: bargauge/stat/table/piechart (DOM/SVG).
+const CANVAS_PANEL_TYPES: readonly SupportedPanelType[] = [
+  'timeseries',
+  'barchart',
+  'histogram',
+  'heatmap',
+  'state-timeline',
+  'status-history',
+  'trend',
+  'xychart',
+  'gauge',
+];
 
 /** True when the panel type renders on a <canvas> we can turn into a PNG. */
 export function canExportImage(panelType: SupportedPanelType): boolean {
@@ -138,34 +150,64 @@ export interface PngExportStyle {
 // The SVG is bundled/same-origin (no canvas tainting) and white-filled — drawn
 // on the dark theme backgrounds this (dark-only) build exports on.
 const LOGO_URL: string = analytixLogoSvg;
-// Fallback aspect for the text-wordmark reserve (the SVG's intrinsic 185x44);
-// a loaded logo uses its own naturalWidth/naturalHeight.
+// The wordmark's design proportions (viewBox 0 0 185 44). The drawn box is
+// always derived from this constant — never from Image natural sizes — so the
+// stamp cannot be distorted by whatever intrinsic size the browser reports.
+// If the asset is ever replaced, update this ratio with it.
 const LOGO_ASPECT = 185 / 44;
-// Give a slow first load a moment; past it the text wordmark is drawn instead.
+// Give a slow first fetch a moment; past it the text wordmark is drawn instead.
 const LOGO_LOAD_TIMEOUT_MS = 1500;
 
-let logoPromise: Promise<HTMLImageElement | null> | null = null;
+let logoSvgPromise: Promise<string | null> | null = null;
 
-function loadLogo(): Promise<HTMLImageElement | null> {
-  if (!logoPromise) {
-    logoPromise = new Promise((resolve) => {
-      const img = new Image();
-      // The asset URL follows __webpack_public_path__, which a deployment can
-      // point at a CDN. Anonymous CORS keeps a cross-origin logo from tainting
-      // the export canvas (toBlob would throw and PNG export would die
-      // silently); on a CORS-less host the load just fails into the text
-      // fallback. Same-origin loads are unaffected.
-      img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(img);
-      img.onerror = () => {
-        // Drop the cached failure so a later export retries the load.
-        logoPromise = null;
-        resolve(null);
-      };
-      img.src = LOGO_URL;
-    });
+function loadLogoSvg(): Promise<string | null> {
+  if (!logoSvgPromise) {
+    // The asset URL follows __webpack_public_path__, which a deployment can
+    // point at a CDN; a CORS-less cross-origin host fails the fetch and the
+    // export falls back to the text wordmark. Same-origin always works.
+    logoSvgPromise = fetch(LOGO_URL)
+      .then((res) => (res.ok ? res.text() : null))
+      .then((text) => (text && text.includes('<svg') ? text : null))
+      .catch(() => null)
+      .then((text) => {
+        if (!text) {
+          // Drop the cached failure so a later export retries the fetch.
+          logoSvgPromise = null;
+        }
+        return text;
+      });
   }
-  return logoPromise;
+  return logoSvgPromise;
+}
+
+/**
+ * Rasterize the wordmark at exactly the given device-pixel box. Drawing the
+ * SVG straight through drawImage lets the browser rasterize it at its
+ * intrinsic 185x44 and then bitmap-scale the result into the destination box,
+ * which thins and blurs the glyph strokes at export sizes. Pinning the SVG's
+ * width/height to the target box makes the vector engine rasterize 1:1 (and
+ * preserveAspectRatio guards the proportions even against a mis-sized box).
+ */
+async function rasterizeLogo(width: number, height: number): Promise<HTMLImageElement | null> {
+  const svg = await loadLogoSvg();
+  if (!svg) {
+    return null;
+  }
+  const patched = svg.replace(/<svg\b([^>]*)>/, (_match, attrs: string) => {
+    const rest = attrs.replace(/\s(?:width|height)="[^"]*"/g, '');
+    return `<svg${rest} width="${width}" height="${height}">`;
+  });
+  const url = URL.createObjectURL(new Blob([patched], { type: 'image/svg+xml' }));
+  try {
+    return await new Promise<HTMLImageElement | null>((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = () => resolve(null);
+      img.src = url;
+    });
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function fitText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
@@ -194,14 +236,18 @@ export async function exportPanelPng(rootEl: HTMLElement | null, title: string, 
   // Capture layout metrics before awaiting: the element may leave the DOM
   // while the logo loads (its canvas bitmap stays drawable regardless).
   const rect = src.getBoundingClientRect();
+  // The canvas backing store is at device-pixel resolution; derive that scale
+  // from its rendered size so the caption text matches the chart's crispness.
+  const scale = rect.width > 0 ? src.width / rect.width : window.devicePixelRatio || 1;
+  // The stamp box comes from the design-time aspect constant, and the SVG is
+  // rasterized at exactly this device-pixel box (see rasterizeLogo).
+  const logoHeight = Math.round(14 * scale);
+  const logoWidth = Math.round(logoHeight * LOGO_ASPECT);
   const logo = await Promise.race([
-    loadLogo(),
+    rasterizeLogo(logoWidth, logoHeight),
     new Promise<null>((resolve) => setTimeout(() => resolve(null), LOGO_LOAD_TIMEOUT_MS)),
   ]);
   try {
-    // The canvas backing store is at device-pixel resolution; derive that scale
-    // from its rendered size so the caption text matches the chart's crispness.
-    const scale = rect.width > 0 ? src.width / rect.width : window.devicePixelRatio || 1;
     const caption = title.trim();
     // The top band always exists now — it carries the wordmark even for an
     // (unlikely) empty caption.
@@ -218,13 +264,8 @@ export async function exportPanelPng(rootEl: HTMLElement | null, title: string, 
     ctx.fillStyle = style.background;
     ctx.fillRect(0, 0, out.width, out.height);
 
-    // Watermark first, so the caption knows how much width remains. Aspect
-    // comes from the loaded asset itself; the constant only covers the
-    // text-fallback reserve.
-    const aspect = logo && logo.naturalHeight > 0 ? logo.naturalWidth / logo.naturalHeight : LOGO_ASPECT;
-    const logoHeight = Math.round(14 * scale);
-    const logoWidth = Math.round(logoHeight * aspect);
     if (logo) {
+      // 1:1 blit of the pre-rasterized wordmark — no scaling, no distortion.
       ctx.drawImage(logo, out.width - padding - logoWidth, Math.round((band - logoHeight) / 2), logoWidth, logoHeight);
     } else {
       // Fallback wordmark when the SVG could not be fetched in time.

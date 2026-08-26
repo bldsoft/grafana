@@ -1,6 +1,6 @@
 import { FieldType, LoadingState, PanelData, toDataFrame, getDefaultTimeRange } from '@grafana/data';
 
-import { barLabelsFitHorizontally, buildGeneratedPanel } from './buildPanel';
+import { barLabelsFitHorizontally, buildGeneratedPanel, timelinePartitionField } from './buildPanel';
 import { GeneratedPanelSpec } from './types';
 
 function panelData(labels: unknown[], values: number[]): PanelData {
@@ -53,6 +53,52 @@ describe('barLabelsFitHorizontally', () => {
   });
 });
 
+describe('timelinePartitionField', () => {
+  const frameData = (fields: Array<{ name: string; type: FieldType; values: unknown[] }>): PanelData => ({
+    state: LoadingState.Done,
+    timeRange: getDefaultTimeRange(),
+    series: [toDataFrame({ fields })],
+  });
+
+  it('detects the long (time, entity, state) shape', () => {
+    const data = frameData([
+      { name: 't', type: FieldType.time, values: [1, 2] },
+      { name: 'provider', type: FieldType.string, values: ['A', 'B'] },
+      { name: 'state', type: FieldType.number, values: [0, 1] },
+    ]);
+    expect(timelinePartitionField(data)).toBe('provider');
+  });
+
+  it('leaves wide (already pivoted) results alone', () => {
+    const data = frameData([
+      { name: 't', type: FieldType.time, values: [1, 2] },
+      { name: 'A', type: FieldType.number, values: [0, 1] },
+      { name: 'B', type: FieldType.number, values: [1, 0] },
+    ]);
+    expect(timelinePartitionField(data)).toBeUndefined();
+  });
+
+  it('ignores frames without a leading time axis or with too few columns', () => {
+    expect(
+      timelinePartitionField(
+        frameData([
+          { name: 'provider', type: FieldType.string, values: ['A'] },
+          { name: 'state', type: FieldType.number, values: [1] },
+        ])
+      )
+    ).toBeUndefined();
+    expect(
+      timelinePartitionField(
+        frameData([
+          { name: 't', type: FieldType.time, values: [1] },
+          { name: 'state', type: FieldType.number, values: [1] },
+        ])
+      )
+    ).toBeUndefined();
+    expect(timelinePartitionField(undefined)).toBeUndefined();
+  });
+});
+
 describe('buildGeneratedPanel SQL gate', () => {
   const datasource = { uid: 'ch-uid', type: 'clickhouse' };
   const spec = (rawSql: string): GeneratedPanelSpec => ({ panelType: 'table', title: 'T', rawSql });
@@ -60,6 +106,15 @@ describe('buildGeneratedPanel SQL gate', () => {
   it('builds a panel for a read-only query', () => {
     const panel = buildGeneratedPanel(spec('SELECT count() FROM stat.events'), datasource);
     expect(panel.state.pluginId).toBe('table');
+  });
+
+  it('builds a timeline panel behind a pass-through transformer', () => {
+    const panel = buildGeneratedPanel(
+      { panelType: 'state-timeline', title: 'T', rawSql: 'SELECT t, p, s FROM stat.events' },
+      datasource
+    );
+    expect(panel.state.pluginId).toBe('state-timeline');
+    expect(panel.state.$data?.constructor.name).toBe('SceneDataTransformer');
   });
 
   it('rejects a mutating statement', () => {

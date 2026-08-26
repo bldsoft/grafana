@@ -6,8 +6,29 @@
  * panel from the result. See {@link ./GenPanelButton.tsx} for the entry point.
  */
 
-/** Panel plugin ids the generator is allowed to produce. */
-export const SUPPORTED_PANEL_TYPES = ['timeseries', 'piechart', 'table', 'stat', 'barchart'] as const;
+/**
+ * Panel plugin ids the generator is allowed to produce. Kept in sync with the
+ * service (services/panel-spec.js in analytix-ai-insider) — the two lists must
+ * match or specs get dropped by normalizeResult. Deliberately excluded core
+ * panels: geomap (no geo mapping config from a bare query), candlestick
+ * (finance-specific), logs/traces/nodegraph/flamegraph (need typed non-SQL
+ * frames), canvas/text/news/dashlist/alertlist (not data charts).
+ */
+export const SUPPORTED_PANEL_TYPES = [
+  'timeseries',
+  'piechart',
+  'table',
+  'stat',
+  'barchart',
+  'gauge',
+  'bargauge',
+  'histogram',
+  'heatmap',
+  'state-timeline',
+  'status-history',
+  'trend',
+  'xychart',
+] as const;
 
 export type SupportedPanelType = (typeof SUPPORTED_PANEL_TYPES)[number];
 

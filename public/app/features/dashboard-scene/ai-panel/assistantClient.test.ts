@@ -1,12 +1,26 @@
 import { normalizeResult } from './assistantClient';
 import { SUPPORTED_PANEL_TYPES } from './types';
 
-// Contract pin, mirrored by test/contract.test.mjs in the ai-grafana-helper
+// Contract pin, mirrored by test/contract.test.mjs in the analytix-ai-insider
 // service: if either side changes the panel-type list or the spec fields, its
 // own suite fails. Update both pins together, deliberately.
 describe('panel spec contract', () => {
   it('pins the supported panel types', () => {
-    expect([...SUPPORTED_PANEL_TYPES]).toEqual(['timeseries', 'piechart', 'table', 'stat', 'barchart']);
+    expect([...SUPPORTED_PANEL_TYPES]).toEqual([
+      'timeseries',
+      'piechart',
+      'table',
+      'stat',
+      'barchart',
+      'gauge',
+      'bargauge',
+      'histogram',
+      'heatmap',
+      'state-timeline',
+      'status-history',
+      'trend',
+      'xychart',
+    ]);
   });
 });
 
@@ -37,7 +51,14 @@ describe('normalizeResult', () => {
   });
 
   it('drops a spec with an unknown panel type', () => {
-    expect(normalizeResult({ spec: { ...goodSpec, panelType: 'gauge' } }).spec).toBeNull();
+    expect(normalizeResult({ spec: { ...goodSpec, panelType: 'geomap' } }).spec).toBeNull();
+  });
+
+  it('accepts the newly supported chart types', () => {
+    expect(normalizeResult({ spec: { ...goodSpec, panelType: 'state-timeline' } }).spec?.panelType).toBe(
+      'state-timeline'
+    );
+    expect(normalizeResult({ spec: { ...goodSpec, panelType: 'gauge' } }).spec?.panelType).toBe('gauge');
   });
 
   it('sanitizes time expressions, keeping valid Grafana ones', () => {

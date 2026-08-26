@@ -13,7 +13,19 @@ import {
 import { Trans, t } from '@grafana/i18n';
 import { DataSourcePicker, getAppEvents, getDataSourceSrv } from '@grafana/runtime';
 import { EmbeddedScene, VizPanel } from '@grafana/scenes';
-import { Alert, Button, ConfirmModal, Drawer, Icon, IconButton, TextArea, useStyles2, useTheme2 } from '@grafana/ui';
+import {
+  Alert,
+  Button,
+  ConfirmModal,
+  Drawer,
+  Dropdown,
+  Icon,
+  IconButton,
+  Menu,
+  TextArea,
+  useStyles2,
+  useTheme2,
+} from '@grafana/ui';
 import { DOCKED_MENU_COLLAPSED_WIDTH, DOCKED_MENU_WIDTH } from 'app/core/components/AppChrome/MegaMenu/MegaMenu';
 import { useGrafana } from 'app/core/context/GrafanaContext';
 import { analytix } from 'app/features/home/analytixTokens';
@@ -25,6 +37,7 @@ import {
   checkAssistantHealth,
   fetchSuggestions,
   generatePanel,
+  resetAssistantHistory,
 } from './assistantClient';
 import { buildGeneratedPanel } from './buildPanel';
 import { AI_PANEL_DEMO_MODE, buildDemoPanel } from './demo';
@@ -195,6 +208,14 @@ const KIND_LABELS: Record<string, string> = {
   piechart: 'pie chart',
   table: 'table',
   stat: 'stat',
+  gauge: 'gauge',
+  bargauge: 'bar gauge',
+  histogram: 'histogram',
+  heatmap: 'heatmap',
+  'state-timeline': 'timeline',
+  'status-history': 'status',
+  trend: 'trend',
+  xychart: 'xy chart',
 };
 
 export function GenPanelChat({ onClose }: Props) {
@@ -296,10 +317,12 @@ export function GenPanelChat({ onClose }: Props) {
 
   // Personal suggestions from the backend (the user's last successful
   // prompts); on any error the list is empty and the defaults fill all
-  // five slots — the cold-start behavior.
+  // five slots — the cold-start behavior. The epoch bumps after a history
+  // reset so the (now empty) server state is re-fetched immediately.
+  const [suggestionsEpoch, setSuggestionsEpoch] = useState(0);
   const { value: fetchedSuggestions } = useAsync(
     () => (AI_PANEL_DEMO_MODE ? Promise.resolve<SuggestedPrompt[]>([]) : fetchSuggestions()),
-    []
+    [suggestionsEpoch]
   );
   const suggestions = useMemo(() => {
     const seen = new Set<string>();
@@ -477,6 +500,34 @@ export function GenPanelChat({ onClose }: Props) {
     setExpanded(new Set());
     sessionRef.current = null; // fresh conversation on the service side too
     setBusy(false);
+  };
+
+  // "Reset history": wipes the server-side prompt history and personalized
+  // chips on top of clearing the conversation, returning the empty state to
+  // the cold-start defaults. Confirmed first — it is not undoable.
+  const [confirmReset, setConfirmReset] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const onResetHistory = async () => {
+    setResetting(true);
+    try {
+      const ok = AI_PANEL_DEMO_MODE ? true : await resetAssistantHistory();
+      if (!ok) {
+        getAppEvents().publish({
+          type: AppEvents.alertWarning.name,
+          payload: [
+            t('dashboard.ai-panel.reset-history-failed', 'Could not reset the history. Please try again shortly.'),
+          ],
+        });
+        return;
+      }
+      onClear();
+      // Re-fetch: the server now has no history for this user, so the chips
+      // fall back to the built-in defaults.
+      setSuggestionsEpoch((epoch) => epoch + 1);
+    } finally {
+      setResetting(false);
+      setConfirmReset(false);
+    }
   };
 
   // A state-specific message: "still loading" only when the query really is in
@@ -764,13 +815,27 @@ export function GenPanelChat({ onClose }: Props) {
           <span className={styles.hint}>
             <Trans i18nKey="dashboard.ai-panel.hint">Enter — send · Shift+Enter — new line</Trans>
           </span>
-          <IconButton
-            name="trash-alt"
-            size="sm"
-            tooltip={t('dashboard.ai-panel.chat-clear', 'Clear the conversation')}
-            disabled={!entries.length}
-            onClick={onClear}
-          />
+          <Dropdown
+            placement="top-end"
+            overlay={
+              <Menu>
+                <Menu.Item
+                  label={t('dashboard.ai-panel.chat-clear', 'Clear the conversation')}
+                  icon="comment-alt-message"
+                  disabled={!entries.length}
+                  onClick={onClear}
+                />
+                <Menu.Item
+                  label={t('dashboard.ai-panel.chat-reset-history', 'Reset history & suggestions…')}
+                  icon="history"
+                  destructive
+                  onClick={() => setConfirmReset(true)}
+                />
+              </Menu>
+            }
+          >
+            <IconButton name="trash-alt" size="sm" tooltip={t('dashboard.ai-panel.chat-clear-menu', 'Clear…')} />
+          </Dropdown>
         </div>
       </div>
     </div>
@@ -829,6 +894,23 @@ export function GenPanelChat({ onClose }: Props) {
           onClose();
         }}
         onDismiss={() => setConfirmClose(false)}
+      />
+      <ConfirmModal
+        isOpen={confirmReset}
+        title={t('dashboard.ai-panel.reset-history-title', 'Reset history and suggestions?')}
+        body={t(
+          'dashboard.ai-panel.reset-history-body',
+          'This clears the conversation, deletes your saved prompt history on the AI Insider service and resets the personalized suggestion chips back to the defaults. This cannot be undone.'
+        )}
+        confirmText={
+          resetting
+            ? t('dashboard.ai-panel.reset-history-busy', 'Resetting…')
+            : t('dashboard.ai-panel.reset-history-yes', 'Reset')
+        }
+        dismissText={t('dashboard.ai-panel.reset-history-no', 'Cancel')}
+        disabled={resetting}
+        onConfirm={onResetHistory}
+        onDismiss={() => setConfirmReset(false)}
       />
     </>
   );

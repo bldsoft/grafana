@@ -492,6 +492,14 @@ function shortenValue(value: string, length: number) {
   }
 }
 
+// Rotated tick labels are measured with measureText, whose canvas may cache
+// metrics taken before the Inter webfont finished loading — the fallback
+// font's narrower glyphs then under-reserve the padding and the real render
+// overhangs it, shaving the first character(s) of the longest labels at the
+// plot edge. A small proportional margin absorbs that drift (plus antialiased
+// glyph overshoot) at the cost of a few extra pixels of padding.
+const ROTATED_LABEL_MEASURE_SAFETY = 1.08;
+
 function getRotationPadding(
   frame: DataFrame,
   rotateLabel: number,
@@ -505,28 +513,20 @@ function getRotationPadding(
   const getProcessedValue = (i: number) => {
     return displayProcessor ? displayProcessor(values[i]) : values[i];
   };
+  const measureLabel = (i: number) =>
+    measureText(shortenValue(formattedValueToString(getProcessedValue(i)), valueMaxLength), fontSize).width *
+    ROTATED_LABEL_MEASURE_SAFETY;
   let maxLength = 0;
   for (let i = 0; i < values.length; i++) {
-    let size = measureText(shortenValue(formattedValueToString(getProcessedValue(i)), valueMaxLength), fontSize);
-    maxLength = size.width > maxLength ? size.width : maxLength;
+    const width = measureLabel(i);
+    maxLength = width > maxLength ? width : maxLength;
   }
 
   // Add padding to the right if the labels are rotated in a way that makes the last label extend outside the graph.
-  const paddingRight =
-    rotateLabel > 0
-      ? Math.cos((rotateLabel * Math.PI) / 180) *
-        measureText(
-          shortenValue(formattedValueToString(getProcessedValue(values.length - 1)), valueMaxLength),
-          fontSize
-        ).width
-      : 0;
+  const paddingRight = rotateLabel > 0 ? Math.cos((rotateLabel * Math.PI) / 180) * measureLabel(values.length - 1) : 0;
 
   // Add padding to the left if the labels are rotated in a way that makes the first label extend outside the graph.
-  const paddingLeft =
-    rotateLabel < 0
-      ? Math.cos((rotateLabel * -1 * Math.PI) / 180) *
-        measureText(shortenValue(formattedValueToString(getProcessedValue(0)), valueMaxLength), fontSize).width
-      : 0;
+  const paddingLeft = rotateLabel < 0 ? Math.cos((rotateLabel * -1 * Math.PI) / 180) * measureLabel(0) : 0;
 
   // Add padding to the bottom to avoid clipping the rotated labels.
   const paddingBottom =
