@@ -2,7 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 
 import { contextSrv } from 'app/core/services/context_srv';
 
-import { AI_INSIDER_ORG_ID, useAiInsiderAccess } from './useAiInsiderAccess';
+import { AI_INSIDER_ORG_ID, AI_INSIDER_TEAM_UIDS, useAiInsiderAccess } from './useAiInsiderAccess';
 
 const getMock = jest.fn();
 
@@ -21,38 +21,40 @@ jest.mock('app/core/services/context_srv', () => ({
 describe('useAiInsiderAccess', () => {
   beforeEach(() => {
     getMock.mockReset();
-    contextSrv.user.orgId = 2;
+    contextSrv.user.orgId = AI_INSIDER_ORG_ID;
     contextSrv.isSignedIn = true;
   });
 
-  it('allows immediately when the active org is the AI Insider org, without asking the API', async () => {
-    contextSrv.user.orgId = AI_INSIDER_ORG_ID;
-    const { result } = renderHook(() => useAiInsiderAccess());
-    expect(result.current).toBe(true);
-    // Let the useAsync effect settle (it resolves without a network call).
-    await waitFor(() => expect(result.current).toBe(true));
-    expect(getMock).not.toHaveBeenCalled();
-  });
-
-  it('allows a member of the AI Insider org browsing another org', async () => {
-    getMock.mockResolvedValue([
-      { orgId: 2, name: 'Other', role: 'Viewer' },
-      { orgId: AI_INSIDER_ORG_ID, name: 'Main', role: 'Viewer' },
-    ]);
+  it('allows a rollout-team member browsing the AI Insider org', async () => {
+    getMock.mockResolvedValue([{ uid: 'other-team' }, { uid: AI_INSIDER_TEAM_UIDS[0] }]);
     const { result } = renderHook(() => useAiInsiderAccess());
     expect(result.current).toBe(false);
     await waitFor(() => expect(result.current).toBe(true));
-    expect(getMock).toHaveBeenCalledWith('/api/user/orgs', undefined, undefined, { showErrorAlert: false });
+    expect(getMock).toHaveBeenCalledWith('/api/user/teams', undefined, undefined, { showErrorAlert: false });
   });
 
-  it('denies a user without membership in the AI Insider org', async () => {
-    getMock.mockResolvedValue([{ orgId: 2, name: 'Other', role: 'Viewer' }]);
+  it('accepts any of the per-environment team UIDs', async () => {
+    getMock.mockResolvedValue([{ uid: AI_INSIDER_TEAM_UIDS[1] }]);
+    const { result } = renderHook(() => useAiInsiderAccess());
+    await waitFor(() => expect(result.current).toBe(true));
+  });
+
+  it('denies an org member outside the rollout teams', async () => {
+    getMock.mockResolvedValue([{ uid: 'other-team' }]);
     const { result } = renderHook(() => useAiInsiderAccess());
     await waitFor(() => expect(getMock).toHaveBeenCalled());
     expect(result.current).toBe(false);
   });
 
-  it('fails closed when the membership lookup errors', async () => {
+  it('denies a user browsing another org without asking the API', async () => {
+    contextSrv.user.orgId = 2;
+    const { result } = renderHook(() => useAiInsiderAccess());
+    // Give the async effect a tick to (not) fire.
+    await waitFor(() => expect(result.current).toBe(false));
+    expect(getMock).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the team lookup errors', async () => {
     getMock.mockRejectedValue(new Error('boom'));
     const { result } = renderHook(() => useAiInsiderAccess());
     await waitFor(() => expect(getMock).toHaveBeenCalled());
@@ -62,7 +64,6 @@ describe('useAiInsiderAccess', () => {
   it('denies anonymous sessions without asking the API', async () => {
     contextSrv.isSignedIn = false;
     const { result } = renderHook(() => useAiInsiderAccess());
-    // Give the async effect a tick to (not) fire.
     await waitFor(() => expect(result.current).toBe(false));
     expect(getMock).not.toHaveBeenCalled();
   });
