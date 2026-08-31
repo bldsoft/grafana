@@ -8,6 +8,7 @@ import { Spinner, useStyles2 } from '@grafana/ui';
 import { AppChromeUpdate } from 'app/core/components/AppChrome/AppChromeUpdate';
 import { Page } from 'app/core/components/Page/Page';
 import { GenPanelButton } from 'app/features/dashboard-scene/ai-panel/GenPanelButton';
+import { useAiInsiderAccess } from 'app/features/dashboard-scene/ai-panel/useAiInsiderAccess';
 import { DashboardDTO, HomeDashboardRedirectDTO, isRedirectResponse } from 'app/types/dashboard';
 
 import { DashboardCatalog } from './DashboardCatalog';
@@ -31,6 +32,9 @@ export function AnalytixHomePage() {
   // Analytix: the AI Insider chat opens as an overlay drawer covering the page
   // content up to the docked menu edge (see GenPanelChat).
   const [chatOpen, setChatOpen] = useState(false);
+  // Analytix: the chat is rolled out per organisation — only users with access
+  // to the AI Insider org get the button (and thus the chat) at all.
+  const aiInsiderAllowed = useAiInsiderAccess();
   const styles = useStyles2(getStyles);
 
   const { loading } = useAsync(async () => {
@@ -65,7 +69,7 @@ export function AnalytixHomePage() {
       {/* Analytix: AI assistant button in the top-right header corner, same
           spot it used to occupy in the dashboard toolbar. `inlineActions`
           keeps it in the first header row at every screen width. */}
-      <AppChromeUpdate inlineActions={<GenPanelButton onClick={handleChatToggle} />} />
+      {aiInsiderAllowed && <AppChromeUpdate inlineActions={<GenPanelButton onClick={handleChatToggle} />} />}
       <Page.Contents>
         {loading ? (
           <div className={styles.loading}>
@@ -77,7 +81,7 @@ export function AnalytixHomePage() {
             <DashboardCatalog onOpen={handleOpen} />
           </div>
         )}
-        {chatOpen && (
+        {aiInsiderAllowed && chatOpen && (
           <Suspense fallback={null}>
             <GenPanelChat onClose={() => setChatOpen(false)} />
           </Suspense>

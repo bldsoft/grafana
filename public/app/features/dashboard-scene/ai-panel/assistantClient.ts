@@ -57,7 +57,14 @@ export class AssistantError extends Error {
   }
 }
 
-const DEFAULT_URL = 'http://localhost:8765';
+// Production builds default to a same-origin path: the service is deployed
+// behind the same reverse proxy as Grafana (route `/ai-insider` — see
+// DEPLOY.md in the analytix-ai-insider repo), so the browser sends the
+// grafana_session cookie with every request and the backend validates it
+// against the Grafana API. No localStorage setup is needed in prod. Dev
+// builds keep the local service default; the localStorage override wins in
+// both cases (dev/debug only).
+const DEFAULT_URL = config.buildInfo.env === 'development' ? 'http://localhost:8765' : '/ai-insider';
 const URL_OVERRIDE_KEY = 'analytix.aiAssistantUrl';
 const TOKEN_KEY = 'analytix.aiAssistantToken';
 

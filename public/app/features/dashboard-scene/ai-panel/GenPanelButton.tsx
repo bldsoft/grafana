@@ -13,6 +13,8 @@ const GenPanelChat = lazy(() => import('./GenPanelChat').then((m) => ({ default:
  * to bring the toolbar button back in both toolbars. Both registration sites
  * gate their `condition` on it. The button itself lives on the home page now
  * (see {@link ../../home/AnalytixHomePage.tsx}) and is not affected by this.
+ * NOTE: when un-parking, also apply the org gate the home page uses
+ * ({@link ./useAiInsiderAccess.ts}) so the button stays org-restricted.
  */
 export const AI_PANEL_ENABLED = false;
 
