@@ -1,4 +1,12 @@
-import { DataFrame, DataSourceRef, FieldColorModeId, FieldType, LoadingState, PanelData } from '@grafana/data';
+import {
+  DataFrame,
+  DataSourceRef,
+  DataTransformerConfig,
+  FieldColorModeId,
+  FieldType,
+  LoadingState,
+  PanelData,
+} from '@grafana/data';
 import { SceneDataTransformer, SceneQueryRunner, VizPanel } from '@grafana/scenes';
 
 import { isSafeBridgeSql } from './datasourceQuery';
@@ -336,19 +344,69 @@ export function timelinePartitionField(data: PanelData | undefined): string | un
 }
 
 /**
+ * The long-row shape SQL naturally produces for the trend panel: a numeric X
+ * column, ONE entity (string) column and at least one value column, e.g.
+ * (day_num, device_type, watch_seconds). Column order does not matter — the
+ * panel picks the first numeric field as X on its own. Exported for tests.
+ */
+export function trendPartitionField(data: PanelData | undefined): string | undefined {
+  if (!data || data.series.length !== 1) {
+    return undefined; // already multi-frame (or nothing) — leave as-is
+  }
+  const frame: DataFrame = data.series[0];
+  const stringFields = frame.fields.filter((f) => f.type === FieldType.string);
+  const numberFields = frame.fields.filter((f) => f.type === FieldType.number);
+  // Exactly one discriminator, plus X and at least one value to plot.
+  return stringFields.length === 1 && numberFields.length >= 2 ? stringFields[0].name : undefined;
+}
+
+/**
  * state-timeline / status-history want one field per tracked entity, but SQL
  * returns long rows (time, entity, state) — a ClickHouse pivot would need the
- * entity list hardcoded into the query. Once the data arrives, partition the
- * long frame by the entity column instead; wide results pass through untouched.
+ * entity list hardcoded into the query. Partition the long frame by the
+ * entity column instead; wide results pass through untouched.
  */
-function applyTimelinePartition(transformer: SceneDataTransformer, runner: SceneQueryRunner): void {
+export function timelinePivotTransformations(data: PanelData | undefined): DataTransformerConfig[] {
+  const field = timelinePartitionField(data);
+  return field ? [{ id: 'partitionByValues', options: { fields: [field], keepFields: false } }] : [];
+}
+
+/**
+ * The trend panel accepts exactly ONE frame whose X field is ascending, so
+ * long rows (x, entity, value) fail with "Values must be in ascending order":
+ * X repeats once per entity. Partition by the entity column like the
+ * timelines do, then fold the per-entity frames back into one wide frame
+ * with an outer join on X (the join sorts X ascending and fills gaps with
+ * nulls); wide results pass through untouched.
+ */
+export function trendPivotTransformations(data: PanelData | undefined): DataTransformerConfig[] {
+  const field = trendPartitionField(data);
+  if (!field) {
+    return [];
+  }
+  // Same rule the panel uses to pick its X axis (options.xField is never set).
+  const xField = data!.series[0].fields.find((f) => f.type === FieldType.number)!;
+  return [
+    { id: 'partitionByValues', options: { fields: [field], keepFields: false } },
+    { id: 'joinByField', options: { byField: xField.name, mode: 'outer' } },
+  ];
+}
+
+/**
+ * Once the query resolves, derive the pivot for its actual shape and swap it
+ * into the (initially pass-through) transformer; no-op when nothing changed.
+ */
+function applyLongFormatPivot(
+  transformer: SceneDataTransformer,
+  runner: SceneQueryRunner,
+  transformationsFor: (data: PanelData) => DataTransformerConfig[]
+): void {
   runner.subscribeToState((state) => {
     if (state.data?.state !== LoadingState.Done) {
       return;
     }
-    const field = timelinePartitionField(state.data);
     const current = transformer.state.transformations;
-    const wanted = field ? [{ id: 'partitionByValues', options: { fields: [field], keepFields: false } }] : [];
+    const wanted = transformationsFor(state.data);
     if (JSON.stringify(current) !== JSON.stringify(wanted)) {
       transformer.setState({ transformations: wanted });
       transformer.reprocessTransformations();
@@ -356,8 +414,12 @@ function applyTimelinePartition(transformer: SceneDataTransformer, runner: Scene
   });
 }
 
-// Timeline panels get the long-format partition treatment above.
-const TIMELINE_PANEL_TYPES: readonly SupportedPanelType[] = ['state-timeline', 'status-history'];
+// Panels whose long-format results are pivoted client-side (see above).
+const LONG_FORMAT_PIVOTS: Partial<Record<SupportedPanelType, (data: PanelData) => DataTransformerConfig[]>> = {
+  'state-timeline': timelinePivotTransformations,
+  'status-history': timelinePivotTransformations,
+  trend: trendPivotTransformations,
+};
 
 /**
  * Build a panel from a generated spec for inline rendering (not attached to a
@@ -377,10 +439,10 @@ export function buildGeneratedPanel(spec: GeneratedPanelSpec, datasource: DataSo
     // `rawSql`/`query` cover both the official and community ClickHouse plugins.
     queries: [{ refId: 'A', rawSql: spec.rawSql, query: spec.rawSql }],
   });
-  // Timeline panels sit behind a (initially pass-through) transformer so long
-  // results can be partitioned by entity once the shape is known.
-  const isTimeline = TIMELINE_PANEL_TYPES.includes(spec.panelType);
-  const data = isTimeline ? new SceneDataTransformer({ $data: runner, transformations: [] }) : runner;
+  // Pivoted panels sit behind a (initially pass-through) transformer so long
+  // results can be reshaped once the shape is known.
+  const pivot = LONG_FORMAT_PIVOTS[spec.panelType];
+  const data = pivot ? new SceneDataTransformer({ $data: runner, transformations: [] }) : runner;
   const panel = new VizPanel({
     title: spec.title,
     pluginId: spec.panelType,
@@ -394,8 +456,8 @@ export function buildGeneratedPanel(spec: GeneratedPanelSpec, datasource: DataSo
     // the panel, so both are released together with the chat entry.
     applyDynamicTickRotation(panel, runner);
   }
-  if (isTimeline && data instanceof SceneDataTransformer) {
-    applyTimelinePartition(data, runner);
+  if (pivot && data instanceof SceneDataTransformer) {
+    applyLongFormatPivot(data, runner, pivot);
   }
   return panel;
 }

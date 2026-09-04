@@ -175,10 +175,20 @@ function humanizeError(raw: string): string {
   if (r.includes('too many concurrent') || r.includes('rate limit') || r.includes('slow down') || r.includes('429')) {
     return t('dashboard.ai-panel.err-busy', 'AI Insider is busy right now. Please try again in a moment.');
   }
-  if (r.includes('did not finish within') || r.includes('stopped responding') || r.includes('timeout') || r.includes('timed out')) {
+  if (
+    r.includes('did not finish within') ||
+    r.includes('stopped responding') ||
+    r.includes('timeout') ||
+    r.includes('timed out')
+  ) {
     return t('dashboard.ai-panel.err-timeout', 'This took longer than expected. Please try again.');
   }
-  if (r.includes('failed to fetch') || r.includes('networkerror') || r.includes('service error') || r.includes('load failed')) {
+  if (
+    r.includes('failed to fetch') ||
+    r.includes('networkerror') ||
+    r.includes('service error') ||
+    r.includes('load failed')
+  ) {
     return t('dashboard.ai-panel.err-offline', 'Can’t reach AI Insider right now. Please try again shortly.');
   }
   return raw;
@@ -826,7 +836,7 @@ export function GenPanelChat({ onClose }: Props) {
                   onClick={onClear}
                 />
                 <Menu.Item
-                  label={t('dashboard.ai-panel.chat-reset-history', 'Reset history & suggestions…')}
+                  label={t('dashboard.ai-panel.chat-reset-history', 'Reset history & suggestions')}
                   icon="history"
                   destructive
                   onClick={() => setConfirmReset(true)}
@@ -1007,7 +1017,8 @@ const getStyles = (theme: GrafanaTheme2) => ({
     alignItems: 'center',
     gap: theme.spacing(0.75),
     // Personal suggestions replay real prompts, which can be long — the text
-    // span ellipsizes inside this cap so a chip never spans the whole row.
+    // wraps inside this cap (never truncated) so a chip never spans the whole
+    // row, and one very long prompt becomes a two/three-line chip instead.
     maxWidth: 420,
     background: theme.colors.background.elevated,
     color: analytix.textDim,
@@ -1025,9 +1036,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
     },
   }),
   chipText: css({
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    whiteSpace: 'nowrap',
+    // Full prompt text, wrapped: the empty state centers text, so wrapped
+    // lines are re-aligned to the start edge to read as one sentence.
+    textAlign: 'start',
+    whiteSpace: 'normal',
+    overflowWrap: 'anywhere',
+    lineHeight: theme.typography.bodySmall.lineHeight,
   }),
   chipKind: css({
     flexShrink: 0,
@@ -1300,7 +1314,8 @@ const getStyles = (theme: GrafanaTheme2) => ({
     border: 'none',
     borderRadius: theme.shape.radius.circle,
     cursor: 'pointer',
-    color: '#08110a',
+    // White glyph on the green gradient, matching the home-page primary buttons.
+    color: '#fff',
     background: `linear-gradient(135deg, ${analytix.green}, ${analytix.greenBright})`,
     [theme.transitions.handleMotion('no-preference')]: {
       transition: `all ${analytix.transitionFast}`,
