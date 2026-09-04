@@ -303,6 +303,9 @@ const getStyles = (theme: GrafanaTheme2) => {
     }),
     ellipsis: css({
       width: '100%',
+      // The full-width label inherits the button's centered text-align,
+      // which would center every menu label; keep them start-aligned.
+      textAlign: 'start',
       overflow: 'hidden',
       textOverflow: 'ellipsis',
       whiteSpace: 'nowrap',
