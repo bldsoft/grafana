@@ -3,13 +3,14 @@ import {
   DataSourceRef,
   DataTransformerConfig,
   FieldColorModeId,
+  FieldConfigSource,
   FieldType,
   LoadingState,
   PanelData,
 } from '@grafana/data';
 import { SceneDataTransformer, SceneQueryRunner, VizPanel } from '@grafana/scenes';
 
-import { isSafeBridgeSql } from './datasourceQuery';
+import { isSafeBridgeSql, rawSqlQuery } from './datasourceQuery';
 import { GeneratedPanelSpec, SupportedPanelType } from './types';
 
 /**
@@ -43,8 +44,18 @@ const TICK_CHAR_PX = 8;
 // Conservative plot width (px): the chat card is normally wider, so a set that
 // fits at this width fits everywhere the panel is rendered.
 const ASSUMED_PLOT_WIDTH = 600;
+// Default unit for every numeric field outside tables: the generated SQL
+// carries no units, and raw magnitudes (watch time in seconds, 1e10 for a
+// day) produce 11-digit axis labels that overflow AXIS_LABEL_WIDTH and render
+// as "0000000000" (seen 2026-09-07). `short` abbreviates to "10.0 Bil" and
+// matches the "98.0 k" stat values of the Home dashboard. Tables keep exact
+// numbers; the CSV export strips the unit again (exportPanel.ts).
+const DEFAULT_NUMBER_UNIT = 'short';
+// Panels whose numbers stay unformatted: a table wants exact values, and the
+// heatmap formats its own axes from its options rather than the field unit.
+const UNFORMATTED_PANEL_TYPES: readonly SupportedPanelType[] = ['table', 'heatmap'];
 
-function fieldConfigFor(panelType: SupportedPanelType) {
+function fieldConfigFor(panelType: SupportedPanelType): FieldConfigSource {
   switch (panelType) {
     case 'timeseries':
       return {
@@ -414,10 +425,113 @@ function applyLongFormatPivot(
   });
 }
 
-// Panels whose long-format results are pivoted client-side (see above).
-const LONG_FORMAT_PIVOTS: Partial<Record<SupportedPanelType, (data: PanelData) => DataTransformerConfig[]>> = {
-  'state-timeline': timelinePivotTransformations,
-  'status-history': timelinePivotTransformations,
+/** Name of the first time field of the query result, if any. Exported for tests. */
+export function timeFieldName(data: PanelData | undefined): string | undefined {
+  return data?.series?.[0]?.fields.find((f) => f.type === FieldType.time)?.name;
+}
+
+/**
+ * True for the long time-series shape — a time column, at least one string
+ * (entity) column and at least one numeric column — i.e. exactly the frames
+ * the ClickHouse datasource used to pivot server-side. Exported for tests.
+ */
+export function isLongTimeSeries(data: PanelData | undefined): boolean {
+  const fields = data?.series?.[0]?.fields;
+  if (!fields || data!.series.length !== 1) {
+    return false;
+  }
+  return (
+    fields.some((f) => f.type === FieldType.time) &&
+    fields.some((f) => f.type === FieldType.string) &&
+    fields.some((f) => f.type === FieldType.number)
+  );
+}
+
+/** True when the first frame's time column holds at least one NULL. Exported for tests. */
+export function timeHasNulls(data: PanelData | undefined): boolean {
+  const time = data?.series?.[0]?.fields.find((f) => f.type === FieldType.time);
+  return Boolean(time?.values.some((v) => v == null));
+}
+
+// Sort the frame by its time column ascending. The transformer matches the
+// field by display name, which for a raw single-frame query result is the
+// column name.
+const sortByTime = (field: string): DataTransformerConfig => ({
+  id: 'sortBy',
+  options: { sort: [{ field, desc: false }] },
+});
+
+// Drop the rows whose time is NULL (a LEFT JOIN with no match, min() over an
+// empty set): they cannot be placed on the axis, and the datasource used to
+// reject the whole result over them. Same display-name matching as sortBy.
+const dropNullTime = (field: string): DataTransformerConfig => ({
+  id: 'filterByValue',
+  options: {
+    type: 'exclude',
+    match: 'any',
+    filters: [{ fieldName: field, config: { id: 'isNull', options: {} } }],
+  },
+});
+
+/**
+ * timeseries: the query now returns raw rows (format Table, see
+ * datasourceQuery.ts), so the client does what the datasource's LongToWide
+ * did — minus its failure modes. "Prepare time series → multi" rebuilds the
+ * frame with the time column first and sorted ascending, drops rows whose
+ * time is NULL, splits a long (time, entity, value) result into one frame per
+ * entity (labelled by the entity, so the legend reads "active_users 222" as
+ * before) and leaves a wide (time, a, b) result visually unchanged. Applied
+ * only when the result has a time column at all: without one the panel's own
+ * "Data is missing a time field" message is more useful than an empty chart.
+ */
+export function timeSeriesTransformations(data: PanelData | undefined): DataTransformerConfig[] {
+  const time = timeFieldName(data);
+  if (!time) {
+    return [];
+  }
+  // The multi split skips NULL times only while splitting a long result; a
+  // wide (time, a, b) result keeps them, so they are filtered out up front.
+  return [
+    ...(timeHasNulls(data) ? [dropNullTime(time)] : []),
+    { id: 'prepareTimeSeries', options: { format: 'multi' } },
+  ];
+}
+
+/**
+ * barchart over time: a long (time, category, value) result is folded into one
+ * wide frame (time, value{category=A}, value{category=B}, ...) — one bar group
+ * per time bucket, one bar per category, as the server-side pivot produced.
+ * The multi step sorts and drops NULL times; the wide step joins by time.
+ * Plain (category, value) and (time, value) results pass through untouched.
+ */
+export function barChartTransformations(data: PanelData | undefined): DataTransformerConfig[] {
+  return isLongTimeSeries(data)
+    ? [
+        { id: 'prepareTimeSeries', options: { format: 'multi' } },
+        { id: 'prepareTimeSeries', options: { format: 'wide' } },
+      ]
+    : [];
+}
+
+/**
+ * state-timeline / status-history: rows sorted by time first (the timeline
+ * panels draw rows in input order), then the long-format pivot above. The
+ * partition keeps each entity's rows in the already-sorted order.
+ */
+export function timelineTransformations(data: PanelData | undefined): DataTransformerConfig[] {
+  const time = timeFieldName(data);
+  if (!time) {
+    return timelinePivotTransformations(data);
+  }
+  return [...(timeHasNulls(data) ? [dropNullTime(time)] : []), sortByTime(time), ...timelinePivotTransformations(data)];
+}
+
+// Panels whose results are reshaped client-side once their shape is known.
+const DATA_SHAPED_TRANSFORMATIONS: Partial<Record<SupportedPanelType, (data: PanelData) => DataTransformerConfig[]>> = {
+  timeseries: timeSeriesTransformations,
+  barchart: barChartTransformations,
+  'state-timeline': timelineTransformations,
+  'status-history': timelineTransformations,
   trend: trendPivotTransformations,
 };
 
@@ -436,18 +550,22 @@ export function buildGeneratedPanel(spec: GeneratedPanelSpec, datasource: DataSo
   }
   const runner = new SceneQueryRunner({
     datasource,
-    // `rawSql`/`query` cover both the official and community ClickHouse plugins.
-    queries: [{ refId: 'A', rawSql: spec.rawSql, query: spec.rawSql }],
+    // Raw rows in table format; the reshaping for chart panels happens below.
+    queries: [rawSqlQuery(datasource, spec.rawSql)],
   });
-  // Pivoted panels sit behind a (initially pass-through) transformer so long
-  // results can be reshaped once the shape is known.
-  const pivot = LONG_FORMAT_PIVOTS[spec.panelType];
-  const data = pivot ? new SceneDataTransformer({ $data: runner, transformations: [] }) : runner;
+  // Reshaped panels sit behind a (initially pass-through) transformer so the
+  // result can be re-prepared once its shape is known.
+  const reshape = DATA_SHAPED_TRANSFORMATIONS[spec.panelType];
+  const data = reshape ? new SceneDataTransformer({ $data: runner, transformations: [] }) : runner;
+  const fieldConfig = fieldConfigFor(spec.panelType);
+  if (!UNFORMATTED_PANEL_TYPES.includes(spec.panelType)) {
+    fieldConfig.defaults = { unit: DEFAULT_NUMBER_UNIT, ...fieldConfig.defaults };
+  }
   const panel = new VizPanel({
     title: spec.title,
     pluginId: spec.panelType,
     displayMode: 'transparent',
-    fieldConfig: fieldConfigFor(spec.panelType),
+    fieldConfig,
     options: optionsFor(spec.panelType),
     $data: data,
   });
@@ -456,8 +574,8 @@ export function buildGeneratedPanel(spec: GeneratedPanelSpec, datasource: DataSo
     // the panel, so both are released together with the chat entry.
     applyDynamicTickRotation(panel, runner);
   }
-  if (pivot && data instanceof SceneDataTransformer) {
-    applyLongFormatPivot(data, runner, pivot);
+  if (reshape && data instanceof SceneDataTransformer) {
+    applyLongFormatPivot(data, runner, reshape);
   }
   return panel;
 }

@@ -23,7 +23,7 @@ import {
   PanelData,
   toCSV,
 } from '@grafana/data';
-import { sceneGraph, VizPanel } from '@grafana/scenes';
+import { sceneGraph, SceneDataTransformer, VizPanel } from '@grafana/scenes';
 import analytixLogoSvg from 'img/analytix_icon.svg';
 
 import { SupportedPanelType } from './types';
@@ -65,8 +65,16 @@ export function exportFileName(title: string): string {
   return `${base}-${dateTimeFormat(new Date(), { format: 'YYYY-MM-DD-HHmmss' })}`;
 }
 
+/**
+ * The query's own result — the rows the SQL returned. Chart panels sit behind
+ * a client-side reshaping transformer (buildPanel.ts: long rows split into
+ * one frame per entity, sorted, pivoted); the export wants the data before
+ * that step, as one table, not one CSV block per series.
+ */
 function panelData(panel: VizPanel): PanelData | undefined {
-  return sceneGraph.getData(panel).state.data;
+  const provider = sceneGraph.getData(panel);
+  const source = provider instanceof SceneDataTransformer ? provider.state.$data : undefined;
+  return (source ?? provider).state.data;
 }
 
 /** Distinguish "still loading" from the terminal empty/error outcomes. */
@@ -116,11 +124,14 @@ export function exportPanelCsv(panel: VizPanel, title: string, theme: GrafanaThe
     return state;
   }
   // applyFieldOverrides attaches the display processors the panel renders with,
-  // so toCSV writes formatted dates/units instead of raw epoch-ms and bare
-  // numbers (the raw runner frames carry no field.display).
+  // so toCSV writes formatted dates instead of raw epoch-ms (the raw runner
+  // frames carry no field.display). The panel's number unit is dropped on
+  // purpose: charts abbreviate ("25.6 K", buildPanel.ts) while a spreadsheet
+  // wants the exact value.
+  const { defaults = {}, overrides = [] } = panel.state.fieldConfig ?? {};
   const formatted = applyFieldOverrides({
     data: guardCsvInjection(panelData(panel)!.series),
-    fieldConfig: panel.state.fieldConfig ?? { defaults: {}, overrides: [] },
+    fieldConfig: { defaults: { ...defaults, unit: undefined }, overrides },
     theme,
     replaceVariables: (value) => value,
     timeZone: 'browser',

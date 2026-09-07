@@ -1,4 +1,29 @@
-import { isSafeBridgeSql } from './datasourceQuery';
+import {
+  CLICKHOUSE_FORMAT_TABLE,
+  isSafeBridgeSql,
+  OFFICIAL_CLICKHOUSE_PLUGIN_ID,
+  rawSqlQuery,
+} from './datasourceQuery';
+
+describe('rawSqlQuery', () => {
+  it('asks the official plugin for raw table rows (no server-side long-to-wide)', () => {
+    expect(rawSqlQuery({ uid: 'u', type: OFFICIAL_CLICKHOUSE_PLUGIN_ID }, 'SELECT 1')).toEqual({
+      refId: 'A',
+      rawSql: 'SELECT 1',
+      query: 'SELECT 1',
+      format: CLICKHOUSE_FORMAT_TABLE,
+    });
+  });
+
+  it('leaves the community plugin on its own format default', () => {
+    expect(rawSqlQuery({ uid: 'u', type: 'vertamedia-clickhouse-datasource' }, 'SELECT 1', 'B')).toEqual({
+      refId: 'B',
+      rawSql: 'SELECT 1',
+      query: 'SELECT 1',
+    });
+    expect(rawSqlQuery({ uid: 'u' }, 'SELECT 1')).not.toHaveProperty('format');
+  });
+});
 
 describe('isSafeBridgeSql', () => {
   it('allows single read-only statements', () => {

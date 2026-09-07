@@ -651,6 +651,8 @@ export function GenPanelChat({ onClose }: Props) {
                   key={suggestion.prompt}
                   type="button"
                   className={styles.chip}
+                  // The full prompt: the chip text is a single ellipsized line.
+                  title={suggestion.prompt}
                   onClick={() => setInput(suggestion.prompt)}
                 >
                   <span className={styles.chipText} dir="auto">
@@ -1016,10 +1018,11 @@ const getStyles = (theme: GrafanaTheme2) => ({
     display: 'inline-flex',
     alignItems: 'center',
     gap: theme.spacing(0.75),
-    // Personal suggestions replay real prompts, which can be long — the text
-    // wraps inside this cap (never truncated) so a chip never spans the whole
-    // row, and one very long prompt becomes a two/three-line chip instead.
+    // Personal suggestions can be long — one line per chip, ellipsized at this
+    // cap (the full text is the tooltip and lands in the input on click), so
+    // the chip row stays a row of pills instead of a stack of paragraphs.
     maxWidth: 420,
+    minWidth: 0,
     background: theme.colors.background.elevated,
     color: analytix.textDim,
     border: `1px solid ${analytix.borderControl}`,
@@ -1036,11 +1039,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
     },
   }),
   chipText: css({
-    // Full prompt text, wrapped: the empty state centers text, so wrapped
-    // lines are re-aligned to the start edge to read as one sentence.
-    textAlign: 'start',
-    whiteSpace: 'normal',
-    overflowWrap: 'anywhere',
+    // Single line: a prompt longer than the chip cap ends in an ellipsis
+    // rather than wrapping the pill onto two or three lines.
+    minWidth: 0,
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
     lineHeight: theme.typography.bodySmall.lineHeight,
   }),
   chipKind: css({

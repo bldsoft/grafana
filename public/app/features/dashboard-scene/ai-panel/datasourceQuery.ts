@@ -12,9 +12,38 @@ import { CoreApp, DataFrame, DataQuery, DataQueryRequest, DataSourceRef, FieldTy
 import { DataSourceWithBackend, getDataSourceSrv } from '@grafana/runtime';
 
 /** A raw SQL query understood by both the official and community ClickHouse plugins. */
-interface SqlQuery extends DataQuery {
+export interface SqlQuery extends DataQuery {
   rawSql: string;
   query: string;
+  /** Official plugin only: the sqlds result format (see rawSqlQuery). */
+  format?: number;
+}
+
+/** Plugin id of the official ClickHouse datasource (grafana/clickhouse-datasource). */
+export const OFFICIAL_CLICKHOUSE_PLUGIN_ID = 'grafana-clickhouse-datasource';
+// sqlds `FormatOptionTable`: hand the rows back as one table frame. The
+// default (`FormatOptionTimeSeries`, 0 — what a query without `format` gets)
+// runs LongToWide on any frame that has a time column, a string column and a
+// number column: it rejects rows that are not sorted by time ("long series
+// must be sorted ascending by time") and NULL times ("input has null time
+// values"), and it pivots exploration results into wide `value {label=...}`
+// columns the agent cannot read. Two generated panels failed exactly that way
+// on 2026-09-07. The chat reshapes long results client-side instead
+// (buildPanel.ts), where sorting and NULL times are handled.
+export const CLICKHOUSE_FORMAT_TABLE = 1;
+
+/**
+ * The query object for one raw SQL statement against the given datasource.
+ * `rawSql`/`query` cover the official and the community plugin; `format` is
+ * set only for the official plugin — the community plugin types that field
+ * as a string ('time_series' | 'table') and is left on its own default.
+ */
+export function rawSqlQuery(datasource: DataSourceRef, sql: string, refId = 'A'): SqlQuery {
+  const query: SqlQuery = { refId, rawSql: sql, query: sql };
+  if (datasource.type === OFFICIAL_CLICKHOUSE_PLUGIN_ID) {
+    query.format = CLICKHOUSE_FORMAT_TABLE;
+  }
+  return query;
 }
 
 export interface RawQueryResult {
@@ -124,7 +153,7 @@ export async function runRawQuery(
     timezone: 'browser',
     app: CoreApp.Dashboard,
     startTime: 0,
-    targets: [{ refId: 'A', datasource, rawSql: sql, query: sql }],
+    targets: [{ ...rawSqlQuery(datasource, sql), datasource }],
   };
 
   // Stop the datasource request on the user's abort OR the query timeout, via a
