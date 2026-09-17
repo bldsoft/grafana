@@ -1,7 +1,10 @@
+import { css, cx } from '@emotion/css';
 import { Suspense, lazy, useState } from 'react';
 
+import { GrafanaTheme2 } from '@grafana/data';
 import { t } from '@grafana/i18n';
-import { ToolbarButton } from '@grafana/ui';
+import { Button, Icon, ToolbarButton, useStyles2 } from '@grafana/ui';
+import { getTopBarButtonStyles } from 'app/core/components/AppChrome/TopBar/topBarButton';
 
 // Analytix: loaded on demand so pages that only show the button (e.g. the
 // home page) do not pull the chat's heavy dependencies into their chunk.
@@ -35,25 +38,24 @@ interface Props {
  * {@link ../scene/new-toolbar/RightActions.tsx} (new toolbar).
  */
 export function GenPanelButton({ onClick }: Props) {
+  const styles = useStyles2(getStyles);
   const [isOpen, setIsOpen] = useState(false);
+  const label = t('dashboard.ai-panel.tooltip', 'Ask AI Insider');
 
   if (onClick) {
+    // Analytix: the home-page entry point is a labelled button in the same
+    // style as the neighbouring "+ Add" (see QuickAdd), not a small icon.
     return (
-      <ToolbarButton
-        icon="ai"
-        tooltip={t('dashboard.ai-panel.tooltip', 'Ask AI Insider')}
-        onClick={onClick}
-      />
+      <Button type="button" className={styles.button} aria-label={label} onClick={onClick}>
+        <Icon name="ai" size="lg" className={styles.icon} />
+        <span className={styles.label}>{label}</span>
+      </Button>
     );
   }
 
   return (
     <>
-      <ToolbarButton
-        icon="ai"
-        tooltip={t('dashboard.ai-panel.tooltip', 'Ask AI Insider')}
-        onClick={() => setIsOpen(true)}
-      />
+      <ToolbarButton icon="ai" tooltip={label} onClick={() => setIsOpen(true)} />
       {isOpen && (
         <Suspense fallback={null}>
           <GenPanelChat onClose={() => setIsOpen(false)} />
@@ -62,3 +64,33 @@ export function GenPanelButton({ onClick }: Props) {
     </>
   );
 }
+
+const getStyles = (theme: GrafanaTheme2) => {
+  const topBar = getTopBarButtonStyles(theme);
+
+  return {
+    button: cx(
+      topBar.button,
+      css({
+        // Analytix: the icon alone is enough on phones, where the header has
+        // no room for the label next to the org switcher and profile.
+        [theme.breakpoints.down('sm')]: {
+          padding: '10px 12px',
+        },
+      })
+    ),
+    icon: cx(
+      topBar.icon,
+      css({
+        [theme.breakpoints.down('sm')]: {
+          marginRight: 0,
+        },
+      })
+    ),
+    label: css({
+      [theme.breakpoints.down('sm')]: {
+        display: 'none',
+      },
+    }),
+  };
+};

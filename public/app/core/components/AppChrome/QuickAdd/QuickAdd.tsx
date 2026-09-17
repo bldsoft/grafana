@@ -12,6 +12,8 @@ import {
 } from 'app/features/dashboard/dashgrid/DashboardLibrary/interactions';
 import { useSelector } from 'app/types/store';
 
+import { getTopBarButtonStyles } from '../TopBar/topBarButton';
+
 import { findCreateActions } from './utils';
 
 export interface Props {}
@@ -88,32 +90,24 @@ export const QuickAdd = ({}: Props) => {
   ) : null;
 };
 
-const getStyles = (theme: GrafanaTheme2) => ({
-  menu: css({
-    padding: '6px 8px',
-    backgroundColor: theme.colors.background.surfacePrimary,
-    borderRadius: 10,
-    color: theme.colors.text.secondary,
-  }),
-  addButton: css({
-    backgroundColor: theme.colors.background.surfacePrimary,
-    color: theme.colors.text.secondary,
-    height: 44,
-    width: 89,
-    borderRadius: '10px',
-    padding: '10px 16px',
-    justifyContent: 'center',
-    marginLeft: 24,
-    '&:hover': {
-      backgroundColor: theme.colors.background.buttonHovered,
-      color: theme.colors.menu.fontColorHovered,
-    },
-  }),
-  addButtonActive: css({
-    backgroundColor: theme.colors.background.buttonHovered,
-    color: theme.colors.menu.fontColorHovered,
-  }),
-  icon: css({
-    marginRight: 6,
-  }),
-});
+const getStyles = (theme: GrafanaTheme2) => {
+  const topBar = getTopBarButtonStyles(theme);
+
+  return {
+    menu: css({
+      padding: '6px 8px',
+      backgroundColor: theme.colors.background.surfacePrimary,
+      borderRadius: 10,
+      color: theme.colors.text.secondary,
+    }),
+    addButton: cx(
+      topBar.button,
+      css({
+        width: 89,
+        marginLeft: 24,
+      })
+    ),
+    addButtonActive: topBar.buttonActive,
+    icon: topBar.icon,
+  };
+};

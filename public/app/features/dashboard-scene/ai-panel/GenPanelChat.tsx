@@ -49,6 +49,11 @@ interface Props {
   onClose: () => void;
 }
 
+/** Send/stop circle; the clear-menu slot below it shares the width so the two align. */
+const SEND_BUTTON_SIZE = 40;
+/** Roughly six lines of body text — enough to read a long prompt back without scrolling. */
+const COMPOSER_MAX_HEIGHT = 140;
+
 interface ChatEntry {
   id: number;
   prompt: string;
@@ -253,6 +258,17 @@ export function GenPanelChat({ onClose }: Props) {
 
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState('');
+  // The composer grows with its content (see COMPOSER_MAX_HEIGHT) so a
+  // multi-line prompt stays readable without scrolling inside the box.
+  // scrollHeight excludes the border; the offset/client difference adds it back.
+  useLayoutEffect(() => {
+    const el = inputRef.current;
+    if (!el) {
+      return;
+    }
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
+  }, [input]);
   const [busy, setBusy] = useState(false);
   // Closing the drawer kills the in-flight agent run (see the unmount effect),
   // and multi-minute runs die to a stray Esc — so a running generation asks first.
@@ -280,6 +296,7 @@ export function GenPanelChat({ onClose }: Props) {
   const abortRef = useRef<AbortController | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   // Auto-scroll only follows the stream while the user is already at the bottom;
   // if they scroll up to read a previous chart, progress ticks stop yanking them
   // back down (~4/s during a multi-minute run).
@@ -791,6 +808,7 @@ export function GenPanelChat({ onClose }: Props) {
 
         <div className={styles.inputRow}>
           <TextArea
+            ref={inputRef}
             className={styles.textarea}
             dir="auto"
             rows={2}
@@ -827,27 +845,30 @@ export function GenPanelChat({ onClose }: Props) {
           <span className={styles.hint}>
             <Trans i18nKey="dashboard.ai-panel.hint">Enter — send · Shift+Enter — new line</Trans>
           </span>
-          <Dropdown
-            placement="top-end"
-            overlay={
-              <Menu>
-                <Menu.Item
-                  label={t('dashboard.ai-panel.chat-clear', 'Clear the conversation')}
-                  icon="comment-alt-message"
-                  disabled={!entries.length}
-                  onClick={onClear}
-                />
-                <Menu.Item
-                  label={t('dashboard.ai-panel.chat-reset-history', 'Reset history & suggestions')}
-                  icon="history"
-                  destructive
-                  onClick={() => setConfirmReset(true)}
-                />
-              </Menu>
-            }
-          >
-            <IconButton name="trash-alt" size="sm" tooltip={t('dashboard.ai-panel.chat-clear-menu', 'Clear…')} />
-          </Dropdown>
+          {/* Same width as the send button above so the trash sits centred under it. */}
+          <div className={styles.clearSlot}>
+            <Dropdown
+              placement="top-end"
+              overlay={
+                <Menu>
+                  <Menu.Item
+                    label={t('dashboard.ai-panel.chat-clear', 'Clear the conversation')}
+                    icon="comment-alt-message"
+                    disabled={!entries.length}
+                    onClick={onClear}
+                  />
+                  <Menu.Item
+                    label={t('dashboard.ai-panel.chat-reset-history', 'Reset history & suggestions')}
+                    icon="history"
+                    destructive
+                    onClick={() => setConfirmReset(true)}
+                  />
+                </Menu>
+              }
+            >
+              <IconButton name="trash-alt" size="lg" tooltip={t('dashboard.ai-panel.chat-clear-menu', 'Clear…')} />
+            </Dropdown>
+          </div>
         </div>
       </div>
     </div>
@@ -1245,10 +1266,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   exportButtons: css({
     // Overlaid on the panel's own (empty) top-right header corner so the
-    // export controls read as panel actions.
+    // export controls read as panel actions. Centred in the header row and
+    // inset to mirror the title's left padding, so the pill (and the icons'
+    // hover circles) stays clear of the card outline.
     position: 'absolute',
-    top: theme.spacing(1),
-    right: theme.spacing(1.5),
+    top: 14,
+    right: 16,
     zIndex: 1,
     display: 'flex',
     alignItems: 'center',
@@ -1293,7 +1316,8 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   inputRow: css({
     display: 'flex',
-    alignItems: 'center',
+    // The send button tracks the last line as the composer grows.
+    alignItems: 'flex-end',
     gap: theme.spacing(1),
   }),
   textarea: css({
@@ -1301,6 +1325,11 @@ const getStyles = (theme: GrafanaTheme2) => ({
     background: theme.colors.background.elevated,
     borderColor: analytix.borderControl,
     borderRadius: analytix.radiusControl,
+    // Height is driven by the content (see the auto-grow effect); past the cap
+    // the box scrolls instead of pushing the conversation off screen.
+    maxHeight: COMPOSER_MAX_HEIGHT,
+    overflowY: 'auto',
+    resize: 'none',
     // Quiet focus: no green ring/border — a subtle border lift is enough to
     // show the caret owner without pulling attention from the conversation.
     '&:focus': {
@@ -1310,8 +1339,8 @@ const getStyles = (theme: GrafanaTheme2) => ({
     },
   }),
   sendButton: css({
-    width: 40,
-    height: 40,
+    width: SEND_BUTTON_SIZE,
+    height: SEND_BUTTON_SIZE,
     flexShrink: 0,
     display: 'grid',
     placeItems: 'center',
@@ -1351,6 +1380,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
+  }),
+  clearSlot: css({
+    width: SEND_BUTTON_SIZE,
+    flexShrink: 0,
+    display: 'flex',
+    justifyContent: 'center',
   }),
   hint: css({
     color: analytix.textFaint,
