@@ -58,6 +58,24 @@ func testIntegrationUserStarsDataAccess(t *testing.T, fn getStore) {
 				require.Equal(t, 1, len(result.UserStars))
 			})
 
+			t.Run("List should only return stars of the requested org", func(t *testing.T) {
+				// Analytix: the same dashboard UID can exist in several orgs; a
+				// star from another org must not leak into this one.
+				otherOrg := star.StarDashboardCommand{DashboardUID: "test", OrgID: 2, UserID: 12}
+				require.NoError(t, starStore.Insert(context.Background(), &otherOrg))
+
+				result, err := starStore.List(context.Background(), &star.GetUserStarsQuery{UserID: 12, OrgID: 2})
+				require.NoError(t, err)
+				require.Equal(t, map[string]bool{"test": true}, result.UserStars)
+
+				result, err = starStore.List(context.Background(), &star.GetUserStarsQuery{UserID: 12, OrgID: 3})
+				require.NoError(t, err)
+				require.Empty(t, result.UserStars)
+
+				deleteQuery := star.UnstarDashboardCommand{DashboardUID: "test", OrgID: 2, UserID: 12}
+				require.NoError(t, starStore.Delete(context.Background(), &deleteQuery))
+			})
+
 			t.Run("Delete should remove the star", func(t *testing.T) {
 				deleteQuery := star.UnstarDashboardCommand{DashboardUID: "test", OrgID: 1, UserID: 12}
 				err := starStore.Delete(context.Background(), &deleteQuery)

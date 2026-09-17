@@ -51,6 +51,7 @@ func (api *API) GetStars(c *contextmodel.ReqContext) response.Response {
 
 	query := star.GetUserStarsQuery{
 		UserID: c.UserID,
+		OrgID:  c.GetOrgID(),
 	}
 
 	iuserstars, err := api.starService.GetByUser(c.Req.Context(), &query)

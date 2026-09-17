@@ -329,6 +329,7 @@ func (s *ServiceImpl) buildStarredItemsNavLinks(c *contextmodel.ReqContext) ([]*
 	userID, _ := identity.UserIdentifier(c.GetID())
 	query := star.GetUserStarsQuery{
 		UserID: userID,
+		OrgID:  c.GetOrgID(),
 	}
 
 	starredDashboardResult, err := s.starService.GetByUser(c.Req.Context(), &query)

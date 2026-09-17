@@ -73,6 +73,7 @@ func (s *SearchService) SearchHandler(ctx context.Context, query *Query) (model.
 
 	starredQuery := star.GetUserStarsQuery{
 		UserID: query.SignedInUser.UserID,
+		OrgID:  query.OrgId,
 	}
 	staredDashIDs, err := s.starService.GetByUser(ctx, &starredQuery)
 	if err != nil {

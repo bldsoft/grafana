@@ -55,6 +55,9 @@ func (cmd *UnstarDashboardCommand) Validate() error {
 
 type GetUserStarsQuery struct {
 	UserID int64 `xorm:"user_id"`
+	// Analytix: stars are org-scoped (unstar deletes by user + uid + org), so
+	// listing must be too. Zero keeps the legacy cross-org behaviour.
+	OrgID int64 `xorm:"org_id"`
 }
 
 type IsStarredByUserQuery struct {

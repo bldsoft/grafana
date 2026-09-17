@@ -74,7 +74,14 @@ func (s *sqlStore) List(ctx context.Context, query *star.GetUserStarsQuery) (*st
 	userStars := make(map[string]bool)
 	err := s.db.WithDbSession(ctx, func(dbSession *db.Session) error {
 		var stars = make([]star.Star, 0)
-		err := dbSession.Where("user_id=?", query.UserID).Find(&stars)
+		sess := dbSession.Where("user_id=?", query.UserID)
+		// Analytix: a dashboard imported into several orgs shares its UID, so a
+		// star set in another org would otherwise show up here yet be impossible
+		// to remove (Delete filters by org_id).
+		if query.OrgID != 0 {
+			sess = sess.And("org_id=?", query.OrgID)
+		}
+		err := sess.Find(&stars)
 		for _, star := range stars {
 			userStars[star.DashboardUID] = true
 		}
