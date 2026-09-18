@@ -12,7 +12,7 @@ import {
 } from 'app/features/dashboard/dashgrid/DashboardLibrary/interactions';
 import { useSelector } from 'app/types/store';
 
-import { getTopBarButtonStyles } from '../TopBar/topBarButton';
+import { TOP_BAR_BUTTON_ATTR, getTopBarButtonStyles } from '../TopBar/topBarButton';
 
 import { findCreateActions } from './utils';
 
@@ -83,6 +83,7 @@ export const QuickAdd = ({}: Props) => {
         type="button"
         aria-label={t('navigation.quick-add.aria-label', 'New')}
         className={cx(styles.addButton, { [styles.addButtonActive]: isOpen })}
+        {...TOP_BAR_BUTTON_ATTR}
       >
         <Icon name="plus" size="lg" className={styles.icon} /> Add
       </Button>
@@ -104,7 +105,6 @@ const getStyles = (theme: GrafanaTheme2) => {
       topBar.button,
       css({
         width: 89,
-        marginLeft: 24,
       })
     ),
     addButtonActive: topBar.buttonActive,

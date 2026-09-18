@@ -4,7 +4,7 @@ import { Suspense, lazy, useState } from 'react';
 import { GrafanaTheme2 } from '@grafana/data';
 import { t } from '@grafana/i18n';
 import { Button, Icon, ToolbarButton, useStyles2 } from '@grafana/ui';
-import { getTopBarButtonStyles } from 'app/core/components/AppChrome/TopBar/topBarButton';
+import { TOP_BAR_BUTTON_ATTR, getTopBarButtonStyles } from 'app/core/components/AppChrome/TopBar/topBarButton';
 
 // Analytix: loaded on demand so pages that only show the button (e.g. the
 // home page) do not pull the chat's heavy dependencies into their chunk.
@@ -46,7 +46,7 @@ export function GenPanelButton({ onClick }: Props) {
     // Analytix: the home-page entry point is a labelled button in the same
     // style as the neighbouring "+ Add" (see QuickAdd), not a small icon.
     return (
-      <Button type="button" className={styles.button} aria-label={label} onClick={onClick}>
+      <Button type="button" className={styles.button} aria-label={label} onClick={onClick} {...TOP_BAR_BUTTON_ATTR}>
         <Icon name="ai" size="lg" className={styles.icon} />
         <span className={styles.label}>{label}</span>
       </Button>
