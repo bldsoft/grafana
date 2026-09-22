@@ -1386,6 +1386,11 @@ const getStyles = (theme: GrafanaTheme2) => ({
     flexShrink: 0,
     display: 'flex',
     justifyContent: 'center',
+    // IconButton ships a 4px right margin; drop it so the trash icon sits
+    // exactly centred under the send button.
+    '& > button': {
+      margin: 0,
+    },
   }),
   hint: css({
     color: analytix.textFaint,
