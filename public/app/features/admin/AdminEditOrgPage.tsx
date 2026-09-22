@@ -19,7 +19,8 @@ interface OrgSettingsDTO {
   providerIds: string;
 }
 
-const PROVIDER_IDS_PATTERN = /^\s*\d+(\s*,\s*\d+)*\s*$|^\s*$/;
+// "*" = all providers; empty = no data access; otherwise a comma-separated id list
+const PROVIDER_IDS_PATTERN = /^\s*(\*|[A-Za-z0-9_-]+(\s*,\s*[A-Za-z0-9_-]+)*)?\s*$/;
 
 const AdminEditOrgPage = () => {
   const { id = '' } = useParams();
@@ -122,12 +123,12 @@ const AdminEditOrgPage = () => {
                   label={t('admin.admin-edit-org-page.label-provider-ids', 'Provider IDs (PID)')}
                   description={t(
                     'admin.admin-edit-org-page.description-provider-ids',
-                    'Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Leave empty for no restriction.'
+                    'Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Use * for all providers. Empty means no data access.'
                   )}
                   invalid={!!errors.providerIds}
                   error={t(
                     'admin.admin-edit-org-page.error-provider-ids',
-                    'Must be a comma-separated list of numeric ids'
+                    'Must be * or a comma-separated list of ids (letters, digits, "-", "_")'
                   )}
                   disabled={!canWriteOrg}
                   noMargin

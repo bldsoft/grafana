@@ -71,8 +71,8 @@
       "title-add-to-an-organization": "Add to an organization"
     },
     "admin-edit-org-page": {
-      "description-provider-ids": "Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Leave empty for no restriction.",
-      "error-provider-ids": "Must be a comma-separated list of numeric ids",
+      "description-provider-ids": "Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Use * for all providers. Empty means no data access.",
+      "error-provider-ids": "Must be * or a comma-separated list of ids (letters, digits, \"-\", \"_\")",
       "label-name": "Name",
       "label-provider-ids": "Provider IDs (PID)",
       "page-nav": {
@@ -11588,8 +11588,8 @@
     "new-org-page": {
       "create": "Create",
       "description": "Each organization contains their own dashboards, data sources, and configuration, which cannot be shared shared between organizations. While users might belong to more than one organization, multiple organizations are most frequently used in multi-tenant deployments.",
-      "description-provider-ids": "Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Leave empty for no restriction.",
-      "error-provider-ids": "Must be a comma-separated list of numeric ids",
+      "description-provider-ids": "Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Use * for all providers. Empty means no data access.",
+      "error-provider-ids": "Must be * or a comma-separated list of ids (letters, digits, \"-\", \"_\")",
       "label-organization-name": "Organization name",
       "label-provider-ids": "Provider IDs (PID)",
       "placeholder-org-name": "Org name",

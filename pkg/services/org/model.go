@@ -17,7 +17,7 @@ var (
 	ErrOrgUserNotFound                         = errors.New("cannot find the organization user")
 	ErrOrgUserAlreadyAdded                     = errors.New("user is already added to organization")
 	ErrOrgNotFound                             = errutil.NotFound("org.notFound", errutil.WithPublicMessage("organization not found"))
-	ErrInvalidProviderIDs                      = errors.New("provider ids must be a comma-separated list of numeric ids")
+	ErrInvalidProviderIDs                      = errors.New("provider ids must be \"*\" or a comma-separated list of alphanumeric ids")
 	ErrCannotChangeRoleForExternallySyncedUser = errutil.Forbidden("org.externallySynced", errutil.WithPublicMessage("cannot change role for externally synced user"))
 )
 
@@ -219,21 +219,29 @@ type OrgDetailsDTO struct {
 	ProviderIDs string  `json:"providerIds"`
 }
 
-// NormalizeProviderIDs canonicalizes a comma-separated provider id list:
-// trims whitespace, drops empty items and duplicates, and requires every item
-// to be numeric. Returns the "111,222" form; an empty result means the
-// organization is not restricted to any particular provider.
+// NormalizeProviderIDs canonicalizes the provider id list: "*" alone grants
+// every provider; otherwise a comma-separated list of ids (letters, digits,
+// "_", "-") with whitespace, empty items and duplicates dropped. Returns the
+// "111,uvo" form. An EMPTY result means no providers: organizations without
+// an explicit list get no data access (fail closed), so "*" must be set
+// deliberately.
 func NormalizeProviderIDs(raw string) (string, error) {
 	parts := strings.Split(raw, ",")
 	seen := make(map[string]struct{}, len(parts))
 	out := make([]string, 0, len(parts))
+	wildcard := false
 	for _, part := range parts {
 		part = strings.TrimSpace(part)
 		if part == "" {
 			continue
 		}
+		if part == "*" {
+			wildcard = true
+			continue
+		}
 		for _, r := range part {
-			if r < '0' || r > '9' {
+			ok := (r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || r == '-'
+			if !ok {
 				return "", ErrInvalidProviderIDs
 			}
 		}
@@ -242,6 +250,13 @@ func NormalizeProviderIDs(raw string) (string, error) {
 		}
 		seen[part] = struct{}{}
 		out = append(out, part)
+	}
+	if wildcard {
+		// "*" mixed with concrete ids is ambiguous — refuse instead of guessing.
+		if len(out) > 0 {
+			return "", ErrInvalidProviderIDs
+		}
+		return "*", nil
 	}
 	return strings.Join(out, ","), nil
 }

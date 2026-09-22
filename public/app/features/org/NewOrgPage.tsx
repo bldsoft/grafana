@@ -23,7 +23,8 @@ interface CreateOrgFormDTO {
   providerIds: string;
 }
 
-const PROVIDER_IDS_PATTERN = /^\s*\d+(\s*,\s*\d+)*\s*$|^\s*$/;
+// "*" = all providers; empty = no data access; otherwise a comma-separated id list
+const PROVIDER_IDS_PATTERN = /^\s*(\*|[A-Za-z0-9_-]+(\s*,\s*[A-Za-z0-9_-]+)*)?\s*$/;
 
 const pageNav: NavModelItem = {
   icon: 'building',
@@ -73,7 +74,7 @@ export const NewOrgPage = ({ createOrganization }: Props) => {
                         label={t('org.new-org-page.label-provider-ids', 'Provider IDs (PID)')}
                         description={t(
                           'org.new-org-page.description-provider-ids',
-                          'Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Leave empty for no restriction.'
+                          'Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Use * for all providers. Empty means no data access.'
                         )}
                         invalid={!!errors.providerIds}
                         error={errors.providerIds && errors.providerIds.message}
@@ -86,7 +87,7 @@ export const NewOrgPage = ({ createOrganization }: Props) => {
                               value: PROVIDER_IDS_PATTERN,
                               message: t(
                                 'org.new-org-page.error-provider-ids',
-                                'Must be a comma-separated list of numeric ids'
+                                'Must be * or a comma-separated list of ids (letters, digits, "-", "_")'
                               ),
                             },
                           })}
