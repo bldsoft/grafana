@@ -5,18 +5,21 @@ import { useAsyncFn } from 'react-use';
 
 import { NavModelItem, OrgRole } from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
-import { Field, Input, Button, Legend, Alert } from '@grafana/ui';
+import { Field, Input, Button, Legend, Alert, Stack } from '@grafana/ui';
 import { Page } from 'app/core/components/Page/Page';
 import { contextSrv } from 'app/core/services/context_srv';
 import { AccessControlAction } from 'app/types/accessControl';
 import { OrgUser } from 'app/types/user';
 
 import { OrgUsersTable } from './Users/OrgUsersTable';
-import { getOrg, getOrgUsers, getUsersRoles, removeOrgUser, updateOrgName, updateOrgUserRole } from './api';
+import { getOrg, getOrgUsers, getUsersRoles, removeOrgUser, updateOrg, updateOrgUserRole } from './api';
 
-interface OrgNameDTO {
+interface OrgSettingsDTO {
   orgName: string;
+  providerIds: string;
 }
+
+const PROVIDER_IDS_PATTERN = /^\s*\d+(\s*,\s*\d+)*\s*$|^\s*$/;
 
 const AdminEditOrgPage = () => {
   const { id = '' } = useParams();
@@ -33,7 +36,7 @@ const AdminEditOrgPage = () => {
     handleSubmit,
     register,
     formState: { errors },
-  } = useForm<OrgNameDTO>();
+  } = useForm<OrgSettingsDTO>();
   const [, fetchOrgUsers] = useAsyncFn(async (page) => {
     const result = await getOrgUsers(orgId, page);
 
@@ -52,8 +55,9 @@ const AdminEditOrgPage = () => {
     fetchOrgUsers(page);
   }, [fetchOrg, fetchOrgUsers, page]);
 
-  const onUpdateOrgName = async ({ orgName }: OrgNameDTO) => {
-    await updateOrgName(orgName, orgId);
+  const onUpdateOrg = async ({ orgName, providerIds }: OrgSettingsDTO) => {
+    await updateOrg(orgId, { name: orgName, providerIds: providerIds ?? '' });
+    fetchOrg();
   };
 
   const renderMissingPermissionMessage = () => (
@@ -99,22 +103,48 @@ const AdminEditOrgPage = () => {
             <Trans i18nKey="admin.edit-org.heading">Edit Organization</Trans>
           </Legend>
           {orgState.value && (
-            <form onSubmit={handleSubmit(onUpdateOrgName)} style={{ maxWidth: '600px' }}>
-              <Field
-                label={t('admin.admin-edit-org-page.label-name', 'Name')}
-                invalid={!!errors.orgName}
-                error="Name is required"
-                disabled={!canWriteOrg}
-              >
-                <Input
-                  {...register('orgName', { required: true })}
-                  id="org-name-input"
-                  defaultValue={orgState.value.name}
-                />
-              </Field>
-              <Button type="submit" disabled={!canWriteOrg}>
-                <Trans i18nKey="admin.edit-org.update-button">Update</Trans>
-              </Button>
+            <form onSubmit={handleSubmit(onUpdateOrg)} style={{ maxWidth: '600px' }}>
+              <Stack direction="column" gap={2}>
+                <Field
+                  label={t('admin.admin-edit-org-page.label-name', 'Name')}
+                  invalid={!!errors.orgName}
+                  error="Name is required"
+                  disabled={!canWriteOrg}
+                  noMargin
+                >
+                  <Input
+                    {...register('orgName', { required: true })}
+                    id="org-name-input"
+                    defaultValue={orgState.value.name}
+                  />
+                </Field>
+                <Field
+                  label={t('admin.admin-edit-org-page.label-provider-ids', 'Provider IDs (PID)')}
+                  description={t(
+                    'admin.admin-edit-org-page.description-provider-ids',
+                    'Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Leave empty for no restriction.'
+                  )}
+                  invalid={!!errors.providerIds}
+                  error={t(
+                    'admin.admin-edit-org-page.error-provider-ids',
+                    'Must be a comma-separated list of numeric ids'
+                  )}
+                  disabled={!canWriteOrg}
+                  noMargin
+                >
+                  <Input
+                    {...register('providerIds', { pattern: PROVIDER_IDS_PATTERN })}
+                    id="org-provider-ids-input"
+                    placeholder={t('admin.admin-edit-org-page.placeholder-provider-ids', '111,222')}
+                    defaultValue={orgState.value.providerIds ?? ''}
+                  />
+                </Field>
+                <div>
+                  <Button type="submit" disabled={!canWriteOrg}>
+                    <Trans i18nKey="admin.edit-org.update-button">Update</Trans>
+                  </Button>
+                </div>
+              </Stack>
             </form>
           )}
 

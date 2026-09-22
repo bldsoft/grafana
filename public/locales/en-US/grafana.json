@@ -71,12 +71,16 @@
       "title-add-to-an-organization": "Add to an organization"
     },
     "admin-edit-org-page": {
+      "description-provider-ids": "Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Leave empty for no restriction.",
+      "error-provider-ids": "Must be a comma-separated list of numeric ids",
       "label-name": "Name",
+      "label-provider-ids": "Provider IDs (PID)",
       "page-nav": {
         "subTitle": {
           "manage-settings-roles-organization": "Manage settings and user roles for an organization."
         }
       },
+      "placeholder-provider-ids": "111,222",
       "render-missing-permission-message": {
         "title-access-denied": "Access denied"
       }
@@ -5902,28 +5906,57 @@
     "ai-panel": {
       "chat-beta": "Beta",
       "chat-clear": "Clear the conversation",
+      "chat-clear-menu": "Clear…",
       "chat-demo": "Demo mode — any prompt renders a sample chart.",
       "chat-error": "Could not generate the panel",
+      "chat-input-label": "Describe the panel you want",
       "chat-placeholder": "e.g. Show the last 30 days as a pie chart",
+      "chat-reset-history": "Reset history & suggestions",
       "chat-retry": "Retry",
       "chat-send": "Send",
       "chat-stop": "Stop generation",
       "chat-subtitle": "Ask your data anything — AI Insider writes the query, uncovers patterns, and explains what matters.",
       "chat-title": "AI Insider",
-      "close-confirm-body": "Closing the chat stops the current generation. Stop it and close?",
+      "close-confirm-body": "Closing the chat stops the current generation and discards this conversation. Close anyway?",
       "close-confirm-no": "Keep working",
       "close-confirm-title": "Generation in progress",
-      "close-confirm-yes": "Stop and close",
+      "close-confirm-yes": "Close",
+      "close-discard-body": "Closing the chat discards this conversation and its panels — they are not saved. Close anyway?",
+      "close-discard-title": "Discard this conversation?",
       "datasource-label": "Datasource",
       "duration": "{{seconds}}s",
       "empty-sub": "Ask in plain language — I’ll chart the data and surface the key insights.",
       "empty-title": "What should we explore?",
+      "err-busy": "AI Insider is busy right now. Please try again in a moment.",
+      "err-offline": "Can’t reach AI Insider right now. Please try again shortly.",
+      "err-quota": "The daily usage limit has been reached. Please try again later.",
+      "err-timeout": "This took longer than expected. Please try again.",
+      "export-csv": "Download CSV",
+      "export-empty": "This chart has no data to export.",
+      "export-error": "The chart could not load, so there is nothing to export.",
+      "export-loading": "The chart is still loading — try the export again in a moment.",
+      "export-png": "Download PNG",
       "hint": "Enter — send · Shift+Enter — new line",
       "no-ds-body": "Add a ClickHouse datasource in Analytix first — the generated panel needs one to run its query.",
       "no-ds-title": "No ClickHouse datasource",
-      "service-down-body": "The ai-grafana-helper service is not reachable. Start it locally (npm start) and reopen the chat.",
-      "service-down-title": "Assistant is offline",
+      "note-collapse": "Show less",
+      "note-expand": "Show more",
+      "reset-history-body": "This clears the conversation, deletes your saved prompt history on the AI Insider service and resets the personalized suggestion chips back to the defaults. This cannot be undone.",
+      "reset-history-busy": "Resetting…",
+      "reset-history-failed": "Could not reset the history. Please try again shortly.",
+      "reset-history-no": "Cancel",
+      "reset-history-title": "Reset history and suggestions?",
+      "reset-history-yes": "Reset",
+      "service-down-body": "AI Insider can’t be reached right now. Please try again shortly.",
+      "service-down-title": "AI Insider is unavailable",
       "stopped": "Generation stopped.",
+      "tool-databases": "listing databases",
+      "tool-describe": "reading schema",
+      "tool-docs": "reading docs",
+      "tool-emit": "building panel",
+      "tool-escalate": "deep analysis",
+      "tool-query": "querying data",
+      "tool-tables": "listing tables",
       "tooltip": "Ask AI Insider",
       "working": "Analyzing the data…"
     },
@@ -11555,8 +11588,12 @@
     "new-org-page": {
       "create": "Create",
       "description": "Each organization contains their own dashboards, data sources, and configuration, which cannot be shared shared between organizations. While users might belong to more than one organization, multiple organizations are most frequently used in multi-tenant deployments.",
+      "description-provider-ids": "Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Leave empty for no restriction.",
+      "error-provider-ids": "Must be a comma-separated list of numeric ids",
       "label-organization-name": "Organization name",
-      "placeholder-org-name": "Org name"
+      "label-provider-ids": "Provider IDs (PID)",
+      "placeholder-org-name": "Org name",
+      "placeholder-provider-ids": "111,222"
     },
     "org-details-page": {
       "title": {

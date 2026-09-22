@@ -81,6 +81,7 @@ func (hs *HTTPServer) GetOrgByName(c *contextmodel.ReqContext) response.Response
 			State:    orga.State,
 			Country:  orga.Country,
 		},
+		ProviderIDs: orga.ProviderIDs,
 	}
 
 	return response.JSON(http.StatusOK, &result)
@@ -109,6 +110,7 @@ func (hs *HTTPServer) getOrgHelper(ctx context.Context, orgID int64) response.Re
 			State:    orga.State,
 			Country:  orga.Country,
 		},
+		ProviderIDs: orga.ProviderIDs,
 	}
 
 	return response.JSON(http.StatusOK, &result)
@@ -131,6 +133,16 @@ func (hs *HTTPServer) CreateOrg(c *contextmodel.ReqContext) response.Response {
 	if err := web.Bind(c.Req, &cmd); err != nil {
 		return response.Error(http.StatusBadRequest, "bad request data", err)
 	}
+
+	// The provider id scope gates data access, so only server admins may set it.
+	if cmd.ProviderIDs != "" && !c.GetIsGrafanaAdmin() {
+		return response.Error(http.StatusForbidden, "Only server admins can set provider ids", nil)
+	}
+	providerIDs, err := org.NormalizeProviderIDs(cmd.ProviderIDs)
+	if err != nil {
+		return response.Error(http.StatusBadRequest, "Invalid provider ids", err)
+	}
+	cmd.ProviderIDs = providerIDs
 
 	if !c.IsIdentityType(claims.TypeUser) {
 		return response.Error(http.StatusForbidden, "Only users can create organizations", nil)
@@ -173,6 +185,11 @@ func (hs *HTTPServer) UpdateCurrentOrg(c *contextmodel.ReqContext) response.Resp
 	if err := web.Bind(c.Req, &form); err != nil {
 		return response.Error(http.StatusBadRequest, "bad request data", err)
 	}
+	// The provider id scope gates data access: org admins may rename their org
+	// but must not widen their own scope.
+	if form.ProviderIds != nil && !c.GetIsGrafanaAdmin() {
+		return response.Error(http.StatusForbidden, "Only server admins can change provider ids", nil)
+	}
 	return hs.updateOrgHelper(c.Req.Context(), form, c.GetOrgID())
 }
 
@@ -194,6 +211,11 @@ func (hs *HTTPServer) UpdateOrg(c *contextmodel.ReqContext) response.Response {
 	if err := web.Bind(c.Req, &form); err != nil {
 		return response.Error(http.StatusBadRequest, "bad request data", err)
 	}
+	// The provider id scope gates data access: an org admin passes the
+	// orgs:write check for their own org, but must not change their scope.
+	if form.ProviderIds != nil && !c.GetIsGrafanaAdmin() {
+		return response.Error(http.StatusForbidden, "Only server admins can change provider ids", nil)
+	}
 	orgId, err := strconv.ParseInt(web.Params(c.Req)[":orgId"], 10, 64)
 	if err != nil {
 		return response.Error(http.StatusBadRequest, "orgId is invalid", err)
@@ -203,6 +225,13 @@ func (hs *HTTPServer) UpdateOrg(c *contextmodel.ReqContext) response.Response {
 
 func (hs *HTTPServer) updateOrgHelper(ctx context.Context, form dtos.UpdateOrgForm, orgID int64) response.Response {
 	cmd := org.UpdateOrgCommand{Name: form.Name, OrgId: orgID}
+	if form.ProviderIds != nil {
+		providerIDs, err := org.NormalizeProviderIDs(*form.ProviderIds)
+		if err != nil {
+			return response.Error(http.StatusBadRequest, "Invalid provider ids", err)
+		}
+		cmd.ProviderIDs = &providerIDs
+	}
 	if err := hs.orgService.UpdateOrg(ctx, &cmd); err != nil {
 		if errors.Is(err, org.ErrOrgNameTaken) {
 			return response.Error(http.StatusBadRequest, "Organization name taken", err)

@@ -2,6 +2,8 @@ package dtos
 
 type UpdateOrgForm struct {
 	Name string `json:"name" binding:"Required"`
+	// Comma-separated provider ids (PID); nil = keep, "" = clear
+	ProviderIds *string `json:"providerIds"`
 }
 
 type UpdateOrgAddressForm struct {

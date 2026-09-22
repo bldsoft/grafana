@@ -66,4 +66,9 @@ func addOrgMigrations(mg *Migrator) {
 
 	const migrateReadOnlyViewersToViewers = `UPDATE org_user SET role = 'Viewer' WHERE role = 'Read Only Editor'`
 	mg.AddMigration("Migrate all Read Only Viewers to Viewers", NewRawSQLMigration(migrateReadOnlyViewersToViewers))
+
+	// Analytix: comma-separated provider ids (PID) the organization is allowed to query
+	mg.AddMigration("Add column provider_ids in org", NewAddColumnMigration(orgV1, &Column{
+		Name: "provider_ids", Type: DB_NVarchar, Length: 1024, Nullable: true,
+	}))
 }

@@ -17,6 +17,7 @@ var (
 	ErrOrgUserNotFound                         = errors.New("cannot find the organization user")
 	ErrOrgUserAlreadyAdded                     = errors.New("user is already added to organization")
 	ErrOrgNotFound                             = errutil.NotFound("org.notFound", errutil.WithPublicMessage("organization not found"))
+	ErrInvalidProviderIDs                      = errors.New("provider ids must be a comma-separated list of numeric ids")
 	ErrCannotChangeRoleForExternallySyncedUser = errutil.Forbidden("org.externallySynced", errutil.WithPublicMessage("cannot change role for externally synced user"))
 )
 
@@ -31,6 +32,9 @@ type Org struct {
 	ZipCode  string
 	State    string
 	Country  string
+
+	// Comma-separated provider ids (PID) this organization is allowed to query
+	ProviderIDs string `xorm:"provider_ids"`
 
 	Created time.Time
 	Updated time.Time
@@ -55,6 +59,9 @@ const (
 
 type CreateOrgCommand struct {
 	Name string `json:"name" binding:"Required"`
+
+	// Comma-separated provider ids (PID) this organization is allowed to query
+	ProviderIDs string `json:"providerIds" xorm:"provider_ids"`
 
 	// initial admin user for account
 	UserID int64 `json:"-" xorm:"user_id"`
@@ -81,6 +88,8 @@ type UserOrgDTO struct {
 type UpdateOrgCommand struct {
 	Name  string
 	OrgId int64
+	// nil = keep the stored value, non-nil (including "") = overwrite
+	ProviderIDs *string
 }
 
 type SearchOrgsQuery struct {
@@ -204,9 +213,37 @@ type SearchOrgUsersQueryResult struct {
 type ByOrgName []*UserOrgDTO
 
 type OrgDetailsDTO struct {
-	ID      int64   `json:"id"`
-	Name    string  `json:"name"`
-	Address Address `json:"address"`
+	ID          int64   `json:"id"`
+	Name        string  `json:"name"`
+	Address     Address `json:"address"`
+	ProviderIDs string  `json:"providerIds"`
+}
+
+// NormalizeProviderIDs canonicalizes a comma-separated provider id list:
+// trims whitespace, drops empty items and duplicates, and requires every item
+// to be numeric. Returns the "111,222" form; an empty result means the
+// organization is not restricted to any particular provider.
+func NormalizeProviderIDs(raw string) (string, error) {
+	parts := strings.Split(raw, ",")
+	seen := make(map[string]struct{}, len(parts))
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		for _, r := range part {
+			if r < '0' || r > '9' {
+				return "", ErrInvalidProviderIDs
+			}
+		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
+		out = append(out, part)
+	}
+	return strings.Join(out, ","), nil
 }
 
 // Len returns the length of an array of organisations.
