@@ -37,6 +37,9 @@ export const removeOrgUser = (orgUser: OrgUser, orgId: UrlQueryValue) => {
   return getBackendSrv().delete(`/api/orgs/${orgId}/users/${orgUser.userId}`);
 };
 
-export const updateOrg = (orgId: number, body: { name: string; providerIds?: string }) => {
+export const updateOrg = (
+  orgId: number,
+  body: { name: string; providerIds?: string; externalServicesTeamId?: string }
+) => {
   return getBackendSrv().put(`/api/orgs/${orgId}`, body);
 };

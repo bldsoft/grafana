@@ -71,8 +71,11 @@
       "title-add-to-an-organization": "Add to an organization"
     },
     "admin-edit-org-page": {
+      "description-external-services-team": "UID of the team whose members may use external services such as AI Insider (the UID is in the team URL: /org/teams/edit/<uid>). Empty means the services are off for this organization.",
       "description-provider-ids": "Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Use * for all providers. Empty means no data access.",
+      "error-external-services-team": "Must be a single team UID or numeric id (letters, digits, \"-\", \"_\")",
       "error-provider-ids": "Must be * or a comma-separated list of ids (letters, digits, \"-\", \"_\")",
+      "label-external-services-team": "External services access team",
       "label-name": "Name",
       "label-provider-ids": "Provider IDs (PID)",
       "page-nav": {
@@ -80,6 +83,7 @@
           "manage-settings-roles-organization": "Manage settings and user roles for an organization."
         }
       },
+      "placeholder-external-services-team": "cfwubwdg1oxdsf",
       "placeholder-provider-ids": "111,222",
       "render-missing-permission-message": {
         "title-access-denied": "Access denied"
@@ -11588,10 +11592,14 @@
     "new-org-page": {
       "create": "Create",
       "description": "Each organization contains their own dashboards, data sources, and configuration, which cannot be shared shared between organizations. While users might belong to more than one organization, multiple organizations are most frequently used in multi-tenant deployments.",
+      "description-external-services-team": "UID of the team whose members may use external services such as AI Insider (the UID is in the team URL: /org/teams/edit/<uid>). Empty means the services are off for this organization.",
       "description-provider-ids": "Comma-separated provider ids this organization is allowed to query, e.g. 111,222. Use * for all providers. Empty means no data access.",
+      "error-external-services-team": "Must be a single team UID or numeric id (letters, digits, \"-\", \"_\")",
       "error-provider-ids": "Must be * or a comma-separated list of ids (letters, digits, \"-\", \"_\")",
+      "label-external-services-team": "External services access team",
       "label-organization-name": "Organization name",
       "label-provider-ids": "Provider IDs (PID)",
+      "placeholder-external-services-team": "cfwubwdg1oxdsf",
       "placeholder-org-name": "Org name",
       "placeholder-provider-ids": "111,222"
     },

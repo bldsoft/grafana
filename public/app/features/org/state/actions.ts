@@ -43,7 +43,7 @@ export function setUserOrganization(
 }
 
 export function createOrganization(
-  newOrg: { name: string; providerIds?: string },
+  newOrg: { name: string; providerIds?: string; externalServicesTeamId?: string },
   dependencies: OrganizationDependencies = { getBackendSrv: getBackendSrv }
 ): ThunkResult<void> {
   return async (dispatch) => {

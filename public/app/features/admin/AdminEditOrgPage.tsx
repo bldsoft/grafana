@@ -17,16 +17,23 @@ import { getOrg, getOrgUsers, getUsersRoles, removeOrgUser, updateOrg, updateOrg
 interface OrgSettingsDTO {
   orgName: string;
   providerIds: string;
+  externalServicesTeamId: string;
 }
 
 // "*" = all providers; empty = no data access; otherwise a comma-separated id list
 const PROVIDER_IDS_PATTERN = /^\s*(\*|[A-Za-z0-9_-]+(\s*,\s*[A-Za-z0-9_-]+)*)?\s*$/;
+// A single team UID or numeric id; empty = external services are off for the org
+const TEAM_ID_PATTERN = /^\s*[A-Za-z0-9_-]*\s*$/;
 
 const AdminEditOrgPage = () => {
   const { id = '' } = useParams();
   const orgId = parseInt(id, 10);
   const canWriteOrg = contextSrv.hasPermission(AccessControlAction.OrgsWrite);
   const canReadUsers = contextSrv.hasPermission(AccessControlAction.OrgUsersRead);
+  // The provider id scope and the external services team gate access; the API
+  // only lets server admins set them, so an org admin renaming the org must
+  // not send them at all (the API would answer 403 even for unchanged values).
+  const canWriteAccessFields = canWriteOrg && contextSrv.isGrafanaAdmin;
 
   const [users, setUsers] = useState<OrgUser[]>([]);
   const [page, setPage] = useState(1);
@@ -56,8 +63,13 @@ const AdminEditOrgPage = () => {
     fetchOrgUsers(page);
   }, [fetchOrg, fetchOrgUsers, page]);
 
-  const onUpdateOrg = async ({ orgName, providerIds }: OrgSettingsDTO) => {
-    await updateOrg(orgId, { name: orgName, providerIds: providerIds ?? '' });
+  const onUpdateOrg = async ({ orgName, providerIds, externalServicesTeamId }: OrgSettingsDTO) => {
+    await updateOrg(orgId, {
+      name: orgName,
+      ...(canWriteAccessFields
+        ? { providerIds: providerIds ?? '', externalServicesTeamId: externalServicesTeamId ?? '' }
+        : {}),
+    });
     fetchOrg();
   };
 
@@ -130,7 +142,7 @@ const AdminEditOrgPage = () => {
                     'admin.admin-edit-org-page.error-provider-ids',
                     'Must be * or a comma-separated list of ids (letters, digits, "-", "_")'
                   )}
-                  disabled={!canWriteOrg}
+                  disabled={!canWriteAccessFields}
                   noMargin
                 >
                   <Input
@@ -138,6 +150,27 @@ const AdminEditOrgPage = () => {
                     id="org-provider-ids-input"
                     placeholder={t('admin.admin-edit-org-page.placeholder-provider-ids', '111,222')}
                     defaultValue={orgState.value.providerIds ?? ''}
+                  />
+                </Field>
+                <Field
+                  label={t('admin.admin-edit-org-page.label-external-services-team', 'External services access team')}
+                  description={t(
+                    'admin.admin-edit-org-page.description-external-services-team',
+                    'UID of the team whose members may use external services such as AI Insider (the UID is in the team URL: /org/teams/edit/<uid>). Empty means the services are off for this organization.'
+                  )}
+                  invalid={!!errors.externalServicesTeamId}
+                  error={t(
+                    'admin.admin-edit-org-page.error-external-services-team',
+                    'Must be a single team UID or numeric id (letters, digits, "-", "_")'
+                  )}
+                  disabled={!canWriteAccessFields}
+                  noMargin
+                >
+                  <Input
+                    {...register('externalServicesTeamId', { pattern: TEAM_ID_PATTERN })}
+                    id="org-external-services-team-input"
+                    placeholder={t('admin.admin-edit-org-page.placeholder-external-services-team', 'cfwubwdg1oxdsf')}
+                    defaultValue={orgState.value.externalServicesTeamId ?? ''}
                   />
                 </Field>
                 <div>

@@ -18,6 +18,7 @@ var (
 	ErrOrgUserAlreadyAdded                     = errors.New("user is already added to organization")
 	ErrOrgNotFound                             = errutil.NotFound("org.notFound", errutil.WithPublicMessage("organization not found"))
 	ErrInvalidProviderIDs                      = errors.New("provider ids must be \"*\" or a comma-separated list of alphanumeric ids")
+	ErrInvalidExternalServicesTeamID           = errors.New("external services team id must be a single team UID or numeric id")
 	ErrCannotChangeRoleForExternallySyncedUser = errutil.Forbidden("org.externallySynced", errutil.WithPublicMessage("cannot change role for externally synced user"))
 )
 
@@ -35,6 +36,9 @@ type Org struct {
 
 	// Comma-separated provider ids (PID) this organization is allowed to query
 	ProviderIDs string `xorm:"provider_ids"`
+	// UID (or numeric id) of the team whose members may use external services
+	// such as AI Insider; empty = the services are off for this organization
+	ExternalServicesTeamID string `xorm:"external_services_team_id"`
 
 	Created time.Time
 	Updated time.Time
@@ -62,6 +66,8 @@ type CreateOrgCommand struct {
 
 	// Comma-separated provider ids (PID) this organization is allowed to query
 	ProviderIDs string `json:"providerIds" xorm:"provider_ids"`
+	// UID (or numeric id) of the team whose members may use external services
+	ExternalServicesTeamID string `json:"externalServicesTeamId" xorm:"external_services_team_id"`
 
 	// initial admin user for account
 	UserID int64 `json:"-" xorm:"user_id"`
@@ -90,6 +96,8 @@ type UpdateOrgCommand struct {
 	OrgId int64
 	// nil = keep the stored value, non-nil (including "") = overwrite
 	ProviderIDs *string
+	// nil = keep the stored value, non-nil (including "") = overwrite
+	ExternalServicesTeamID *string
 }
 
 type SearchOrgsQuery struct {
@@ -213,10 +221,29 @@ type SearchOrgUsersQueryResult struct {
 type ByOrgName []*UserOrgDTO
 
 type OrgDetailsDTO struct {
-	ID          int64   `json:"id"`
-	Name        string  `json:"name"`
-	Address     Address `json:"address"`
-	ProviderIDs string  `json:"providerIds"`
+	ID                     int64   `json:"id"`
+	Name                   string  `json:"name"`
+	Address                Address `json:"address"`
+	ProviderIDs            string  `json:"providerIds"`
+	ExternalServicesTeamID string  `json:"externalServicesTeamId"`
+}
+
+// NormalizeExternalServicesTeamID canonicalizes the external services team
+// id: whitespace is trimmed and the result must be empty or a single team UID
+// / numeric id (letters, digits, "_", "-"). Empty means no team is assigned,
+// so nobody in the organization gets the external services (fail closed).
+func NormalizeExternalServicesTeamID(raw string) (string, error) {
+	id := strings.TrimSpace(raw)
+	if len(id) > 190 {
+		return "", ErrInvalidExternalServicesTeamID
+	}
+	for _, r := range id {
+		ok := (r >= '0' && r <= '9') || (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || r == '_' || r == '-'
+		if !ok {
+			return "", ErrInvalidExternalServicesTeamID
+		}
+	}
+	return id, nil
 }
 
 // NormalizeProviderIDs canonicalizes the provider id list: "*" alone grants

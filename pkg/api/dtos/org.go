@@ -4,6 +4,8 @@ type UpdateOrgForm struct {
 	Name string `json:"name" binding:"Required"`
 	// Comma-separated provider ids (PID); nil = keep, "" = clear
 	ProviderIds *string `json:"providerIds"`
+	// Team UID (or numeric id) for external services access; nil = keep, "" = clear
+	ExternalServicesTeamId *string `json:"externalServicesTeamId"`
 }
 
 type UpdateOrgAddressForm struct {

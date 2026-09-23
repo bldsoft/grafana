@@ -149,6 +149,10 @@ func (ss *sqlStore) Update(ctx context.Context, cmd *org.UpdateOrgCommand) error
 			orga.ProviderIDs = *cmd.ProviderIDs
 			updateSess = updateSess.MustCols("provider_ids")
 		}
+		if cmd.ExternalServicesTeamID != nil {
+			orga.ExternalServicesTeamID = *cmd.ExternalServicesTeamID
+			updateSess = updateSess.MustCols("external_services_team_id")
+		}
 
 		affectedRows, err := updateSess.Update(&orga)
 
@@ -312,10 +316,11 @@ func (ss *sqlStore) Search(ctx context.Context, query *org.SearchOrgsQuery) ([]*
 // CreateWithMember creates an organization with a certain name and a certain user as member.
 func (ss *sqlStore) CreateWithMember(ctx context.Context, cmd *org.CreateOrgCommand) (*org.Org, error) {
 	orga := org.Org{
-		Name:        cmd.Name,
-		ProviderIDs: cmd.ProviderIDs,
-		Created:     time.Now(),
-		Updated:     time.Now(),
+		Name:                   cmd.Name,
+		ProviderIDs:            cmd.ProviderIDs,
+		ExternalServicesTeamID: cmd.ExternalServicesTeamID,
+		Created:                time.Now(),
+		Updated:                time.Now(),
 	}
 	if err := ss.db.WithTransactionalDbSession(ctx, func(sess *db.Session) error {
 		if isNameTaken, err := isOrgNameTaken(cmd.Name, 0, sess); err != nil {

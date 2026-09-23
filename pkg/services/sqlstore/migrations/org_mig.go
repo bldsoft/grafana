@@ -71,4 +71,10 @@ func addOrgMigrations(mg *Migrator) {
 	mg.AddMigration("Add column provider_ids in org", NewAddColumnMigration(orgV1, &Column{
 		Name: "provider_ids", Type: DB_NVarchar, Length: 1024, Nullable: true,
 	}))
+
+	// Analytix: UID (or numeric id) of the team whose members may use external
+	// services (AI Insider); empty = the services are off for the organization
+	mg.AddMigration("Add column external_services_team_id in org", NewAddColumnMigration(orgV1, &Column{
+		Name: "external_services_team_id", Type: DB_NVarchar, Length: 190, Nullable: true,
+	}))
 }
