@@ -17,6 +17,7 @@ import {
   barLabelsFitHorizontally,
   buildGeneratedPanel,
   isLongTimeSeries,
+  numericBarLabelField,
   timeFieldName,
   timeHasNulls,
   timeSeriesTransformations,
@@ -24,6 +25,7 @@ import {
   timelineTransformations,
   trendPartitionField,
   trendPivotTransformations,
+  zeroBaselineMin,
 } from './buildPanel';
 import { OFFICIAL_CLICKHOUSE_PLUGIN_ID } from './datasourceQuery';
 import { GeneratedPanelSpec } from './types';
@@ -384,6 +386,33 @@ describe('time-axis reshaping', () => {
     expect(barChartTransformations(undefined)).toEqual([]);
   });
 
+  it('barchart: turns a numeric category (hour of day) into string labels', async () => {
+    const data: PanelData = {
+      state: LoadingState.Done,
+      timeRange: getDefaultTimeRange(),
+      series: [
+        toDataFrame({
+          fields: [
+            { name: 'hour', type: FieldType.number, values: [0, 1, 2] },
+            { name: 'viewers', type: FieldType.number, values: [10, 20, 30] },
+          ],
+        }),
+      ],
+    };
+    expect(numericBarLabelField(data)).toBe('hour');
+    const transformations = barChartTransformations(data);
+    expect(transformations.map((t) => t.id)).toEqual(['convertFieldType']);
+    const [frame] = await lastValueFrom(transformDataFrame(transformations, data.series));
+    expect(frame.fields[0].type).toBe(FieldType.string);
+    expect(frame.fields[0].values).toEqual(['0', '1', '2']);
+    expect(frame.fields[1].type).toBe(FieldType.number);
+    // 3 short labels fit horizontally once they are labels.
+    expect(barLabelsFitHorizontally(data)).toBe(true);
+    // A string label or a time axis is already usable as-is.
+    expect(numericBarLabelField(panelData(['a'], [1]))).toBeUndefined();
+    expect(numericBarLabelField(longTimeSeries())).toBeUndefined();
+  });
+
   it('timelines: drop NULL times, sort by time, then partition long rows by entity', async () => {
     const data = longTimeSeries();
     const transformations = timelineTransformations(data);
@@ -481,5 +510,16 @@ describe('buildGeneratedPanel SQL gate', () => {
 
   it('rejects an external table function (SSRF vector)', () => {
     expect(() => buildGeneratedPanel(spec("SELECT * FROM url('http://169.254.169.254/', CSV)"), datasource)).toThrow();
+  });
+});
+
+describe('zeroBaselineMin', () => {
+  it('keeps the zero baseline for non-negative values, including all-equal ones', () => {
+    expect(zeroBaselineMin(panelData(['a', 'b'], [100, 100]))).toBe(0);
+    expect(zeroBaselineMin(undefined)).toBe(0);
+  });
+
+  it('drops it when any value is negative', () => {
+    expect(zeroBaselineMin(panelData(['a', 'b'], [12, -3]))).toBeUndefined();
   });
 });

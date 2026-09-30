@@ -112,6 +112,11 @@ function fieldConfigFor(panelType: SupportedPanelType): FieldConfigSource {
       return {
         defaults: {
           color: { mode: FieldColorModeId.Fixed, fixedColor: ANALYTIX_BLUE },
+          // Zero baseline: without it the bar range is the data's own min..max,
+          // so a "top N" where every value is 100 collapses to min == max and
+          // renders empty bars. Cleared again for negative data, see
+          // applyZeroBaseline.
+          min: 0,
         },
         overrides: [],
       };
@@ -272,6 +277,22 @@ function optionsFor(panelType: SupportedPanelType): Record<string, unknown> {
 }
 
 /**
+ * A numeric column that has to serve as the bar chart's X axis: the frame has
+ * no string or time field (which the barchart panel requires, failing with
+ * "Bar charts require a string or time field") but at least two numeric
+ * fields, e.g. (hour, viewers) from toHour(). The first one is the category,
+ * as the SQL orders it. Exported for tests.
+ */
+export function numericBarLabelField(data: PanelData | undefined): string | undefined {
+  const fields = data?.series?.[0]?.fields;
+  if (!fields || fields.some((f) => f.type === FieldType.string || f.type === FieldType.time)) {
+    return undefined;
+  }
+  const numbers = fields.filter((f) => f.type === FieldType.number);
+  return numbers.length >= 2 ? numbers[0].name : undefined;
+}
+
+/**
  * True when every X label of a bar chart fits horizontally under its bar at a
  * conservative panel width; undefined when the shape gives nothing to measure.
  */
@@ -281,8 +302,12 @@ export function barLabelsFitHorizontally(data: PanelData | undefined): boolean |
     return undefined;
   }
   // The X (label) field: first string field, mirroring the barchart panel's
-  // own field mapping; numeric-only frames have nothing to rotate.
-  const labelField = frame.fields.find((f) => f.type === FieldType.string);
+  // own field mapping, or the numeric column converted into the labels (see
+  // numericBarLabelField); a lone numeric column has nothing to rotate.
+  const numericLabel = numericBarLabelField(data);
+  const labelField = numericLabel
+    ? frame.fields.find((f) => f.name === numericLabel)
+    : frame.fields.find((f) => f.type === FieldType.string);
   if (!labelField) {
     return undefined;
   }
@@ -505,12 +530,62 @@ export function timeSeriesTransformations(data: PanelData | undefined): DataTran
  * Plain (category, value) and (time, value) results pass through untouched.
  */
 export function barChartTransformations(data: PanelData | undefined): DataTransformerConfig[] {
-  return isLongTimeSeries(data)
+  if (isLongTimeSeries(data)) {
+    return [
+      { id: 'prepareTimeSeries', options: { format: 'multi' } },
+      { id: 'prepareTimeSeries', options: { format: 'wide' } },
+    ];
+  }
+  // A numeric category (hour of day, day of week) becomes string labels, so
+  // the panel draws the bars instead of its "requires a string" error.
+  const numericLabel = numericBarLabelField(data);
+  return numericLabel
     ? [
-        { id: 'prepareTimeSeries', options: { format: 'multi' } },
-        { id: 'prepareTimeSeries', options: { format: 'wide' } },
+        {
+          id: 'convertFieldType',
+          options: { conversions: [{ targetField: numericLabel, destinationType: FieldType.string }] },
+        },
       ]
     : [];
+}
+
+/**
+ * The bar gauge's zero baseline (see fieldConfigFor) suits non-negative
+ * values only: negative ones (a week-over-week change) would all render as
+ * empty bars. Undefined = let the panel derive the range from the data.
+ * Exported for tests.
+ */
+export function zeroBaselineMin(data: PanelData | undefined): 0 | undefined {
+  for (const frame of data?.series ?? []) {
+    for (const field of frame.fields) {
+      if (field.type === FieldType.number && field.values.some((v) => typeof v === 'number' && v < 0)) {
+        return undefined;
+      }
+    }
+  }
+  return 0;
+}
+
+/** Once the query resolves, keep or drop the bar gauge's zero baseline for the actual values. */
+function applyZeroBaseline(panel: VizPanel, runner: SceneQueryRunner): void {
+  runner.subscribeToState((state) => {
+    if (state.data?.state !== LoadingState.Done || !panel.getPlugin()) {
+      return;
+    }
+    const wanted = zeroBaselineMin(state.data);
+    const { fieldConfig } = panel.state;
+    if (fieldConfig.defaults.min === wanted) {
+      return;
+    }
+    const defaults = { ...fieldConfig.defaults };
+    if (wanted === undefined) {
+      delete defaults.min;
+    } else {
+      defaults.min = wanted;
+    }
+    // Replace, not merge: a deep merge cannot remove the min key.
+    panel.onFieldConfigChange({ ...fieldConfig, defaults }, true);
+  });
 }
 
 /**
@@ -573,6 +648,9 @@ export function buildGeneratedPanel(spec: GeneratedPanelSpec, datasource: DataSo
     // The subscription shares the panel's lifetime: the runner is a child of
     // the panel, so both are released together with the chat entry.
     applyDynamicTickRotation(panel, runner);
+  }
+  if (spec.panelType === 'bargauge') {
+    applyZeroBaseline(panel, runner);
   }
   if (reshape && data instanceof SceneDataTransformer) {
     applyLongFormatPivot(data, runner, reshape);

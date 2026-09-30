@@ -44,6 +44,7 @@ import { AI_PANEL_DEMO_MODE, buildDemoPanel } from './demo';
 import { canExportImage, ExportState, exportPanelCsv, exportPanelPng, exportState } from './exportPanel';
 import { buildInlineChartScene } from './inlineScene';
 import { GeneratedPanelSpec } from './types';
+import { SpeechInputError, useSpeechInput } from './useSpeechInput';
 
 interface Props {
   onClose: () => void;
@@ -199,10 +200,52 @@ function humanizeError(raw: string): string {
   return raw;
 }
 
+// Microphone glyph: Grafana's icon registry has no microphone, so it is drawn
+// inline at the size and stroke weight of the neighbouring lg icons.
+function MicIcon() {
+  return (
+    <svg
+      width={20}
+      height={20}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 10a7 7 0 0 0 14 0" />
+      <path d="M12 17v4" />
+      <path d="M8 21h8" />
+    </svg>
+  );
+}
+
+function speechErrorMessage(error: SpeechInputError): string {
+  switch (error) {
+    case 'not-allowed':
+      return t(
+        'dashboard.ai-panel.voice-err-denied',
+        'Microphone access is blocked. Allow it for this site in the browser to use voice input.'
+      );
+    case 'audio-capture':
+      return t('dashboard.ai-panel.voice-err-mic', 'No microphone was found.');
+    case 'network':
+      return t('dashboard.ai-panel.voice-err-network', 'Voice input needs a network connection. Please try again.');
+    default:
+      return t('dashboard.ai-panel.voice-err-generic', 'Voice input stopped unexpectedly. Please try again.');
+  }
+}
+
 // Cold-start suggestions: shown while the user has no history yet, and used
-// to pad the personal list up to five. The kind ("summary", a panel type)
-// renders as a badge on the chip — only the prompt text goes to the agent.
+// to pad the personal list up to the same count. The kind ("summary", a panel
+// type) renders as a badge on the chip — only the prompt text goes to the agent.
+// The capability tour leads the defaults so a first-time user starts there;
+// once personal chips exist it moves down to the padding slot.
 const DEFAULT_PROMPTS: SuggestedPrompt[] = [
+  { prompt: 'Show what you can do', kind: 'summary' },
   { prompt: 'Yesterday’s key metrics and insights', kind: 'summary' },
   { prompt: 'What changed vs last week', kind: 'summary' },
   { prompt: 'Watch time by content this week', kind: 'barchart' },
@@ -270,6 +313,11 @@ export function GenPanelChat({ onClose }: Props) {
     el.style.height = `${el.scrollHeight + el.offsetHeight - el.clientHeight}px`;
   }, [input]);
   const [busy, setBusy] = useState(false);
+  const speech = useSpeechInput({
+    onText: setInput,
+    onError: (error: SpeechInputError) =>
+      getAppEvents().publish({ type: AppEvents.alertWarning.name, payload: [speechErrorMessage(error)] }),
+  });
   // Closing the drawer kills the in-flight agent run (see the unmount effect),
   // and multi-minute runs die to a stray Esc — so a running generation asks first.
   const [confirmClose, setConfirmClose] = useState(false);
@@ -507,6 +555,8 @@ export function GenPanelChat({ onClose }: Props) {
     if (prompt === '' || busy) {
       return;
     }
+    // A trailing transcript must not refill the composer after it is sent.
+    speech.cancel();
     setInput('');
     runPrompt(prompt);
   };
@@ -670,7 +720,10 @@ export function GenPanelChat({ onClose }: Props) {
                   className={styles.chip}
                   // The full prompt: the chip text is a single ellipsized line.
                   title={suggestion.prompt}
-                  onClick={() => setInput(suggestion.prompt)}
+                  onClick={() => {
+                    speech.cancel();
+                    setInput(suggestion.prompt);
+                  }}
                 >
                   <span className={styles.chipText} dir="auto">
                     {suggestion.prompt}
@@ -815,9 +868,34 @@ export function GenPanelChat({ onClose }: Props) {
             aria-label={t('dashboard.ai-panel.chat-input-label', 'Describe the panel you want')}
             placeholder={t('dashboard.ai-panel.chat-placeholder', 'e.g. Show the last 30 days as a pie chart')}
             value={input}
-            onChange={(e) => setInput(e.currentTarget.value)}
+            onChange={(e) => {
+              // A manual edit takes over from dictation: otherwise the next
+              // transcript update would overwrite what was just typed.
+              speech.cancel();
+              setInput(e.currentTarget.value);
+            }}
             onKeyDown={onKeyDown}
           />
+          {speech.supported && (
+            <button
+              type="button"
+              className={cx(styles.sendButton, styles.micButton, speech.listening && styles.micButtonActive)}
+              onClick={() => (speech.listening ? speech.stop() : speech.start(input))}
+              aria-pressed={speech.listening}
+              aria-label={
+                speech.listening
+                  ? t('dashboard.ai-panel.chat-voice-stop', 'Stop voice input')
+                  : t('dashboard.ai-panel.chat-voice-start', 'Voice input')
+              }
+              title={
+                speech.listening
+                  ? t('dashboard.ai-panel.chat-voice-stop', 'Stop voice input')
+                  : t('dashboard.ai-panel.chat-voice-start', 'Voice input')
+              }
+            >
+              <MicIcon />
+            </button>
+          )}
           {busy ? (
             <button
               type="button"
@@ -948,6 +1026,12 @@ export function GenPanelChat({ onClose }: Props) {
     </>
   );
 }
+
+// Ring that ripples out of the mic button while it is listening.
+const micPulse = keyframes({
+  '0%': { boxShadow: '0 0 0 0 rgb(242 73 92 / 45%)' },
+  '100%': { boxShadow: '0 0 0 10px rgb(242 73 92 / 0%)' },
+});
 
 const pulse = keyframes({
   '0%': { boxShadow: `0 0 0 0 rgb(53 185 68 / 45%)` },
@@ -1374,6 +1458,30 @@ const getStyles = (theme: GrafanaTheme2) => ({
       borderColor: theme.colors.error.border,
       color: theme.colors.error.text,
       boxShadow: 'none',
+    },
+  }),
+  // Dictation toggle: same neutral circle as the stop control — voice is an
+  // alternative way to fill the composer, not the primary action.
+  micButton: css({
+    background: theme.colors.background.elevated,
+    border: `1px solid ${analytix.borderControl}`,
+    color: analytix.textMuted,
+    '&:hover:not(:disabled)': {
+      boxShadow: 'none',
+      borderColor: analytix.borderHover,
+      color: analytix.text,
+    },
+  }),
+  // Recording: red glyph and border, plus a ripple for motion-tolerant users.
+  micButtonActive: css({
+    borderColor: theme.colors.error.border,
+    color: theme.colors.error.text,
+    '&:hover:not(:disabled)': {
+      borderColor: theme.colors.error.border,
+      color: theme.colors.error.text,
+    },
+    [theme.transitions.handleMotion('no-preference')]: {
+      animation: `${micPulse} 1.4s ease-out infinite`,
     },
   }),
   footerRow: css({

@@ -5921,6 +5921,8 @@
       "chat-stop": "Stop generation",
       "chat-subtitle": "Ask your data anything — AI Insider writes the query, uncovers patterns, and explains what matters.",
       "chat-title": "AI Insider",
+      "chat-voice-start": "Voice input",
+      "chat-voice-stop": "Stop voice input",
       "close-confirm-body": "Closing the chat stops the current generation and discards this conversation. Close anyway?",
       "close-confirm-no": "Keep working",
       "close-confirm-title": "Generation in progress",
@@ -5962,6 +5964,10 @@
       "tool-query": "querying data",
       "tool-tables": "listing tables",
       "tooltip": "Ask AI Insider",
+      "voice-err-denied": "Microphone access is blocked. Allow it for this site in the browser to use voice input.",
+      "voice-err-generic": "Voice input stopped unexpectedly. Please try again.",
+      "voice-err-mic": "No microphone was found.",
+      "voice-err-network": "Voice input needs a network connection. Please try again.",
       "working": "Analyzing the data…"
     },
     "alert-rules-drawer": {
