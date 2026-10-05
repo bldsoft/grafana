@@ -30,6 +30,7 @@ import { DOCKED_MENU_COLLAPSED_WIDTH, DOCKED_MENU_WIDTH } from 'app/core/compone
 import { useGrafana } from 'app/core/context/GrafanaContext';
 import { analytix } from 'app/features/home/analytixTokens';
 
+import { CapabilityGuide } from './CapabilityGuide';
 import {
   AssistantError,
   AssistantProgress,
@@ -58,7 +59,8 @@ const COMPOSER_MAX_HEIGHT = 140;
 interface ChatEntry {
   id: number;
   prompt: string;
-  status: 'running' | 'done' | 'message' | 'error';
+  /** 'guide' is the local capability guide: no prompt, no agent call. */
+  status: 'running' | 'done' | 'message' | 'error' | 'guide';
   /** Live agent narration while the entry is running. */
   progressText?: string;
   toolCounts?: Record<string, number>;
@@ -240,18 +242,20 @@ function speechErrorMessage(error: SpeechInputError): string {
 }
 
 // Cold-start suggestions: shown while the user has no history yet, and used
-// to pad the personal list up to the same count. The kind ("summary", a panel
-// type) renders as a badge on the chip — only the prompt text goes to the agent.
-// The capability tour leads the defaults so a first-time user starts there;
-// once personal chips exist it moves down to the padding slot.
+// to pad the personal list up to five. The kind ("summary", a panel type)
+// renders as a badge on the chip — only the prompt text goes to the agent.
+// The capability tour is not a chip: it is the header "Quick guide" button.
 const DEFAULT_PROMPTS: SuggestedPrompt[] = [
-  { prompt: 'Show what you can do', kind: 'summary' },
   { prompt: 'Yesterday’s key metrics and insights', kind: 'summary' },
   { prompt: 'What changed vs last week', kind: 'summary' },
   { prompt: 'Watch time by content this week', kind: 'barchart' },
   { prompt: 'Peak viewing hours yesterday', kind: 'timeseries' },
   { prompt: 'Daily active users last month', kind: 'timeseries' },
 ];
+
+// Older histories still hold the retired "Show what you can do" chip prompt;
+// it must not come back as a personal suggestion next to the guide button.
+const RETIRED_PROMPTS = new Set(['show what you can do']);
 
 // Bound the in-memory conversation: every entry can hold a live chart scene and
 // the drawer may stay open all day — past the cap the oldest exchanges are
@@ -404,7 +408,7 @@ export function GenPanelChat({ onClose }: Props) {
     const merged: SuggestedPrompt[] = [];
     for (const suggestion of [...(fetchedSuggestions ?? []), ...DEFAULT_PROMPTS]) {
       const key = suggestion.prompt.trim().toLowerCase();
-      if (key === '' || seen.has(key)) {
+      if (key === '' || seen.has(key) || RETIRED_PROMPTS.has(key)) {
         continue;
       }
       seen.add(key);
@@ -438,7 +442,8 @@ export function GenPanelChat({ onClose }: Props) {
   useEffect(() => () => abortRef.current?.abort(), []);
 
   const serviceUp = AI_PANEL_DEMO_MODE || Boolean(health?.ok);
-  const canSend = input.trim() !== '' && !busy && (AI_PANEL_DEMO_MODE || (serviceUp && Boolean(datasource)));
+  const canRun = !busy && (AI_PANEL_DEMO_MODE || (serviceUp && Boolean(datasource)));
+  const canSend = input.trim() !== '' && canRun;
 
   const patchEntry = (id: number, patch: Partial<ChatEntry>) => {
     setEntries((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
@@ -548,6 +553,18 @@ export function GenPanelChat({ onClose }: Props) {
         setBusy(false);
       }
     }
+  };
+
+  // The guide is rendered locally (instant, no model call). A second click while
+  // it is already the latest entry just scrolls back to it instead of stacking copies.
+  const onOpenGuide = () => {
+    stickToBottomRef.current = true;
+    if (entries[entries.length - 1]?.status === 'guide') {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+      return;
+    }
+    const guideEntry: ChatEntry = { id: ++idRef.current, prompt: '', status: 'guide' };
+    setEntries((prev) => [...prev, guideEntry].slice(-MAX_ENTRIES));
   };
 
   const onSend = () => {
@@ -671,20 +688,26 @@ export function GenPanelChat({ onClose }: Props) {
   };
 
   const header = (
-    <div className={styles.headerWrap}>
-      <div className={styles.headerRow}>
-        <span className={styles.headerTitle}>
-          <Trans i18nKey="dashboard.ai-panel.chat-title">AI Insider</Trans>
-        </span>
-        <span className={styles.betaBadge}>
-          <Trans i18nKey="dashboard.ai-panel.chat-beta">Beta</Trans>
-        </span>
+    <div className={styles.headerBar}>
+      <div className={styles.headerWrap}>
+        <div className={styles.headerRow}>
+          <span className={styles.headerTitle}>
+            <Trans i18nKey="dashboard.ai-panel.chat-title">AI Insider</Trans>
+          </span>
+          <span className={styles.betaBadge}>
+            <Trans i18nKey="dashboard.ai-panel.chat-beta">Beta</Trans>
+          </span>
+        </div>
+        <div className={styles.headerSub}>
+          <Trans i18nKey="dashboard.ai-panel.chat-subtitle">
+            Ask your data anything — AI Insider writes the query, uncovers patterns, and explains what matters.
+          </Trans>
+        </div>
       </div>
-      <div className={styles.headerSub}>
-        <Trans i18nKey="dashboard.ai-panel.chat-subtitle">
-          Ask your data anything — AI Insider writes the query, uncovers patterns, and explains what matters.
-        </Trans>
-      </div>
+      <button type="button" className={styles.guideButton} onClick={onOpenGuide}>
+        <Icon name="book-open" />
+        <Trans i18nKey="dashboard.ai-panel.guide-button">Quick guide</Trans>
+      </button>
     </div>
   );
 
@@ -735,98 +758,102 @@ export function GenPanelChat({ onClose }: Props) {
           </div>
         )}
 
-        {entries.map((entry) => (
-          <div key={entry.id} className={styles.exchange}>
-            <div className={styles.userBubble} dir="auto">
-              {entry.prompt}
-            </div>
-
-            {entry.status === 'running' && (
-              <div className={styles.agentCard} role="status" aria-live="polite">
-                <div className={styles.agentHeader}>
-                  <span className={styles.pulseDot} />
-                  <span className={styles.agentTitle}>
-                    <Trans i18nKey="dashboard.ai-panel.working">Analyzing the data…</Trans>
-                  </span>
-                  <span className={styles.toolChips}>
-                    {Object.entries(entry.toolCounts || {}).map(([tool, count]) => (
-                      <span key={tool} className={styles.toolChip}>
-                        {toolLabel(tool)}
-                        {count > 1 ? ` ×${count}` : ''}
-                      </span>
-                    ))}
-                  </span>
-                </div>
-                {entry.progressText && (
-                  <MarkdownText className={cx(styles.progressText, styles.markdownBody)} text={entry.progressText} />
-                )}
+        {entries.map((entry) =>
+          entry.status === 'guide' ? (
+            <CapabilityGuide key={entry.id} onTry={runPrompt} canRun={canRun} />
+          ) : (
+            <div key={entry.id} className={styles.exchange}>
+              <div className={styles.userBubble} dir="auto">
+                {entry.prompt}
               </div>
-            )}
 
-            {entry.status === 'error' && (
-              <Alert severity="error" title={t('dashboard.ai-panel.chat-error', 'Could not generate the panel')}>
-                <div>{humanizeError(entry.error || '')}</div>
-                <Button
-                  className={styles.retryButton}
-                  size="sm"
-                  variant="secondary"
-                  icon="sync"
-                  disabled={busy}
-                  onClick={() => runPrompt(entry.prompt)}
-                >
-                  <Trans i18nKey="dashboard.ai-panel.chat-retry">Retry</Trans>
-                </Button>
-              </Alert>
-            )}
-
-            {entry.status === 'message' && (
-              <MarkdownText className={cx(styles.assistantBubble, styles.markdownBody)} text={entry.message || ''} />
-            )}
-
-            {entry.status === 'done' && entry.scene && (
-              <div className={styles.chartCard} data-chart-export-root>
-                {/* Export controls overlay the panel's empty top-right header
-                    corner, reading as panel actions (the title stays left). */}
-                <div className={styles.exportButtons}>
-                  <IconButton
-                    name="download-alt"
-                    size="lg"
-                    tooltip={t('dashboard.ai-panel.export-csv', 'Download CSV')}
-                    onClick={() => onExportCsv(entry)}
-                  />
-                  {entry.spec && canExportImage(entry.spec.panelType) && (
-                    <IconButton
-                      name="camera"
-                      size="lg"
-                      tooltip={t('dashboard.ai-panel.export-png', 'Download PNG')}
-                      onClick={(e) => onExportPng(e, entry)}
-                    />
-                  )}
-                </div>
-                <div className={styles.chartBody}>
-                  <entry.scene.Component model={entry.scene} />
-                </div>
-                <div className={styles.chartFooter}>
-                  {entry.spec && <span className={styles.typeBadge}>{entry.spec.panelType}</span>}
-                  {entry.message && (
-                    <ChartNote
-                      text={entry.message}
-                      expanded={expanded.has(entry.id)}
-                      onToggle={() => toggleExpanded(entry.id)}
-                    />
-                  )}
-                  {entry.durationMs != null && (
-                    <span className={cx(styles.duration, styles.durationEnd)}>
-                      {t('dashboard.ai-panel.duration', '{{seconds}}s', {
-                        seconds: (entry.durationMs / 1000).toFixed(1),
-                      })}
+              {entry.status === 'running' && (
+                <div className={styles.agentCard} role="status" aria-live="polite">
+                  <div className={styles.agentHeader}>
+                    <span className={styles.pulseDot} />
+                    <span className={styles.agentTitle}>
+                      <Trans i18nKey="dashboard.ai-panel.working">Analyzing the data…</Trans>
                     </span>
+                    <span className={styles.toolChips}>
+                      {Object.entries(entry.toolCounts || {}).map(([tool, count]) => (
+                        <span key={tool} className={styles.toolChip}>
+                          {toolLabel(tool)}
+                          {count > 1 ? ` ×${count}` : ''}
+                        </span>
+                      ))}
+                    </span>
+                  </div>
+                  {entry.progressText && (
+                    <MarkdownText className={cx(styles.progressText, styles.markdownBody)} text={entry.progressText} />
                   )}
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+
+              {entry.status === 'error' && (
+                <Alert severity="error" title={t('dashboard.ai-panel.chat-error', 'Could not generate the panel')}>
+                  <div>{humanizeError(entry.error || '')}</div>
+                  <Button
+                    className={styles.retryButton}
+                    size="sm"
+                    variant="secondary"
+                    icon="sync"
+                    disabled={busy}
+                    onClick={() => runPrompt(entry.prompt)}
+                  >
+                    <Trans i18nKey="dashboard.ai-panel.chat-retry">Retry</Trans>
+                  </Button>
+                </Alert>
+              )}
+
+              {entry.status === 'message' && (
+                <MarkdownText className={cx(styles.assistantBubble, styles.markdownBody)} text={entry.message || ''} />
+              )}
+
+              {entry.status === 'done' && entry.scene && (
+                <div className={styles.chartCard} data-chart-export-root>
+                  {/* Export controls overlay the panel's empty top-right header
+                    corner, reading as panel actions (the title stays left). */}
+                  <div className={styles.exportButtons}>
+                    <IconButton
+                      name="download-alt"
+                      size="lg"
+                      tooltip={t('dashboard.ai-panel.export-csv', 'Download CSV')}
+                      onClick={() => onExportCsv(entry)}
+                    />
+                    {entry.spec && canExportImage(entry.spec.panelType) && (
+                      <IconButton
+                        name="camera"
+                        size="lg"
+                        tooltip={t('dashboard.ai-panel.export-png', 'Download PNG')}
+                        onClick={(e) => onExportPng(e, entry)}
+                      />
+                    )}
+                  </div>
+                  <div className={styles.chartBody}>
+                    <entry.scene.Component model={entry.scene} />
+                  </div>
+                  <div className={styles.chartFooter}>
+                    {entry.spec && <span className={styles.typeBadge}>{entry.spec.panelType}</span>}
+                    {entry.message && (
+                      <ChartNote
+                        text={entry.message}
+                        expanded={expanded.has(entry.id)}
+                        onToggle={() => toggleExpanded(entry.id)}
+                      />
+                    )}
+                    {entry.durationMs != null && (
+                      <span className={cx(styles.duration, styles.durationEnd)}>
+                        {t('dashboard.ai-panel.duration', '{{seconds}}s', {
+                          seconds: (entry.durationMs / 1000).toFixed(1),
+                        })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        )}
 
         <div ref={bottomRef} />
       </div>
@@ -955,7 +982,7 @@ export function GenPanelChat({ onClose }: Props) {
   const handleClose = () => {
     // Confirm before discarding real work: a running generation, or a
     // conversation with results the user cannot get back (nothing is persisted).
-    if (busy || entries.length > 0) {
+    if (busy || entries.some((entry) => entry.status !== 'guide')) {
       setConfirmClose(true);
       return;
     }
@@ -1029,8 +1056,8 @@ export function GenPanelChat({ onClose }: Props) {
 
 // Ring that ripples out of the mic button while it is listening.
 const micPulse = keyframes({
-  '0%': { boxShadow: '0 0 0 0 rgb(242 73 92 / 45%)' },
-  '100%': { boxShadow: '0 0 0 10px rgb(242 73 92 / 0%)' },
+  '0%': { boxShadow: '0 0 0 0 rgb(53 185 68 / 45%)' },
+  '100%': { boxShadow: '0 0 0 10px rgb(53 185 68 / 0%)' },
 });
 
 const pulse = keyframes({
@@ -1040,6 +1067,40 @@ const pulse = keyframes({
 });
 
 const getStyles = (theme: GrafanaTheme2) => ({
+  headerBar: css({
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(2),
+    // Clear the Drawer's absolutely positioned close button in the corner.
+    paddingRight: theme.spacing(4),
+  }),
+  guideButton: css({
+    marginLeft: 'auto',
+    flexShrink: 0,
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    border: 'none',
+    borderRadius: theme.shape.radius.pill,
+    padding: theme.spacing(1, 2),
+    cursor: 'pointer',
+    fontWeight: theme.typography.fontWeightMedium,
+    // Filled green gradient: the one primary entry point for first-time
+    // users, set apart from the neutral suggestion chips.
+    color: '#fff',
+    background: `linear-gradient(135deg, ${analytix.green}, ${analytix.greenBright})`,
+    boxShadow: '0 0 12px rgb(53 185 68 / 30%)',
+    [theme.transitions.handleMotion('no-preference')]: {
+      transition: `all ${analytix.transitionFast}`,
+    },
+    '&:hover': {
+      boxShadow: '0 0 18px rgb(53 185 68 / 50%)',
+    },
+    '&:focus-visible': {
+      outline: 'none',
+      boxShadow: analytix.focusRing,
+    },
+  }),
   headerWrap: css({
     display: 'flex',
     flexDirection: 'column',
@@ -1428,20 +1489,23 @@ const getStyles = (theme: GrafanaTheme2) => ({
     flexShrink: 0,
     display: 'grid',
     placeItems: 'center',
-    border: 'none',
+    border: `1px solid ${analytix.green}`,
     borderRadius: theme.shape.radius.circle,
     cursor: 'pointer',
-    // White glyph on the green gradient, matching the home-page primary buttons.
-    color: '#fff',
-    background: `linear-gradient(135deg, ${analytix.green}, ${analytix.greenBright})`,
+    // Outlined, not filled: green glyph and border on the composer surface,
+    // so the send control stays light next to the outlined mic button.
+    color: analytix.greenBright,
+    background: theme.colors.background.elevated,
     [theme.transitions.handleMotion('no-preference')]: {
       transition: `all ${analytix.transitionFast}`,
     },
     '&:hover:not(:disabled)': {
+      background: 'rgb(53 185 68 / 12%)',
       boxShadow: '0 0 16px rgb(53 185 68 / 45%)',
     },
     '&:disabled': {
       background: theme.colors.background.elevated,
+      borderColor: analytix.borderControl,
       color: analytix.textFaint,
       cursor: 'not-allowed',
     },
@@ -1467,18 +1531,23 @@ const getStyles = (theme: GrafanaTheme2) => ({
     border: `1px solid ${analytix.borderControl}`,
     color: analytix.textMuted,
     '&:hover:not(:disabled)': {
+      background: theme.colors.background.elevated,
       boxShadow: 'none',
       borderColor: analytix.borderHover,
       color: analytix.text,
     },
   }),
-  // Recording: red glyph and border, plus a ripple for motion-tolerant users.
+  // Recording: soft green fill under a green glyph and border, plus a ripple
+  // for motion-tolerant users. The fill keeps it apart from the outlined send
+  // button next to it, which is green too once dictated text is in the input.
   micButtonActive: css({
-    borderColor: theme.colors.error.border,
-    color: theme.colors.error.text,
+    background: 'rgb(53 185 68 / 22%)',
+    borderColor: analytix.green,
+    color: analytix.greenBright,
     '&:hover:not(:disabled)': {
-      borderColor: theme.colors.error.border,
-      color: theme.colors.error.text,
+      background: 'rgb(53 185 68 / 22%)',
+      borderColor: analytix.green,
+      color: analytix.greenBright,
     },
     [theme.transitions.handleMotion('no-preference')]: {
       animation: `${micPulse} 1.4s ease-out infinite`,
