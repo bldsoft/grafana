@@ -5966,7 +5966,6 @@
       "guide-example-dau": "Daily active users last month",
       "guide-example-errors": "Playback errors by platform this week",
       "guide-example-health": "Is everything OK with playback today?",
-      "guide-example-top": "Top 10 channels by watch time yesterday",
       "guide-footnote": "Simple charts take seconds; a deeper analysis can take a few minutes. Keep this tab open while I work — your browser runs the queries.",
       "guide-intro": "I turn questions about your streaming analytics into ready charts and short insights. I only see the data your organization has access to, and I never change anything.",
       "guide-try": "Try one — it runs right away:",

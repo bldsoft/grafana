@@ -128,7 +128,6 @@ export function CapabilityGuide({ onTry, canRun }: Props) {
 
   const examples = [
     t('dashboard.ai-panel.guide-example-dau', 'Daily active users last month'),
-    t('dashboard.ai-panel.guide-example-top', 'Top 10 channels by watch time yesterday'),
     t('dashboard.ai-panel.guide-example-errors', 'Playback errors by platform this week'),
     t('dashboard.ai-panel.guide-example-countries', 'Viewers by country as a pie chart'),
     t('dashboard.ai-panel.guide-example-changes', 'What changed vs last week'),
@@ -199,11 +198,18 @@ const getStyles = (theme: GrafanaTheme2) => ({
     display: 'flex',
     flexDirection: 'column',
     gap: theme.spacing(2),
+    // Same neutral frame as the chart cards: no green accent border.
     background: theme.colors.background.elevated,
-    border: `1px solid ${analytix.greenDark}`,
+    border: `1px solid ${analytix.border}`,
     borderRadius: analytix.radiusPanel,
     padding: theme.spacing(2),
     color: analytix.textDim,
+    [theme.transitions.handleMotion('no-preference')]: {
+      transition: `border-color ${analytix.transitionFast}`,
+    },
+    '&:hover': {
+      borderColor: analytix.borderHover,
+    },
   }),
   intro: css({
     color: analytix.text,
@@ -264,20 +270,23 @@ const getStyles = (theme: GrafanaTheme2) => ({
   example: css({
     display: 'inline-flex',
     alignItems: 'center',
+    // Same neutral pill as the empty-state suggestion chips in the chat.
     gap: theme.spacing(0.75),
-    background: 'rgb(53 185 68 / 10%)',
-    color: analytix.text,
-    border: `1px solid ${analytix.greenDark}`,
+    background: theme.colors.background.elevated,
+    color: analytix.textDim,
+    border: `1px solid ${analytix.borderControl}`,
     borderRadius: theme.shape.radius.pill,
-    padding: theme.spacing(0.5, 1.5),
+    padding: theme.spacing(0.75, 1.5),
     cursor: 'pointer',
-    '& svg': { color: analytix.greenBright },
+    '& svg': { color: analytix.textFaint },
     [theme.transitions.handleMotion('no-preference')]: {
       transition: `all ${analytix.transitionFast}`,
     },
     '&:hover:not(:disabled)': {
       borderColor: analytix.green,
+      color: analytix.text,
       boxShadow: analytix.focusRing,
+      '& svg': { color: analytix.greenBright },
     },
     '&:disabled': {
       opacity: 0.5,
