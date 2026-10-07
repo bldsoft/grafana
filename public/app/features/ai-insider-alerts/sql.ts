@@ -75,7 +75,14 @@ function epoch(sec: number): string {
  * derived columns every query below groups on. `pids === null` means all
  * providers; an empty array means none.
  */
-function baseRows(from: number, to: number, pids: string[] | null, extra = ''): string {
+function baseRows(from: number, to: number, pids: string[] | null, extra = '', geo = false): string {
+  // ISP / City are ALIAS columns resolved through GeoIP dictionaries per row:
+  // only the queries that need them ask for them, and only on narrowed rows.
+  const geoColumns = geo
+    ? `
+        ISP AS isp,
+        City AS city,`
+    : '';
   return `SELECT
         event_timestamp AS ts,
         toStartOfMinute(event_timestamp) AS minute,
@@ -84,7 +91,7 @@ function baseRows(from: number, to: number, pids: string[] | null, extra = ''): 
         event_parameter4 AS ch_title,
         event_type AS et,
         device_type AS platform,
-        network_type AS network,
+        network_type AS network,${geoColumns}
         ${USER_ID} AS user_id,
         (${IS_ERR}) AS is_err,
         (${IS_SRV_ERR}) AS is_srv,
@@ -188,12 +195,15 @@ export function affectedUsersSql(windows: IncidentWindow[], pids: string[] | nul
     return `pid = '${w.pid}' AND cid = '${w.cid}' AND ts >= ${epoch(w.start - LOOKBACK_SEC)} AND ts < ${epoch(w.end)}, ${i}`;
   });
   const errFrom = windows.map((w, i) => `inc = ${i}, ${Math.floor(w.start - ERR_LEAD_SEC)}`);
+  const channels = Array.from(new Set(windows.map((w) => `('${w.pid}', '${w.cid}')`))).join(', ');
 
   return `SELECT
     inc,
     user_id,
     any(platform) AS platform_any,
     any(network) AS network_any,
+    anyIf(isp, hit) AS isp_any,
+    anyIf(city, hit) AS city_any,
     minIf(ts_s, hit) AS first_err,
     maxIf(ts_s, hit) AS last_err,
     countIf(hit) AS err_events,
@@ -206,7 +216,7 @@ FROM (
             multiIf(${branches.join(', ')}, -1) AS inc,
             multiIf(${errFrom.join(', ')}, 0) AS err_from
         FROM (
-            ${baseRows(from, to, pids)}
+            ${baseRows(from, to, pids, `(content_provider_id, event_parameter1) IN (${channels})`, true)}
         )
     )
     WHERE inc >= 0
@@ -227,6 +237,8 @@ export function customerSideSql(from: number, to: number, pids: string[] | null,
     e.user_id AS user_id,
     any(e.platform) AS platform_any,
     any(e.network) AS network_any,
+    any(e.isp) AS isp_any,
+    any(e.city) AS city_any,
     uniqExact(e.cid) AS channels,
     uniqExact(e.minute) AS minutes,
     count() AS err_events,
@@ -234,11 +246,10 @@ export function customerSideSql(from: number, to: number, pids: string[] | null,
     toUnixTimestamp(max(e.minute)) AS last_minute,
     arrayElement(topK(1)(e.code), 1) AS top_code
 FROM (
-    SELECT minute, pid, cid, user_id, platform, network, code
+    SELECT minute, pid, cid, user_id, platform, network, isp, city, code
     FROM (
-        ${baseRows(from, to, pids)}
+        ${baseRows(from, to, pids, `(${IS_ERR})`, true)}
     )
-    WHERE is_err
 ) AS e
 GLOBAL ANY LEFT JOIN (
     SELECT minute, pid, cid, uniq(user_id) AS users, uniqIf(user_id, is_err) AS err_users
@@ -301,5 +312,32 @@ export function providerNamesSql(pids: string[]): string {
     pid,
     dictGet('default.provider', 'providerName', toUInt64(toUInt32OrZero(pid))) AS provider
 FROM (SELECT arrayJoin([${safe.map((p) => `'${p}'`).join(', ')}]) AS pid)
+${SETTINGS}`;
+}
+
+/**
+ * Dataset export: one row per viewer, channel and minute with an error —
+ * where (platform, network, ISP, city, code, stream path), for offline tuning
+ * of the rules (the home-vs-operator split above all).
+ */
+export function userErrorsSql(from: number, to: number, pids: string[] | null): string {
+  return `SELECT
+    toUnixTimestamp(minute) AS minute_ts,
+    pid,
+    cid,
+    user_id,
+    any(platform) AS platform_any,
+    any(network) AS network_any,
+    any(isp) AS isp_any,
+    any(city) AS city_any,
+    count() AS err_events,
+    max(is_srv) AS srv,
+    arrayElement(topK(1)(code), 1) AS top_code,
+    arrayElement(topK(1)(path), 1) AS top_path
+FROM (
+    ${baseRows(from, to, pids, `(${IS_ERR})`, true)}
+)
+GROUP BY minute, pid, cid, user_id
+ORDER BY minute_ts
 ${SETTINGS}`;
 }

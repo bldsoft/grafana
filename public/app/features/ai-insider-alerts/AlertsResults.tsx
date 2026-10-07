@@ -1,5 +1,5 @@
 import { css, cx } from '@emotion/css';
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, ReactNode, useMemo, useState } from 'react';
 
 import { GrafanaTheme2 } from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
@@ -118,7 +118,7 @@ function downloadCsv(decisions: Decision[]) {
   URL.revokeObjectURL(url);
 }
 
-export function AlertsResults({ snapshot }: { snapshot: AlertsSnapshot }) {
+export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot; actions?: ReactNode }) {
   const styles = useStyles2(getStyles);
   const [tab, setTab] = useState<TabId>('incidents');
   const [expanded, setExpanded] = useState<string | undefined>();
@@ -194,32 +194,35 @@ export function AlertsResults({ snapshot }: { snapshot: AlertsSnapshot }) {
         />
       </div>
 
-      <TabsBar className={styles.tabs}>
-        <Tab
-          label={t('ai-insider-alerts.tab-incidents', 'Incidents')}
-          counter={snapshot.incidents.length}
-          active={tab === 'incidents'}
-          onChangeTab={() => setTab('incidents')}
-        />
-        <Tab
-          label={t('ai-insider-alerts.tab-messages', 'Messages')}
-          counter={snapshot.decisions.length}
-          active={tab === 'messages'}
-          onChangeTab={() => setTab('messages')}
-        />
-        <Tab
-          label={t('ai-insider-alerts.tab-customer', 'Customer side')}
-          counter={snapshot.customer.length}
-          active={tab === 'customer'}
-          onChangeTab={() => setTab('customer')}
-        />
-        <Tab
-          label={t('ai-insider-alerts.tab-dead', 'Dead channels')}
-          counter={snapshot.dead.length}
-          active={tab === 'dead'}
-          onChangeTab={() => setTab('dead')}
-        />
-      </TabsBar>
+      <div className={styles.tabsRow}>
+        <TabsBar className={styles.tabs}>
+          <Tab
+            label={t('ai-insider-alerts.tab-incidents', 'Incidents')}
+            counter={snapshot.incidents.length}
+            active={tab === 'incidents'}
+            onChangeTab={() => setTab('incidents')}
+          />
+          <Tab
+            label={t('ai-insider-alerts.tab-messages', 'Messages')}
+            counter={snapshot.decisions.length}
+            active={tab === 'messages'}
+            onChangeTab={() => setTab('messages')}
+          />
+          <Tab
+            label={t('ai-insider-alerts.tab-customer', 'Customer side')}
+            counter={snapshot.customer.length}
+            active={tab === 'customer'}
+            onChangeTab={() => setTab('customer')}
+          />
+          <Tab
+            label={t('ai-insider-alerts.tab-dead', 'Dead channels')}
+            counter={snapshot.dead.length}
+            active={tab === 'dead'}
+            onChangeTab={() => setTab('dead')}
+          />
+        </TabsBar>
+        {actions && <div className={styles.tabsActions}>{actions}</div>}
+      </div>
 
       <div className={styles.tabBody}>
         {tab === 'incidents' && (
@@ -520,6 +523,7 @@ function IncidentDetails({
                 <td className={styles.mono}>{u.userId}</td>
                 <td>
                   {u.platform} · {u.network || '—'}
+                  <span className={styles.sub}>{[u.isp, u.city].filter(Boolean).join(' · ') || '—'}</span>
                 </td>
                 <td>{formatUtcTime(u.firstErr)}</td>
                 <td className={styles.num}>{u.errEvents}</td>
@@ -705,6 +709,7 @@ function CustomerTab({ rows }: { rows: CustomerSideRow[] }) {
                 <td>{r.provider ? `${r.pid} ${r.provider}` : r.pid}</td>
                 <td>
                   {r.platform} · {r.network || '—'}
+                  <span className={styles.sub}>{[r.isp, r.city].filter(Boolean).join(' · ') || '—'}</span>
                 </td>
                 <td className={styles.num}>{r.channels}</td>
                 <td className={styles.num}>{r.minutes}</td>
@@ -813,8 +818,20 @@ const getStyles = (theme: GrafanaTheme2) => ({
     color: analytix.textFaint,
     fontSize: theme.typography.bodySmall.fontSize,
   }),
-  tabs: css({
+  tabsRow: css({
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'flex-end',
+    gap: theme.spacing(1),
     marginTop: theme.spacing(1),
+  }),
+  tabs: css({
+    flex: '1 1 auto',
+  }),
+  tabsActions: css({
+    display: 'flex',
+    gap: theme.spacing(1),
+    paddingBottom: theme.spacing(0.5),
   }),
   tabBody: css({
     display: 'grid',

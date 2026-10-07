@@ -9,6 +9,7 @@ import {
   customerSideSql,
   errorVolumeSql,
   providerNamesSql,
+  userErrorsSql,
 } from './sql';
 import { DEFAULT_RULES } from './types';
 
@@ -22,6 +23,7 @@ const statements = () => [
   channelHealthSql(FROM, TO, ['111']),
   channelMinutesSql(FROM, TO, null, [{ pid: '222', cid: '20002549' }]),
   errorVolumeSql(FROM, TO, null),
+  userErrorsSql(FROM, TO, ['222']),
 ];
 
 describe('alerts SQL', () => {

@@ -504,7 +504,7 @@ export class AlertEngine {
         cid: '',
         title: `${c.channels} channels`,
         platform: c.platform,
-        reason: `Errors on ${c.channels} channels over ${c.minutes} min while they worked for others (${c.network || 'unknown network'}, ${c.topCode})`,
+        reason: `Errors on ${c.channels} channels over ${c.minutes} min while they worked for others (${[c.network || 'unknown network', c.isp, c.topCode].filter(Boolean).join(', ')})`,
       });
     }
 

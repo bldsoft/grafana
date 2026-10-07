@@ -84,6 +84,8 @@ export interface AffectedUserRow {
   userId: string;
   platform: string;
   network: string;
+  isp: string;
+  city: string;
   firstErr: number;
   lastErr: number;
   errEvents: number;
@@ -99,6 +101,8 @@ export interface CustomerSideRow {
   userId: string;
   platform: string;
   network: string;
+  isp: string;
+  city: string;
   channels: number;
   minutes: number;
   errEvents: number;

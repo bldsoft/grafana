@@ -46,6 +46,8 @@ function snapshot(): AlertsSnapshot {
         userId: `AA-${w.cid.slice(-3)}-001`,
         platform: 'SmartTV',
         network: 'Wi-Fi',
+        isp: 'Test ISP',
+        city: 'Tirana',
         firstErr: w.start + 30,
         lastErr: w.start + 5 * MIN,
         errEvents: 7,

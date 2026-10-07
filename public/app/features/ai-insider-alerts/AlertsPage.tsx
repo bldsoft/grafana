@@ -17,7 +17,8 @@ import { analytix } from 'app/features/home/analytixTokens';
 
 import { AlertsResults, AlertsSnapshot } from './AlertsResults';
 import { AlertEngine } from './engine';
-import { formatUtc, fromUtcInput, toUtcInput } from './format';
+import { ExportMeta, downloadBlob, exportFileName, exportRun, runDatasetExport } from './export';
+import { formatCount, formatUtc, fromUtcInput, toUtcInput } from './format';
 import { runLive, runReplay } from './runner';
 import { ProviderScope, effectiveScope, parseProviderScope } from './scope';
 import { AlertRules, DEFAULT_RULES } from './types';
@@ -174,8 +175,16 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
   const [error, setError] = useState<string>();
   const [warning, setWarning] = useState<string>();
   const [snapshot, setSnapshot] = useState<AlertsSnapshot>();
-  const [progress, setProgress] = useState<{ clock: number; from: number; to?: number }>();
+  const [progress, setProgress] = useState<{
+    kind: 'replay' | 'live' | 'export';
+    clock: number;
+    from: number;
+    to?: number;
+    rows?: number;
+  }>();
   const abortRef = useRef<AbortController>();
+  /** Range, scope and rules of the run on screen, for "Export run". */
+  const runMetaRef = useRef<ExportMeta>();
 
   const clickhouse = useMemo(
     () =>
@@ -233,7 +242,13 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
     setWarning(undefined);
     setRunning(true);
     setSnapshot(snapshotOf(engine, windowFrom, windowFrom));
-    setProgress({ clock: windowFrom, from: windowFrom, to: settings.mode === 'replay' ? to : undefined });
+    setProgress({
+      kind: settings.mode,
+      clock: windowFrom,
+      from: windowFrom,
+      to: settings.mode === 'replay' ? to : undefined,
+    });
+    runMetaRef.current = { from: windowFrom, to: windowFrom, pids: scope, rules: settings.rules, mode: settings.mode };
     reportInteraction('analytix_ai_alerts_run', { mode: settings.mode, hours: Math.round((to - from) / 3600) });
 
     const common = {
@@ -264,6 +279,48 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
       if (abortRef.current === controller) {
         setRunning(false);
       }
+    }
+  };
+
+  const exportDataset = async () => {
+    if (!datasource) {
+      return;
+    }
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setError(undefined);
+    setRunning(true);
+    setProgress({ kind: 'export', clock: from, from, to, rows: 0 });
+    reportInteraction('analytix_ai_alerts_export_dataset', { hours: Math.round((to - from) / 3600) });
+    try {
+      const { blob, gzipped } = await runDatasetExport({
+        datasource,
+        pids: scope,
+        from,
+        to,
+        rules: settings.rules,
+        signal: controller.signal,
+        onChunk: (clock, rows) => setProgress((p) => (p ? { ...p, clock, rows } : p)),
+      });
+      downloadBlob(blob, exportFileName('dataset', from, to, gzipped ? 'ndjson.gz' : 'ndjson'));
+    } catch (e) {
+      if (!controller.signal.aborted) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    } finally {
+      if (abortRef.current === controller) {
+        setRunning(false);
+      }
+    }
+  };
+
+  const exportCurrentRun = () => {
+    if (snapshot && runMetaRef.current) {
+      reportInteraction('analytix_ai_alerts_export_run');
+      exportRun(snapshot, { ...runMetaRef.current, to: snapshot.to }).catch((e) =>
+        setError(e instanceof Error ? e.message : String(e))
+      );
     }
   };
 
@@ -374,6 +431,20 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
                   : t('ai-insider-alerts.start-live', 'Start live')}
               </Button>
             )}
+            {!running && settings.mode === 'replay' && (
+              <Button
+                variant="secondary"
+                icon="download-alt"
+                onClick={exportDataset}
+                disabled={!canRun}
+                tooltip={t(
+                  'ai-insider-alerts.export-dataset-tip',
+                  'Raw material for tuning the rules: every minute of channels with errors and every viewer-minute with an error (platform, network, ISP, city), hour by hour over the range'
+                )}
+              >
+                <Trans i18nKey="ai-insider-alerts.export-dataset">Export dataset</Trans>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -419,13 +490,18 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
           <div className={styles.status}>
             {running && <Spinner inline />}
             <span>
-              {settings.mode === 'replay' || progress?.to !== undefined
-                ? t('ai-insider-alerts.progress-replay', 'Replayed up to {{clock}} UTC', {
-                    clock: formatUtc(progress?.clock),
+              {progress?.kind === 'export'
+                ? t('ai-insider-alerts.progress-export', 'Exporting dataset up to {{clock}} UTC · {{rows}} rows', {
+                    clock: formatUtc(progress.clock),
+                    rows: formatCount(progress.rows ?? 0),
                   })
-                : t('ai-insider-alerts.progress-live', 'Live: processed up to {{clock}} UTC, checking every minute', {
-                    clock: formatUtc(progress?.clock),
-                  })}
+                : progress?.kind === 'replay'
+                  ? t('ai-insider-alerts.progress-replay', 'Replayed up to {{clock}} UTC', {
+                      clock: formatUtc(progress?.clock),
+                    })
+                  : t('ai-insider-alerts.progress-live', 'Live: processed up to {{clock}} UTC, checking every minute', {
+                      clock: formatUtc(progress?.clock),
+                    })}
               {pct !== undefined ? ` · ${pct}%` : ''}
             </span>
             {pct !== undefined && (
@@ -456,7 +532,16 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
         {warning && <div className={styles.warning}>{warning}</div>}
       </section>
 
-      {snapshot && <AlertsResults snapshot={snapshot} />}
+      {snapshot && (
+        <AlertsResults
+          snapshot={snapshot}
+          actions={
+            <Button size="sm" variant="secondary" icon="download-alt" onClick={exportCurrentRun}>
+              <Trans i18nKey="ai-insider-alerts.export-run">Export run</Trans>
+            </Button>
+          }
+        />
+      )}
     </div>
   );
 }

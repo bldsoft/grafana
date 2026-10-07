@@ -1,0 +1,62 @@
+import { runDatasetExport } from './export';
+import { DEFAULT_RULES } from './types';
+
+const runRawQuery = jest.fn();
+
+jest.mock('app/features/dashboard-scene/ai-panel/datasourceQuery', () => ({
+  runRawQuery: (...args: unknown[]) => runRawQuery(...args),
+}));
+
+const H0 = Date.UTC(2026, 8, 29, 17) / 1000;
+
+/** Answers by query shape: discovery (HAVING), channel minutes, viewer errors, health. */
+function answer(sql: string) {
+  const hour = Number(/event_timestamp >= toDateTime\((\d+)\)/.exec(sql)?.[1]);
+  if (sql.includes('HAVING users >=')) {
+    // Sport 1 fails only in the first hour.
+    return hour === H0 ? [{ pid: '222', cid: '20002549' }] : [];
+  }
+  if (sql.includes('(content_provider_id, event_parameter1) IN')) {
+    return [{ minute_ts: hour, pid: '222', cid: '20002549', users: 10, err_users: hour === H0 ? 6 : 0 }];
+  }
+  if (sql.includes('GROUP BY minute, pid, cid, user_id')) {
+    return hour === H0 ? [{ minute_ts: hour, pid: '222', cid: '20002549', user_id: 'AA-111-111', isp_any: 'ISP' }] : [];
+  }
+  return [];
+}
+
+describe('runDatasetExport', () => {
+  beforeEach(() => {
+    runRawQuery.mockReset();
+    runRawQuery.mockImplementation((_ds: unknown, sql: string) => Promise.resolve({ data: answer(sql) }));
+  });
+
+  it('writes NDJSON lines and keeps following a channel one hour after it last failed', async () => {
+    const progress: number[] = [];
+    const { blob } = await runDatasetExport({
+      datasource: { uid: 'ch', type: 'grafana-clickhouse-datasource' },
+      pids: ['222'],
+      from: H0,
+      to: H0 + 3 * 3600,
+      rules: DEFAULT_RULES,
+      signal: new AbortController().signal,
+      onChunk: (clock) => progress.push(clock),
+    });
+
+    const lines = (await blob.text())
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l));
+    expect(lines[0]).toMatchObject({ t: 'meta', format: 'ai-insider-alerts-dataset', from: H0, pids: ['222'] });
+    const minCols = lines.find((l) => l.t === 'columns' && l.type === 'min').columns;
+    const rows = (type: string) =>
+      lines
+        .filter((l) => Array.isArray(l) && l[0] === type)
+        .map((l) => Object.fromEntries(minCols.map((c: string, i: number) => [c, l[i + 1]])));
+    // Minutes for hour 1 (failing) and hour 2 (carried over), not hour 3.
+    expect(rows('min').map((r) => r.minute_ts)).toEqual([H0, H0 + 3600]);
+    expect(lines.filter((l) => Array.isArray(l) && l[0] === 'err')).toHaveLength(1);
+    expect(lines.filter((l) => l.t === 'columns').map((l) => l.type)).toEqual(['min', 'err']);
+    expect(progress).toEqual([H0 + 3600, H0 + 7200, H0 + 10800]);
+  });
+});
