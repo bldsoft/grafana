@@ -39,6 +39,17 @@ interface Settings {
   rules: AlertRules;
 }
 
+/** One run's fixed inputs; a stopped replay keeps them, with its engine, to continue. */
+interface RunState {
+  engine: AlertEngine;
+  datasource: DataSourceRef;
+  pids: string[] | null;
+  mode: Mode;
+  from: number;
+  to: number;
+  step: number;
+}
+
 function defaultSettings(): Settings {
   const today = Math.floor(Date.now() / 86400000) * 86400;
   return {
@@ -311,6 +322,11 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
     rows?: number;
   }>();
   const abortRef = useRef<AbortController>();
+  const unmountedRef = useRef(false);
+  /** A replay that stopped before its end, kept so it can be continued. */
+  const [resumable, setResumable] = useState<RunState>();
+  /** Live keeps running through a failed step; this says which minutes are being retried. */
+  const [liveIssue, setLiveIssue] = useState<string>();
   /** Range, scope and rules of the run on screen, for "Export run". */
   const runMetaRef = useRef<ExportMeta>();
 
@@ -331,7 +347,13 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
   }, [settings]);
 
   // Stop polling / replaying when the page is left.
-  useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(
+    () => () => {
+      unmountedRef.current = true;
+      abortRef.current?.abort();
+    },
+    []
+  );
 
   const update = (patch: Partial<Settings>) => setSettings((s) => ({ ...s, ...patch }));
   const updateRule = (key: keyof AlertRules, value: number) =>
@@ -357,34 +379,58 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
     abortRef.current?.abort();
   }, []);
 
-  const start = async () => {
+  const start = () => {
     if (!datasource) {
       return;
     }
+    const windowFrom = settings.mode === 'replay' ? from : Math.floor(Date.now() / 1000) - 3600;
+    runMetaRef.current = { from: windowFrom, to: windowFrom, pids: scope, rules: settings.rules, mode: settings.mode };
+    reportInteraction('analytix_ai_alerts_run', { mode: settings.mode, hours: Math.round((to - from) / 3600) });
+    execute({
+      engine: new AlertEngine(settings.rules),
+      datasource,
+      pids: scope,
+      mode: settings.mode,
+      from: windowFrom,
+      to,
+      step: settings.step,
+    });
+  };
+
+  /** Continues a replay that a failure or "Stop" cut short, with everything it found so far. */
+  const resume = () => {
+    if (resumable) {
+      reportInteraction('analytix_ai_alerts_resume');
+      execute(resumable);
+    }
+  };
+
+  const execute = async (run: RunState) => {
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    const engine = new AlertEngine(settings.rules);
-    const windowFrom = settings.mode === 'replay' ? from : Math.floor(Date.now() / 1000) - 3600;
+    const { engine } = run;
+    const windowFrom = run.from;
+    setResumable(undefined);
     setError(undefined);
     setWarning(undefined);
+    setLiveIssue(undefined);
     setRunning(true);
-    setSnapshot(snapshotOf(engine, windowFrom, windowFrom));
+    setSnapshot(snapshotOf(engine, windowFrom, engine.processedTo ?? windowFrom));
     setProgress({
-      kind: settings.mode,
-      clock: windowFrom,
+      kind: run.mode,
+      clock: engine.processedTo ?? windowFrom,
       from: windowFrom,
-      to: settings.mode === 'replay' ? to : undefined,
+      to: run.mode === 'replay' ? run.to : undefined,
     });
-    runMetaRef.current = { from: windowFrom, to: windowFrom, pids: scope, rules: settings.rules, mode: settings.mode };
-    reportInteraction('analytix_ai_alerts_run', { mode: settings.mode, hours: Math.round((to - from) / 3600) });
 
     const common = {
-      datasource,
-      pids: scope,
+      datasource: run.datasource,
+      pids: run.pids,
       engine,
       signal: controller.signal,
       onChunk: (clock: number) => {
+        setLiveIssue(undefined);
         setProgress((p) => (p ? { ...p, clock } : p));
         setSnapshot(snapshotOf(engine, windowFrom, clock));
       },
@@ -394,18 +440,41 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
         ),
     };
     try {
-      if (settings.mode === 'replay') {
-        await runReplay({ ...common, from, to, step: settings.step });
+      if (run.mode === 'replay') {
+        await runReplay({ ...common, from: run.from, to: run.to, step: run.step });
       } else {
-        await runLive({ ...common, pollMs: LIVE_POLL_MS });
+        await runLive({
+          ...common,
+          pollMs: LIVE_POLL_MS,
+          onLiveError: (message, at) =>
+            setLiveIssue(
+              t(
+                'ai-insider-alerts.live-retrying',
+                'The step after {{at}} UTC failed ({{error}}). Live keeps running and tries the same minutes again every minute.',
+                { at: formatUtc(at), error: message }
+              )
+            ),
+        });
       }
     } catch (e) {
       if (!controller.signal.aborted) {
-        setError(e instanceof Error ? e.message : String(e));
+        const at = engine.processedTo ?? windowFrom;
+        setSnapshot(snapshotOf(engine, windowFrom, at));
+        setError(
+          t(
+            'ai-insider-alerts.replay-stopped',
+            'Replay stopped at {{at}} UTC: {{error}}. "Continue replay" picks it up from there with everything found so far.',
+            { at: formatUtc(at), error: e instanceof Error ? e.message : String(e) }
+          )
+        );
       }
     } finally {
       if (abortRef.current === controller) {
         setRunning(false);
+        // A replay cut short by a failure or by "Stop" can be continued.
+        if (run.mode === 'replay' && (engine.processedTo ?? run.from) < run.to && !unmountedRef.current) {
+          setResumable(run);
+        }
       }
     }
   };
@@ -573,6 +642,23 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
                   : t('ai-insider-alerts.start-live', 'Start live')}
               </Button>
             )}
+            {!running && settings.mode === 'replay' && resumable && (
+              <Button
+                variant="secondary"
+                icon="arrow-right"
+                onClick={resume}
+                tooltip={t(
+                  'ai-insider-alerts.continue-replay-tip',
+                  'Continues the stopped replay from {{at}} UTC to {{to}} UTC with its original providers and rules',
+                  {
+                    at: formatUtc(resumable.engine.processedTo ?? resumable.from),
+                    to: formatUtc(resumable.to),
+                  }
+                )}
+              >
+                <Trans i18nKey="ai-insider-alerts.continue-replay">Continue replay</Trans>
+              </Button>
+            )}
             {!running && settings.mode === 'replay' && (
               <Button
                 variant="secondary"
@@ -671,6 +757,7 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
             {error}
           </Alert>
         )}
+        {liveIssue && running && <div className={styles.warning}>{liveIssue}</div>}
         {warning && <div className={styles.warning}>{warning}</div>}
       </section>
 

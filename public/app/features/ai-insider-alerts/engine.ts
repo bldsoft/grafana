@@ -111,6 +111,8 @@ export class AlertEngine {
   clock = 0;
   /** Provider buckets are evaluated up to here (complete buckets only). */
   providerWatermark?: number;
+  /** End of the last window applied as a whole: a stopped run continues from here. */
+  processedTo?: number;
 
   constructor(rules: AlertRules) {
     this.rules = rules;
@@ -322,9 +324,10 @@ export class AlertEngine {
   /**
    * Incidents whose viewer list must be (re)read: confirmed and touched since
    * the last fetch. The window spans the whole incident so the result
-   * replaces the previous one.
+   * replaces the previous one. An incident stays pending until its viewers
+   * are set, so a failed fetch is simply tried again later.
    */
-  takeIncidentWindows(): IncidentWindow[] {
+  pendingIncidentWindows(): IncidentWindow[] {
     const windows: IncidentWindow[] = [];
     for (const id of this.dirty) {
       const inc = this.incidents.find((i) => i.id === id);
@@ -336,14 +339,17 @@ export class AlertEngine {
           start: inc.start,
           end: Math.min(this.clock, inc.lastBad + MIN),
         });
+      } else {
+        // Dropped as a blip or not confirmed yet: nothing to read.
+        this.dirty.delete(id);
       }
     }
-    this.dirty.clear();
     return windows;
   }
 
   setAffectedUsers(incidentId: string, rows: AffectedUserRow[]) {
     this.affected.set(incidentId, rows);
+    this.dirty.delete(incidentId);
   }
 
   /** Feed one chunk's per-channel health; refreshes the dead-channel set. */
@@ -597,21 +603,23 @@ export class AlertEngine {
     inc.recovered = recovered;
   }
 
-  /** Provider incidents whose viewers must be (re)read. */
-  takeProviderWindows(): ProviderWindow[] {
+  /** Provider incidents whose viewers must be (re)read; pending until set. */
+  pendingProviderWindows(): ProviderWindow[] {
     const windows: ProviderWindow[] = [];
     for (const id of this.provDirty) {
       const inc = this.provIncidents.find((i) => i.id === id);
       if (inc) {
         windows.push({ id, pid: inc.pid, start: inc.start, end: inc.lastSurge + PROVIDER_BUCKET_SEC });
+      } else {
+        this.provDirty.delete(id);
       }
     }
-    this.provDirty.clear();
     return windows;
   }
 
   setProviderAffected(incidentId: string, rows: AffectedUserRow[]) {
     this.provAffected.set(incidentId, rows);
+    this.provDirty.delete(incidentId);
   }
 
   getProviderAffected(incidentId: string): AffectedUserRow[] {

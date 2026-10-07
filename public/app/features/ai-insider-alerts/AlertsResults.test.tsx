@@ -39,7 +39,7 @@ function snapshot(): AlertsSnapshot {
     ...Array.from({ length: 5 }, (_, i) => clean(32 + i, '20002305')),
   ]);
   engine.advance(T0 + 60 * MIN);
-  for (const w of engine.takeIncidentWindows()) {
+  for (const w of engine.pendingIncidentWindows()) {
     engine.setAffectedUsers(w.id, [
       {
         incidentId: w.id,

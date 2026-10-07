@@ -178,14 +178,43 @@ async function query(opts: RunOptions, sql: string): Promise<Row[]> {
   return result.data;
 }
 
+interface ProviderFetch {
+  start: number;
+  end: number;
+  current: Row[];
+  baselines: Array<{ from: number; to: number; rows: Row[] }>;
+}
+
+interface ChunkData {
+  health: Row[];
+  minutes: Row[];
+  customer: Row[];
+  volume: Row[];
+  providers?: ProviderFetch;
+  pids: string[];
+}
+
 /**
- * Processes one window [from, to): health first (so a dead channel is known
- * before its minutes are classified), then every watched minute of the
- * channels worth following — those already in an incident plus those that
- * fail in this window — then the viewers of every incident that moved, then
- * customer-side and volume.
+ * Processes one window [from, to) in two phases. Every read comes first and
+ * changes nothing, then everything is applied at once: a query that fails
+ * leaves the engine exactly at the previous window, so the same window can
+ * simply be run again. Viewers of incidents are read afterwards; an incident
+ * whose read failed stays pending and is read with the next window.
  */
 async function processChunk(opts: RunOptions, from: number, to: number, customerFrom: number | null) {
+  const data = await fetchChunk(opts, from, to, customerFrom);
+  applyChunk(opts.engine, data, from, to);
+  await fetchViewers(opts);
+  await resolveProviderNames(opts, data.pids);
+}
+
+/**
+ * Reads of one window: health (so a dead channel is known before its minutes
+ * are classified), every watched minute of the channels worth following —
+ * those already in an incident plus those that fail in this window — the
+ * provider buckets that became complete, customer-side and volume.
+ */
+async function fetchChunk(opts: RunOptions, from: number, to: number, customerFrom: number | null): Promise<ChunkData> {
   const { engine, pids } = opts;
   const followed = engine.followedChannels();
   const [health, bad, customer, volume] = await Promise.all([
@@ -194,8 +223,6 @@ async function processChunk(opts: RunOptions, from: number, to: number, customer
     customerFrom === null ? Promise.resolve([]) : query(opts, customerSideSql(customerFrom, to, pids, engine.rules)),
     query(opts, errorVolumeSql(from, to, pids)),
   ]);
-
-  engine.ingestChannelHealth(health.map(toChannelHealth), from, to);
 
   const channels = new Map<string, ChannelKey>();
   for (const c of [...followed, ...bad.map((r) => ({ pid: str(r.pid), cid: str(r.cid) }))]) {
@@ -208,10 +235,37 @@ async function processChunk(opts: RunOptions, from: number, to: number, customer
   for (let i = 0; i < keys.length; i += CHANNELS_BATCH) {
     minutes.push(...(await query(opts, channelMinutesSql(from, to, pids, keys.slice(i, i + CHANNELS_BATCH)))));
   }
-  engine.ingestMinutes(minutes.map(toBadMinute));
-  engine.advance(to);
+  const providers = await fetchProviders(opts, from, to);
+  return {
+    health,
+    minutes,
+    customer,
+    volume,
+    providers,
+    pids: [...health.map((r) => str(r.pid)), ...bad.map((r) => str(r.pid))],
+  };
+}
 
-  const windows = engine.takeIncidentWindows().filter((w) => /^[A-Za-z0-9_-]+$/.test(w.cid));
+/** Applies one window's reads; no I/O, so it either happens whole or not at all. */
+function applyChunk(engine: AlertEngine, data: ChunkData, from: number, to: number) {
+  engine.ingestChannelHealth(data.health.map(toChannelHealth), from, to);
+  engine.ingestMinutes(data.minutes.map(toBadMinute));
+  engine.advance(to);
+  if (data.providers) {
+    const { start, end, current, baselines } = data.providers;
+    baselines.forEach((b) => engine.ingestProviderBaseline(b.rows.map(toProviderBucket), b.from, b.to));
+    engine.ingestProviderBuckets(current.map(toProviderBucket), start, end);
+    engine.providerWatermark = end;
+  }
+  engine.ingestCustomerSide(data.customer.map(toCustomerSide));
+  engine.ingestErrorVolume(toErrorVolume(data.volume[0]));
+  engine.processedTo = to;
+}
+
+/** Reads the viewers of every incident (channel and provider) that moved and is not read yet. */
+async function fetchViewers(opts: RunOptions) {
+  const { engine, pids } = opts;
+  const windows = engine.pendingIncidentWindows().filter((w) => /^[A-Za-z0-9_-]+$/.test(w.cid));
   for (let i = 0; i < windows.length; i += USERS_BATCH) {
     const batch: IncidentWindow[] = windows.slice(i, i + USERS_BATCH);
     const rows = await query(opts, affectedUsersSql(batch, pids));
@@ -225,25 +279,34 @@ async function processChunk(opts: RunOptions, from: number, to: number, customer
     batch.forEach((w, idx) => engine.setAffectedUsers(w.id, byInc.get(idx) ?? []));
   }
 
-  await processProviders(opts, from, to);
-  engine.ingestCustomerSide(customer.map(toCustomerSide));
-  engine.ingestErrorVolume(toErrorVolume(volume[0]));
-  await resolveProviderNames(opts, [...health.map((r) => str(r.pid)), ...bad.map((r) => str(r.pid))]);
+  const provWindows = engine.pendingProviderWindows();
+  for (let i = 0; i < provWindows.length; i += USERS_BATCH) {
+    const batch = provWindows.slice(i, i + USERS_BATCH);
+    const rows = await query(opts, providerUsersSql(batch, pids));
+    const byInc = new Map<number, AffectedUserRow[]>();
+    for (const row of rows) {
+      const idx = num(row.inc);
+      const list = byInc.get(idx) ?? [];
+      list.push(toAffectedUser(row, batch[idx]?.id ?? ''));
+      byInc.set(idx, list);
+    }
+    batch.forEach((w, idx) => engine.setProviderAffected(w.id, byInc.get(idx) ?? []));
+  }
 }
 
 const DAY = 86400;
 
 /**
- * Provider level: evaluates the 15-minute buckets that became complete up to
- * `to`, reading the same buckets of previous days first (once — a replay
- * that already went through those days reuses them).
+ * Provider level: reads the 15-minute buckets that became complete up to
+ * `to`, plus the same buckets of previous days (once — a replay that already
+ * went through those days reuses them).
  */
-async function processProviders(opts: RunOptions, from: number, to: number) {
+async function fetchProviders(opts: RunOptions, from: number, to: number): Promise<ProviderFetch | undefined> {
   const { engine, pids } = opts;
   const start = engine.providerWatermark ?? Math.ceil(from / PROVIDER_BUCKET_SEC) * PROVIDER_BUCKET_SEC;
   const end = Math.floor(to / PROVIDER_BUCKET_SEC) * PROVIDER_BUCKET_SEC;
   if (end <= start) {
-    return;
+    return undefined;
   }
   const days = Math.min(7, Math.max(1, Math.round(engine.rules.providerBaselineDays)));
   const baselineWindows: Array<[number, number]> = [];
@@ -256,23 +319,12 @@ async function processProviders(opts: RunOptions, from: number, to: number) {
     query(opts, providerBucketsSql(start, end, pids)),
     ...baselineWindows.map(([f, t]) => query(opts, providerBucketsSql(f, t, pids))),
   ]);
-  baselineWindows.forEach(([f, t], i) => engine.ingestProviderBaseline(baselines[i].map(toProviderBucket), f, t));
-  engine.ingestProviderBuckets(current.map(toProviderBucket), start, end);
-  engine.providerWatermark = end;
-
-  const windows = engine.takeProviderWindows();
-  for (let i = 0; i < windows.length; i += USERS_BATCH) {
-    const batch = windows.slice(i, i + USERS_BATCH);
-    const rows = await query(opts, providerUsersSql(batch, pids));
-    const byInc = new Map<number, AffectedUserRow[]>();
-    for (const row of rows) {
-      const idx = num(row.inc);
-      const list = byInc.get(idx) ?? [];
-      list.push(toAffectedUser(row, batch[idx]?.id ?? ''));
-      byInc.set(idx, list);
-    }
-    batch.forEach((w, idx) => engine.setProviderAffected(w.id, byInc.get(idx) ?? []));
-  }
+  return {
+    start,
+    end,
+    current,
+    baselines: baselineWindows.map(([f, t], i) => ({ from: f, to: t, rows: baselines[i] })),
+  };
 }
 
 const resolvedPids = new WeakMap<AlertEngine, Set<string>>();
@@ -294,45 +346,69 @@ async function resolveProviderNames(opts: RunOptions, pids: string[]) {
   }
 }
 
-/** Replays [from, to) chunk by chunk, as a live detector would have seen it. */
+/**
+ * Replays [from, to) chunk by chunk, as a live detector would have seen it.
+ * An engine that already went part of the way (a replay stopped by a failure)
+ * continues from where it stopped, with everything it found so far.
+ */
 export async function runReplay(opts: RunOptions & { from: number; to: number; step: number }) {
-  for (const [from, to] of chunks(opts.from, opts.to, opts.step)) {
+  const resumeAt = Math.max(opts.from, opts.engine.processedTo ?? opts.from);
+  for (const [from, to] of chunks(resumeAt, opts.to, opts.step)) {
     if (opts.signal.aborted) {
       return;
     }
     await processChunk(opts, from, to, from);
     opts.onChunk(to);
   }
+  // Viewers left pending by a failure right after the last window.
+  await fetchViewers(opts);
 }
 
 /**
  * Follows the live tail: warms up on the last hour, then every `pollMs`
- * processes the minutes that became final since the previous step.
+ * processes the minutes that became final since the previous step. A step
+ * that fails (after the query retries) does not stop the watch: it is
+ * reported through `onLiveError` and the same minutes are tried again on the
+ * next poll, so a datasource outage only delays detection.
  */
-export async function runLive(opts: RunOptions & { pollMs: number; now?: () => number }) {
+export async function runLive(
+  opts: RunOptions & {
+    pollMs: number;
+    now?: () => number;
+    onLiveError?: (message: string, processedTo: number) => void;
+  }
+) {
+  const { engine } = opts;
   const now = opts.now ?? (() => Math.floor(Date.now() / 1000));
   const settled = () => Math.floor((now() - LIVE_LAG_SEC) / 60) * 60;
-  let watermark = settled() - LIVE_WARMUP_SEC;
+  const startAt = settled() - LIVE_WARMUP_SEC;
   let lastCustomer = 0;
 
   while (!opts.signal.aborted) {
     const to = settled();
+    const watermark = engine.processedTo ?? startAt;
     if (to > watermark) {
       // Customer-side needs a few minutes of history, so it runs on a
       // trailing window every five minutes rather than on each step.
       const runCustomer = to - lastCustomer >= 300;
-      for (const [from, end] of chunks(watermark, to, 3600)) {
+      try {
+        for (const [from, end] of chunks(watermark, to, 3600)) {
+          if (opts.signal.aborted) {
+            return;
+          }
+          const customerFrom = runCustomer && end === to ? Math.max(from, to - LIVE_CUSTOMER_WINDOW_SEC) : null;
+          await processChunk(opts, from, end, customerFrom);
+          opts.onChunk(end);
+        }
+        if (runCustomer) {
+          lastCustomer = to;
+        }
+      } catch (e) {
         if (opts.signal.aborted) {
           return;
         }
-        const customerFrom = runCustomer && end === to ? Math.max(from, to - LIVE_CUSTOMER_WINDOW_SEC) : null;
-        await processChunk(opts, from, end, customerFrom);
-        opts.onChunk(end);
+        opts.onLiveError?.(e instanceof Error ? e.message : String(e), engine.processedTo ?? startAt);
       }
-      if (runCustomer) {
-        lastCustomer = to;
-      }
-      watermark = to;
     }
     await new Promise<void>((resolve) => {
       const timer = setTimeout(resolve, opts.pollMs);

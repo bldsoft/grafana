@@ -52,7 +52,7 @@ describe('AlertEngine provider level', () => {
       T0,
       T0 + 4 * B
     );
-    const windows = engine.takeProviderWindows();
+    const windows = engine.pendingProviderWindows();
     expect(windows).toHaveLength(1);
     engine.setProviderAffected(windows[0].id, [viewer('AA-1', T0 + 60, 5, 600), viewer('BB-2', T0 + 120, 1, 0)]);
 
@@ -127,7 +127,7 @@ describe('AlertEngine provider level', () => {
     });
     engine.ingestMinutes([...Array.from({ length: 10 }, (_, i) => minute(i, 60))]);
     engine.advance(T0 + 10 * 60);
-    for (const w of engine.takeIncidentWindows()) {
+    for (const w of engine.pendingIncidentWindows()) {
       engine.setAffectedUsers(w.id, [viewer('AA-1', T0, 5, 300)]);
     }
     engine.ingestProviderBuckets(
@@ -135,7 +135,7 @@ describe('AlertEngine provider level', () => {
       T0,
       T0 + 3 * B
     );
-    const [win] = engine.takeProviderWindows();
+    const [win] = engine.pendingProviderWindows();
     engine.setProviderAffected(win.id, [viewer('AA-1', T0 + 20 * 60, 6, 300)]);
     engine.ingestCustomerSide([
       {

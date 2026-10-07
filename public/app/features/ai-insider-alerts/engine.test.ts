@@ -56,7 +56,7 @@ function user(userId: string, firstErr: number, overrides: Partial<AffectedUserR
 function run(engine: AlertEngine, rows: BadMinuteRow[], until: number, users: (id: string) => AffectedUserRow[]) {
   engine.ingestBadMinutes(rows);
   engine.advance(until);
-  for (const w of engine.takeIncidentWindows()) {
+  for (const w of engine.pendingIncidentWindows()) {
     engine.setAffectedUsers(w.id, users(w.id));
   }
 }
