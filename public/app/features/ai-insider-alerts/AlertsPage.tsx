@@ -61,94 +61,184 @@ interface RuleField {
   key: keyof AlertRules;
   label: string;
   unit: string;
+  /** What the rule changes, shown under the field. */
+  description: string;
   /** Shown as percent, stored as a 0..1 share. */
   percent?: boolean;
 }
 
 function ruleFields(): RuleField[] {
   return [
-    { key: 'minUsers', label: t('ai-insider-alerts.rule-min-users', 'Min active viewers'), unit: '' },
-    { key: 'minErrUsers', label: t('ai-insider-alerts.rule-min-err-users', 'Min viewers with errors'), unit: '' },
+    {
+      key: 'minUsers',
+      label: t('ai-insider-alerts.rule-min-users', 'Min active viewers'),
+      description: t(
+        'ai-insider-alerts.rule-min-users-desc',
+        'A channel-minute is judged only with this many viewers; thinner minutes are neither failing nor clean.'
+      ),
+      unit: '',
+    },
+    {
+      key: 'minErrUsers',
+      label: t('ai-insider-alerts.rule-min-err-users', 'Min viewers with errors'),
+      description: t(
+        'ai-insider-alerts.rule-min-err-users-desc',
+        'Viewers with a playback error needed in that minute.'
+      ),
+      unit: '',
+    },
     {
       key: 'minErrShare',
       label: t('ai-insider-alerts.rule-min-share', 'Min share with errors'),
+      description: t(
+        'ai-insider-alerts.rule-min-share-desc',
+        "…and they must be at least this share of the minute's viewers. Higher = fewer, surer incidents."
+      ),
       unit: '%',
       percent: true,
     },
-    { key: 'confirmMinutes', label: t('ai-insider-alerts.rule-confirm', 'Failing minutes to confirm'), unit: 'min' },
+    {
+      key: 'confirmMinutes',
+      label: t('ai-insider-alerts.rule-confirm', 'Failing minutes to confirm'),
+      description: t(
+        'ai-insider-alerts.rule-confirm-desc',
+        'Failing minutes before an incident is confirmed (detection). Higher = later but fewer false alarms.'
+      ),
+      unit: 'min',
+    },
     {
       key: 'recoveryMinutes',
       label: t('ai-insider-alerts.rule-recovery', 'Clean minutes to call it back'),
+      description: t(
+        'ai-insider-alerts.rule-recovery-desc',
+        'Minutes watched almost without errors before the channel is called back and "back" is sent.'
+      ),
       unit: 'min',
     },
     {
       key: 'recoveryMinUsers',
       label: t('ai-insider-alerts.rule-recovery-users', 'Clean minute needs at least'),
+      description: t(
+        'ai-insider-alerts.rule-recovery-users-desc',
+        'A minute counts as clean only with this many viewers: an empty channel is not a recovered one.'
+      ),
       unit: t('ai-insider-alerts.unit-viewers', 'viewers'),
     },
     {
       key: 'quietCloseMinutes',
       label: t('ai-insider-alerts.rule-quiet-close', 'No clean viewing: close silently after'),
+      description: t(
+        'ai-insider-alerts.rule-quiet-close-desc',
+        'Nobody watches after the outage: the incident closes after this, without a "back" message.'
+      ),
       unit: 'min',
     },
     {
       key: 'pushDelayMinutes',
       label: t('ai-insider-alerts.rule-push-delay', 'Push only if still failing after'),
+      description: t(
+        'ai-insider-alerts.rule-push-delay-desc',
+        'A push goes out only if the channel still fails this long after detection; shorter blips get the in-player message.'
+      ),
       unit: 'min',
     },
     {
       key: 'cooldownMinutes',
       label: t('ai-insider-alerts.rule-cooldown', 'Do not repeat to a viewer within'),
+      description: t(
+        'ai-insider-alerts.rule-cooldown-desc',
+        'A viewer told about a channel is not told about it again within this time.'
+      ),
       unit: 'min',
     },
     {
       key: 'flapCount',
       label: t('ai-insider-alerts.rule-flap-count', 'Unstable channel: failures'),
+      description: t(
+        'ai-insider-alerts.rule-flap-count-desc',
+        'This many incidents of one channel within the window make it "unstable": one message for the whole series.'
+      ),
       unit: '',
     },
     {
       key: 'flapWindowMinutes',
       label: t('ai-insider-alerts.rule-flap-window', 'Unstable channel: within'),
+      description: t(
+        'ai-insider-alerts.rule-flap-window-desc',
+        'The window for counting failures, and how long the channel must hold before "stable again".'
+      ),
       unit: 'min',
     },
     {
       key: 'providerMinErrUsers',
       label: t('ai-insider-alerts.rule-provider-min', 'Provider-wide: min viewers with errors per 15 min'),
+      description: t(
+        'ai-insider-alerts.rule-provider-min-desc',
+        'Provider-wide surge: at least this many viewers with errors in 15 minutes (any channels).'
+      ),
       unit: '',
     },
     {
       key: 'providerSurgeFactor',
       label: t('ai-insider-alerts.rule-provider-factor', 'Provider-wide: times the usual level'),
+      description: t(
+        'ai-insider-alerts.rule-provider-factor-desc',
+        '…and this many times the usual level at the same time on previous days. Higher = only big outages.'
+      ),
       unit: '×',
     },
     {
       key: 'providerConfirmBuckets',
       label: t('ai-insider-alerts.rule-provider-confirm', 'Provider-wide: 15-min periods to confirm'),
+      description: t(
+        'ai-insider-alerts.rule-provider-confirm-desc',
+        'Surging 15-minute periods in a row before a provider-wide incident is confirmed.'
+      ),
       unit: '',
     },
     {
       key: 'providerBaselineDays',
       label: t('ai-insider-alerts.rule-provider-days', 'Provider-wide: usual level from previous'),
+      description: t(
+        'ai-insider-alerts.rule-provider-days-desc',
+        'Previous days the usual level is taken from (median). The first days of a run have no baseline.'
+      ),
       unit: t('ai-insider-alerts.unit-days', 'days'),
     },
     {
       key: 'providerMinViewerErrors',
       label: t('ai-insider-alerts.rule-provider-viewer', 'Provider-wide push: viewer had at least'),
+      description: t(
+        'ai-insider-alerts.rule-provider-viewer-desc',
+        'Who gets the "service problems" push: viewers with this many errors over 2+ minutes; others get the in-player message.'
+      ),
       unit: t('ai-insider-alerts.unit-errors', 'errors'),
     },
     {
       key: 'apologyWatchMinutes',
       label: t('ai-insider-alerts.rule-apology', 'Apology if watched in the hour before'),
+      description: t(
+        'ai-insider-alerts.rule-apology-desc',
+        'Viewers who watched the channel this long in the hour before the outage get an apology with "back".'
+      ),
       unit: 'min',
     },
     {
       key: 'customerMinChannels',
       label: t('ai-insider-alerts.rule-customer-channels', 'Customer side: min healthy channels failing'),
+      description: t(
+        'ai-insider-alerts.rule-customer-channels-desc',
+        '"Your connection" diagnosis: errors on this many channels that worked for everyone else…'
+      ),
       unit: '',
     },
     {
       key: 'customerMinMinutes',
       label: t('ai-insider-alerts.rule-customer-minutes', 'Customer side: min minutes'),
+      description: t(
+        'ai-insider-alerts.rule-customer-minutes-desc',
+        '…over at least this many minutes. Sent once a day, never during a provider-wide problem.'
+      ),
       unit: 'min',
     },
   ];
@@ -332,7 +422,7 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
     setProgress({ kind: 'export', clock: from, from, to, rows: 0 });
     reportInteraction('analytix_ai_alerts_export_dataset', { hours: Math.round((to - from) / 3600) });
     try {
-      const { blob, gzipped } = await runDatasetExport({
+      const result = await runDatasetExport({
         datasource,
         pids: scope,
         from,
@@ -341,7 +431,21 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
         signal: controller.signal,
         onChunk: (clock, rows) => setProgress((p) => (p ? { ...p, clock, rows } : p)),
       });
-      downloadBlob(blob, exportFileName('dataset', from, to, gzipped ? 'ndjson.gz' : 'ndjson'));
+      const ext = result.gzipped ? 'ndjson.gz' : 'ndjson';
+      if (result.upTo > from) {
+        downloadBlob(result.blob, exportFileName('dataset', from, result.upTo, ext));
+      }
+      if (!result.complete) {
+        // Continue from where it stopped on the next click.
+        update({ from: toUtcInput(result.upTo) });
+        setError(
+          t(
+            'ai-insider-alerts.export-partial',
+            'Export stopped at {{at}} UTC after repeated failures ({{error}}). Every hour before that is saved; "From" is set to {{at}} so the next export continues from there.',
+            { at: formatUtc(result.upTo), error: result.error ?? '' }
+          )
+        );
+      }
     } catch (e) {
       if (!controller.signal.aborted) {
         setError(e instanceof Error ? e.message : String(e));
@@ -494,7 +598,7 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
         >
           <div className={styles.rules}>
             {ruleFields().map((f) => (
-              <Field key={f.key} label={f.label} className={styles.field} noMargin>
+              <Field key={f.key} label={f.label} description={f.description} className={styles.field} noMargin>
                 <Input
                   type="number"
                   min={0}

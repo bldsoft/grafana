@@ -9,6 +9,7 @@ import { DataSourceRef } from '@grafana/data';
 import { runRawQuery } from 'app/features/dashboard-scene/ai-panel/datasourceQuery';
 
 import type { AlertsSnapshot } from './AlertsResults';
+import { isTransientError, withRetry } from './retry';
 import { ALERTS_MAX_RESULT_CHARS, chunks } from './runner';
 import {
   badMinutesSql,
@@ -96,6 +97,8 @@ export interface DatasetOptions {
   rules: AlertRules;
   signal: AbortSignal;
   onChunk: (clock: number, rows: number) => void;
+  /** Pauses between retries of a transient failure (tests pass zeros). */
+  retryDelaysMs?: number[];
 }
 
 type Row = Record<string, unknown>;
@@ -115,32 +118,60 @@ class TruncatedResult extends Error {
  * `err` (viewer-minute with an error), `health` (per channel and hour),
  * `prov` (per provider and 15 minutes: viewers, viewers with errors). A
  * channel keeps its minutes for one more hour after it last qualified, so
- * recoveries that cross an hour boundary stay visible.
+ * recoveries that cross an hour boundary stay visible. The last line is
+ * `{"t":"end","complete":…,"upTo":…}`: an export that hit a persistent
+ * failure still returns every complete hour before it.
  */
-export async function runDatasetExport(opts: DatasetOptions): Promise<{ blob: Blob; gzipped: boolean }> {
-  const run = async (sql: string): Promise<Row[]> => {
-    const result = await runRawQuery(opts.datasource, sql, MAX_ROWS, opts.signal, {
-      maxResultChars: ALERTS_MAX_RESULT_CHARS,
-    });
-    if (result.truncated) {
-      throw new TruncatedResult();
-    }
-    return result.data;
-  };
+export interface DatasetResult {
+  blob: Blob;
+  gzipped: boolean;
+  /** False when a query kept failing: the file holds everything before `upTo`. */
+  complete: boolean;
+  /** End of the last hour written to the file. */
+  upTo: number;
+  error?: string;
+}
+
+export async function runDatasetExport(opts: DatasetOptions): Promise<DatasetResult> {
+  const delays = opts.retryDelaysMs;
+  const run = (sql: string): Promise<Row[]> =>
+    withRetry(
+      async () => {
+        const result = await runRawQuery(opts.datasource, sql, MAX_ROWS, opts.signal, {
+          maxResultChars: ALERTS_MAX_RESULT_CHARS,
+        });
+        if (result.truncated) {
+          throw new TruncatedResult();
+        }
+        return result.data;
+      },
+      opts.signal,
+      delays
+    );
   /**
-   * Viewer-level results of a busy hour (an outage across all providers) can
-   * outgrow one response: a cut result is re-read as two half windows, down
-   * to single minutes, so the dataset never silently loses the busiest part.
+   * A window that is cut (too large) or keeps failing (the proxy times out on
+   * a busy hour) is re-read as two halves, down to `step` seconds, so one
+   * heavy hour neither loses rows nor stops the export. `step` keeps the
+   * halves aligned to the query's own grouping (15 minutes for providers).
    */
-  const runSplit = async (make: (from: number, to: number) => string, from: number, to: number): Promise<Row[]> => {
+  const runSplit = async (
+    make: (from: number, to: number) => string,
+    from: number,
+    to: number,
+    step = 60
+  ): Promise<Row[]> => {
     try {
       return await run(make(from, to));
     } catch (e) {
-      if (!(e instanceof TruncatedResult) || to - from <= 60) {
-        throw e instanceof TruncatedResult ? new Error('A one-minute result is still too large to export.') : e;
+      const truncated = e instanceof TruncatedResult;
+      // A cut result is split down to single steps; a failing proxy only down
+      // to 15 minutes, so a hour that keeps failing gives up in minutes.
+      const floor = truncated ? step : Math.max(step, 900);
+      if (!(truncated || isTransientError(e)) || opts.signal.aborted || to - from <= floor) {
+        throw e instanceof TruncatedResult ? new Error('A single-step result is still too large to export.') : e;
       }
-      const mid = from + Math.max(60, Math.floor((to - from) / 120) * 60);
-      return [...(await runSplit(make, from, mid)), ...(await runSplit(make, mid, to))];
+      const mid = from + Math.max(step, Math.floor((to - from) / (2 * step)) * step);
+      return [...(await runSplit(make, from, mid, step)), ...(await runSplit(make, mid, to, step))];
     }
   };
   const columns = new Map<string, string[]>();
@@ -168,37 +199,51 @@ export async function runDatasetExport(opts: DatasetOptions): Promise<{ blob: Bl
   const discovery: AlertRules = { ...opts.rules, minUsers: 1, minErrUsers: DATASET_MIN_ERR_USERS, minErrShare: 0 };
   let previous = new Map<string, ChannelKey>();
   let rows = 0;
+  let upTo = opts.from;
+  let error: string | undefined;
 
   for (const [from, to] of chunks(opts.from, opts.to, 3600)) {
     if (opts.signal.aborted) {
       throw new Error('Export cancelled.');
     }
-    const [bad, errors, health, providers] = await Promise.all([
-      run(badMinutesSql(from, to, opts.pids, discovery)),
-      runSplit((f, t) => userErrorsSql(f, t, opts.pids), from, to),
-      run(channelHealthSql(from, to, opts.pids)),
-      run(providerBucketsSql(from, to, opts.pids)),
-    ]);
-    const current = new Map<string, ChannelKey>();
-    for (const r of bad) {
-      const key = { pid: String(r.pid ?? ''), cid: String(r.cid ?? '') };
-      if (/^[A-Za-z0-9_-]+$/.test(key.pid) && /^[A-Za-z0-9_-]+$/.test(key.cid)) {
-        current.set(`${key.pid}|${key.cid}`, key);
+    try {
+      // One query at a time: the export is offline work, and four heavy
+      // all-provider queries at once on a peak hour is what times the proxy out.
+      const bad = await runSplit((f, t) => badMinutesSql(f, t, opts.pids, discovery), from, to);
+      const errors = await runSplit((f, t) => userErrorsSql(f, t, opts.pids), from, to);
+      const health = await run(channelHealthSql(from, to, opts.pids));
+      const providers = await runSplit((f, t) => providerBucketsSql(f, t, opts.pids), from, to, 900);
+      const current = new Map<string, ChannelKey>();
+      for (const r of bad) {
+        const key = { pid: String(r.pid ?? ''), cid: String(r.cid ?? '') };
+        if (/^[A-Za-z0-9_-]+$/.test(key.pid) && /^[A-Za-z0-9_-]+$/.test(key.cid)) {
+          current.set(`${key.pid}|${key.cid}`, key);
+        }
       }
-    }
-    const followed = [...new Map([...previous, ...current]).values()];
-    for (let i = 0; i < followed.length; i += CHANNELS_BATCH) {
-      const batch = followed.slice(i, i + CHANNELS_BATCH);
-      const minutes = await runSplit((f, t) => channelMinutesSql(f, t, opts.pids, batch), from, to);
+      const followed = [...new Map([...previous, ...current]).values()];
+      const minutes: Row[] = [];
+      for (let i = 0; i < followed.length; i += CHANNELS_BATCH) {
+        const batch = followed.slice(i, i + CHANNELS_BATCH);
+        minutes.push(...(await runSplit((f, t) => channelMinutesSql(f, t, opts.pids, batch), from, to)));
+      }
+      // The hour is written only once every query of it succeeded.
       minutes.forEach((r) => emit('min', r));
-      rows += minutes.length;
+      errors.forEach((r) => emit('err', r));
+      health.forEach((r) => emit('health', { chunk_from: from, chunk_to: to, ...r }));
+      providers.forEach((r) => emit('prov', r));
+      rows += minutes.length + errors.length + health.length + providers.length;
+      previous = current;
+      upTo = to;
+      opts.onChunk(to, rows);
+    } catch (e) {
+      if (opts.signal.aborted) {
+        throw new Error('Export cancelled.');
+      }
+      error = e instanceof Error ? e.message : String(e);
+      break;
     }
-    errors.forEach((r) => emit('err', r));
-    health.forEach((r) => emit('health', { chunk_from: from, chunk_to: to, ...r }));
-    providers.forEach((r) => emit('prov', r));
-    rows += errors.length + health.length + providers.length;
-    previous = current;
-    opts.onChunk(to, rows);
   }
-  return packText(parts, 'application/x-ndjson');
+  parts.push(JSON.stringify({ t: 'end', complete: error === undefined, upTo, error: error ?? null }) + '\n');
+  const packed = await packText(parts, 'application/x-ndjson');
+  return { ...packed, complete: error === undefined, upTo, error };
 }

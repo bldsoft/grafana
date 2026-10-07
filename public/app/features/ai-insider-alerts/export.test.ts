@@ -96,4 +96,55 @@ describe('runDatasetExport', () => {
       .filter((l) => Array.isArray(l) && l[0] === 'err');
     expect(errRows).toHaveLength(60);
   });
+
+  it('retries a 502 from the proxy and keeps going', async () => {
+    let failures = 2;
+    runRawQuery.mockImplementation((_ds: unknown, sql: string) => {
+      if (sql.includes('GROUP BY minute, pid, cid, user_id') && failures > 0) {
+        failures -= 1;
+        return Promise.reject(new Error('error querying the database: 502 Bad Gateway'));
+      }
+      return Promise.resolve({ data: answer(sql), truncated: false });
+    });
+    const result = await runDatasetExport({
+      datasource: { uid: 'ch', type: 'grafana-clickhouse-datasource' },
+      pids: ['222'],
+      from: H0,
+      to: H0 + 2 * 3600,
+      rules: DEFAULT_RULES,
+      signal: new AbortController().signal,
+      onChunk: () => {},
+      retryDelaysMs: [0, 0, 0],
+    });
+    expect(result.complete).toBe(true);
+    expect(result.upTo).toBe(H0 + 2 * 3600);
+  });
+
+  it('saves every complete hour when a query keeps failing, and says where it stopped', async () => {
+    runRawQuery.mockImplementation((_ds: unknown, sql: string) => {
+      const from = Number(/event_timestamp >= toDateTime\((\d+)\)/.exec(sql)?.[1]);
+      if (from >= H0 + 3600) {
+        return Promise.reject(new Error('502 Bad Gateway'));
+      }
+      return Promise.resolve({ data: answer(sql), truncated: false });
+    });
+    const result = await runDatasetExport({
+      datasource: { uid: 'ch', type: 'grafana-clickhouse-datasource' },
+      pids: ['222'],
+      from: H0,
+      to: H0 + 3 * 3600,
+      rules: DEFAULT_RULES,
+      signal: new AbortController().signal,
+      onChunk: () => {},
+      retryDelaysMs: [0],
+    });
+    expect(result).toMatchObject({ complete: false, upTo: H0 + 3600 });
+    expect(result.error).toContain('502');
+    const lines = (await result.blob.text())
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l));
+    expect(lines[lines.length - 1]).toMatchObject({ t: 'end', complete: false, upTo: H0 + 3600 });
+    expect(lines.filter((l) => Array.isArray(l) && l[0] === 'err')).toHaveLength(1);
+  });
 });

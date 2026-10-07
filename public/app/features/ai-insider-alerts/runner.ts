@@ -8,6 +8,7 @@ import { DataSourceRef } from '@grafana/data';
 import { runRawQuery } from 'app/features/dashboard-scene/ai-panel/datasourceQuery';
 
 import { AlertEngine } from './engine';
+import { withRetry } from './retry';
 import {
   affectedUsersSql,
   badMinutesSql,
@@ -165,9 +166,10 @@ export function chunks(from: number, to: number, step: number): Array<[number, n
 export const ALERTS_MAX_RESULT_CHARS = 64_000_000;
 
 async function query(opts: RunOptions, sql: string): Promise<Row[]> {
-  const result = await runRawQuery(opts.datasource, sql, MAX_ROWS, opts.signal, {
-    maxResultChars: ALERTS_MAX_RESULT_CHARS,
-  });
+  const result = await withRetry(
+    () => runRawQuery(opts.datasource, sql, MAX_ROWS, opts.signal, { maxResultChars: ALERTS_MAX_RESULT_CHARS }),
+    opts.signal
+  );
   if (result.truncated) {
     throw new Error(
       `A query returned more than ${MAX_ROWS} rows and was cut. Narrow the providers or use the 15 min step.`
