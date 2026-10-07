@@ -71,4 +71,10 @@ describe('provider scope', () => {
     expect(effectiveScope(['111', '222'], '222, 333')).toEqual(['222']);
     expect(effectiveScope([], '111')).toEqual([]);
   });
+
+  it('reads "all" and "*" in the filter as every provider in scope', () => {
+    expect(effectiveScope(null, 'All')).toBeNull();
+    expect(effectiveScope(['111', '222'], '*')).toEqual(['111', '222']);
+    expect(effectiveScope(null, '111 222')).toEqual(['111', '222']);
+  });
 });

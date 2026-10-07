@@ -63,6 +63,7 @@ function snapshot(): AlertsSnapshot {
     decisions: engine.getDecisions(),
     customer: engine.getCustomerSide(),
     dead: engine.getDeadChannels(),
+    channels: engine.getChannelReport(),
     groups: engine.getGroups(),
     blips: engine.blipCount,
     classOf: (i) => engine.incidentClass(i),

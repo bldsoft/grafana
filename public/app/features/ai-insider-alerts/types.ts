@@ -36,6 +36,13 @@ export interface AlertRules {
   pushDelayMinutes: number;
   /** A viewer told about a channel is not told again about it within this window. */
   cooldownMinutes: number;
+  /**
+   * A channel that confirms this many incidents within flapWindowMinutes is
+   * "unstable": its viewers get one message for the whole series, not one per
+   * failure, and one "stable again" once it has held for the window.
+   */
+  flapCount: number;
+  flapWindowMinutes: number;
   /** Viewers who watched the channel this long in the hour before get an apology. */
   apologyWatchMinutes: number;
   /** Customer-side diagnosis: errors on at least this many healthy channels... */
@@ -54,6 +61,8 @@ export const DEFAULT_RULES: AlertRules = {
   quietCloseMinutes: 60,
   pushDelayMinutes: 3,
   cooldownMinutes: 60,
+  flapCount: 3,
+  flapWindowMinutes: 120,
   apologyWatchMinutes: 10,
   customerMinChannels: 3,
   customerMinMinutes: 3,
@@ -129,7 +138,7 @@ export interface ErrorVolumeRow {
   userErrMinutes: number;
 }
 
-export type IncidentClass = 'push' | 'in_app' | 'chronic' | 'pending';
+export type IncidentClass = 'push' | 'in_app' | 'chronic' | 'pending' | 'unstable';
 
 export interface Incident {
   id: string;
@@ -170,11 +179,15 @@ export interface Incident {
   chronic: boolean;
   /** Previous incident on the same channel inside the cooldown window. */
   reopenOf?: string;
+  /** Part of an unstable-channel series (see AlertRules.flapCount). */
+  unstable: boolean;
+  /** The unstable series this incident belongs to. */
+  episodeId?: string;
   /** Correlation group shared with incidents of the same source or origin. */
   groupId?: string;
 }
 
-export type DecisionKind = 'down' | 'back' | 'apology' | 'in_app' | 'suppressed' | 'diagnosis';
+export type DecisionKind = 'down' | 'unstable' | 'back' | 'apology' | 'in_app' | 'suppressed' | 'diagnosis';
 
 export interface Decision {
   kind: DecisionKind;
@@ -208,13 +221,39 @@ export interface DeadChannel {
   lastSeen: number;
 }
 
+/** One channel across the whole run, for the ops report. */
+export interface ChannelReportRow {
+  pid: string;
+  provider: string;
+  cid: string;
+  title: string;
+  incidents: number;
+  /** Distinct UTC days with an incident. */
+  days: number;
+  failingMinutes: number;
+  /** Sum of viewers hit per incident (a viewer hit twice counts twice). */
+  viewersHit: number;
+  pushIncidents: number;
+  unstableIncidents: number;
+  /** Incidents where nearly everyone failed and nobody watched afterwards. */
+  offAir: number;
+  dead: boolean;
+  topPath: string;
+  topPlatform: string;
+  topCode: string;
+  firstStart: number;
+  lastStart: number;
+}
+
 export interface AlertSummary {
   incidents: number;
   pushIncidents: number;
+  unstableIncidents: number;
   inAppIncidents: number;
   chronicIncidents: number;
   openIncidents: number;
   down: number;
+  unstable: number;
   back: number;
   apology: number;
   inApp: number;

@@ -139,6 +139,59 @@ describe('AlertEngine', () => {
     expect(engine.getDecisions().map((d) => d.kind)).toEqual(['down', 'suppressed']);
   });
 
+  it('turns a channel that keeps failing into one unstable series with one message and one "stable again"', () => {
+    const engine = new AlertEngine(DEFAULT_RULES);
+    // Four outages 20 minutes apart, each with a clean recovery.
+    const starts = [0, 20, 40, 60];
+    const rows = starts.flatMap((s) => [
+      ...range(s, s + 6).map((i) => bad(i)),
+      ...range(s + 6, s + 11).map((i) => clean(i)),
+    ]);
+    run(engine, rows, T0 + 300 * MIN, (id) => {
+      const inc = engine.getIncidents().find((i) => i.id === id)!;
+      const start = (inc.start - T0) / MIN;
+      return [user('AA-111-111', inc.start), ...(start === 40 ? [user('BB-222-222', inc.start)] : [])];
+    });
+
+    const incidents = engine.getIncidents().sort((a, b) => a.start - b.start);
+    expect(incidents.map((i) => engine.incidentClass(i))).toEqual(['push', 'push', 'unstable', 'unstable']);
+    expect(incidents[2].episodeId).toBe(incidents[3].episodeId);
+
+    const forUser = (u: string) =>
+      engine
+        .getDecisions()
+        .filter((d) => d.userId === u && !d.reason.includes('repeated errors'))
+        .map((d) => `${d.kind}:${(d.at - T0) / MIN}`);
+    // Told once per incident 1, held back on 2 (cooldown), one "unstable" for
+    // the series, held back on 4, "stable again" 120 min after the last close.
+    expect(forUser('AA-111-111')).toEqual([
+      'down:5',
+      'back:11',
+      'suppressed:25',
+      'unstable:42',
+      'suppressed:62',
+      'back:191',
+    ]);
+    expect(forUser('BB-222-222')).toEqual(['unstable:42', 'back:191']);
+
+    const [report] = engine.getChannelReport();
+    expect(report).toMatchObject({ incidents: 4, unstableIncidents: 2, pushIncidents: 2, days: 1, failingMinutes: 24 });
+  });
+
+  it('tells a viewer once about an outage that takes down several channels of one origin', () => {
+    const engine = new AlertEngine(DEFAULT_RULES);
+    const channel = (cid: string, title: string) => [
+      ...range(0, 10).map((i) => bad(i, { cid, title, topPath: `prn2/10008/live/hls/${title}` })),
+      ...range(10, 15).map((i) => clean(i, { cid, title })),
+    ];
+    run(engine, [...channel('1', 'news24'), ...channel('2', 'topnews')], T0 + 60 * MIN, () => [
+      user('AA-111-111', T0, { errEvents: 1 }),
+    ]);
+
+    expect(engine.getGroups()).toHaveLength(1);
+    expect(engine.getDecisions().map((d) => d.kind)).toEqual(['down', 'suppressed', 'back']);
+  });
+
   it('drops a single failing minute as noise', () => {
     const engine = new AlertEngine(DEFAULT_RULES);
     run(engine, [bad(0)], T0 + 30 * MIN, () => []);

@@ -29,6 +29,8 @@ export function classColor(theme: GrafanaTheme2, cls: IncidentClass): string {
       return theme.colors.warning.main;
     case 'pending':
       return theme.colors.info.main;
+    case 'unstable':
+      return theme.visualization.getColorByName('purple');
     default:
       return theme.colors.text.disabled;
   }

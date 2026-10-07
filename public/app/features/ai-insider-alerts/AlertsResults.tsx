@@ -23,6 +23,7 @@ import { decisionsToCsv, formatCount, formatMinutes, formatUtc, formatUtcTime } 
 import type {
   AffectedUserRow,
   AlertSummary,
+  ChannelReportRow,
   CorrelationGroup,
   CustomerSideRow,
   DeadChannel,
@@ -39,6 +40,7 @@ export interface AlertsSnapshot {
   decisions: Decision[];
   customer: CustomerSideRow[];
   dead: DeadChannel[];
+  channels: ChannelReportRow[];
   groups: CorrelationGroup[];
   blips: number;
   classOf: (incident: Incident) => IncidentClass;
@@ -47,7 +49,7 @@ export interface AlertsSnapshot {
   to: number;
 }
 
-type TabId = 'incidents' | 'messages' | 'customer' | 'dead';
+type TabId = 'incidents' | 'messages' | 'ops' | 'customer' | 'dead';
 type KindFilter = DecisionKind | 'all';
 
 const LOG_LIMIT = 300;
@@ -73,6 +75,15 @@ function classBadge(cls: IncidentClass): { text: string; color: BadgeColor; tool
           'Recovered before a push was due: message in the player on retry only'
         ),
       };
+    case 'unstable':
+      return {
+        text: t('ai-insider-alerts.class-unstable', 'Unstable'),
+        color: 'purple',
+        tooltip: t(
+          'ai-insider-alerts.class-unstable-tip',
+          'The channel keeps failing: one "unstable" message for the whole series, then "stable again"'
+        ),
+      };
     case 'chronic':
       return {
         text: t('ai-insider-alerts.class-chronic', 'Chronic'),
@@ -95,10 +106,12 @@ function kindBadge(kind: DecisionKind): { text: string; color: BadgeColor } {
   switch (kind) {
     case 'down':
       return { text: t('ai-insider-alerts.kind-down', 'Channel down'), color: 'red' };
+    case 'unstable':
+      return { text: t('ai-insider-alerts.kind-unstable', 'Unstable'), color: 'purple' };
     case 'back':
       return { text: t('ai-insider-alerts.kind-back', 'Back'), color: 'green' };
     case 'apology':
-      return { text: t('ai-insider-alerts.kind-apology', 'Apology'), color: 'purple' };
+      return { text: t('ai-insider-alerts.kind-apology', 'Apology'), color: 'brand' };
     case 'in_app':
       return { text: t('ai-insider-alerts.kind-in-app', 'In player'), color: 'orange' };
     case 'suppressed':
@@ -124,7 +137,7 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
   const [expanded, setExpanded] = useState<string | undefined>();
   const { summary } = snapshot;
 
-  const sent = summary.down + summary.back + summary.apology + summary.inApp + summary.diagnoses;
+  const sent = summary.down + summary.unstable + summary.back + summary.apology + summary.inApp + summary.diagnoses;
   const ratio = sent > 0 ? summary.naiveErrEvents / sent : undefined;
 
   const selectIncident = (id: string) => {
@@ -141,9 +154,10 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
           value={formatCount(summary.incidents)}
           detail={t(
             'ai-insider-alerts.tile-incidents-detail',
-            '{{push}} push · {{inApp}} in player · {{chronic}} chronic · {{open}} open',
+            '{{push}} push · {{unstable}} unstable · {{inApp}} in player · {{chronic}} chronic · {{open}} open',
             {
               push: summary.pushIncidents,
+              unstable: summary.unstableIncidents,
               inApp: summary.inAppIncidents,
               chronic: summary.chronicIncidents,
               open: summary.openIncidents,
@@ -152,11 +166,16 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
         />
         <Tile
           label={t('ai-insider-alerts.tile-down', '"Channel down" pushes')}
-          value={formatCount(summary.down)}
-          detail={t('ai-insider-alerts.tile-down-detail', '{{back}} "back" · {{apology}} apologies', {
-            back: formatCount(summary.back),
-            apology: formatCount(summary.apology),
-          })}
+          value={formatCount(summary.down + summary.unstable)}
+          detail={t(
+            'ai-insider-alerts.tile-down-detail',
+            '{{unstable}} "unstable" · {{back}} "back" · {{apology}} apologies',
+            {
+              unstable: formatCount(summary.unstable),
+              back: formatCount(summary.back),
+              apology: formatCount(summary.apology),
+            }
+          )}
         />
         <Tile
           label={t('ai-insider-alerts.tile-in-app', 'In-player messages')}
@@ -209,6 +228,12 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
             onChangeTab={() => setTab('messages')}
           />
           <Tab
+            label={t('ai-insider-alerts.tab-ops', 'Ops report')}
+            counter={snapshot.channels.length}
+            active={tab === 'ops'}
+            onChangeTab={() => setTab('ops')}
+          />
+          <Tab
             label={t('ai-insider-alerts.tab-customer', 'Customer side')}
             counter={snapshot.customer.length}
             active={tab === 'customer'}
@@ -229,6 +254,7 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
           <IncidentsTab snapshot={snapshot} expanded={expanded} onToggle={setExpanded} onSelect={selectIncident} />
         )}
         {tab === 'messages' && <MessagesTab decisions={snapshot.decisions} onSelect={selectIncident} />}
+        {tab === 'ops' && <OpsTab rows={snapshot.channels} />}
         {tab === 'customer' && <CustomerTab rows={snapshot.customer} />}
         {tab === 'dead' && <DeadTab rows={snapshot.dead} />}
       </div>
@@ -570,6 +596,7 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
   const options: Array<{ label: string; value: KindFilter }> = [
     { label: t('ai-insider-alerts.filter-all', 'All'), value: 'all' },
     { label: kindBadge('down').text, value: 'down' },
+    { label: kindBadge('unstable').text, value: 'unstable' },
     { label: kindBadge('back').text, value: 'back' },
     { label: kindBadge('apology').text, value: 'apology' },
     { label: kindBadge('in_app').text, value: 'in_app' },
@@ -718,6 +745,106 @@ function CustomerTab({ rows }: { rows: CustomerSideRow[] }) {
                   {formatUtc(r.firstMinute)} – {formatUtcTime(r.lastMinute + 60)}
                 </td>
                 <td className={styles.mono}>{r.topCode}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+function OpsTab({ rows }: { rows: ChannelReportRow[] }) {
+  const styles = useStyles2(getStyles);
+  if (!rows.length) {
+    return (
+      <p className={styles.empty}>
+        <Trans i18nKey="ai-insider-alerts.no-ops">No channel had an incident.</Trans>
+      </p>
+    );
+  }
+  return (
+    <>
+      <div className={styles.legend}>
+        <Trans i18nKey="ai-insider-alerts.ops-legend">
+          Channels across the whole run, for the operator&apos;s team rather than viewers: what keeps failing, on how
+          many days, where (stream path, platform, code), and which look off-air rather than broken.
+        </Trans>
+      </div>
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-channel">Provider · channel</Trans>
+              </th>
+              <th className={styles.num}>
+                <Trans i18nKey="ai-insider-alerts.col-incidents">Incidents</Trans>
+              </th>
+              <th className={styles.num}>
+                <Trans i18nKey="ai-insider-alerts.col-days">Days</Trans>
+              </th>
+              <th className={styles.num}>
+                <Trans i18nKey="ai-insider-alerts.col-failing-minutes">Failing minutes</Trans>
+              </th>
+              <th className={styles.num}>
+                <Trans i18nKey="ai-insider-alerts.col-viewers">Viewers hit</Trans>
+              </th>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-flags">Flags</Trans>
+              </th>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-evidence">Evidence</Trans>
+              </th>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-seen-range">First – last (UTC)</Trans>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={`${r.pid}-${r.cid}`}>
+                <td>
+                  <strong>{r.title || r.cid}</strong>
+                  <span className={styles.sub}>{r.provider ? `${r.pid} ${r.provider}` : r.pid}</span>
+                </td>
+                <td className={styles.num}>
+                  {r.incidents}
+                  <span className={styles.sub}>
+                    {t('ai-insider-alerts.ops-push-count', '{{count}} push', { count: r.pushIncidents })}
+                  </span>
+                </td>
+                <td className={styles.num}>{r.days}</td>
+                <td className={styles.num}>{formatCount(r.failingMinutes)}</td>
+                <td className={styles.num}>{formatCount(r.viewersHit)}</td>
+                <td>
+                  <div className={styles.flags}>
+                    {r.days >= 2 && <Badge text={t('ai-insider-alerts.flag-recurring', 'Recurring')} color="red" />}
+                    {r.unstableIncidents > 0 && (
+                      <Badge text={t('ai-insider-alerts.flag-unstable', 'Unstable')} color="purple" />
+                    )}
+                    {r.offAir > 0 && (
+                      <Badge
+                        text={t('ai-insider-alerts.flag-off-air', 'Off-air?')}
+                        color="darkgrey"
+                        tooltip={t(
+                          'ai-insider-alerts.flag-off-air-tip',
+                          'Nearly everyone failed and nobody watched afterwards: maybe the broadcast ended'
+                        )}
+                      />
+                    )}
+                    {r.dead && <Badge text={t('ai-insider-alerts.flag-dead', 'Dead')} color="darkgrey" />}
+                  </div>
+                </td>
+                <td className={styles.evidence}>
+                  <span className={styles.mono}>{r.topPath || '—'}</span>
+                  <span className={styles.sub}>
+                    {r.topPlatform} · {r.topCode}
+                  </span>
+                </td>
+                <td>
+                  {formatUtc(r.firstStart)} – {formatUtc(r.lastStart)}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -901,6 +1028,11 @@ const getStyles = (theme: GrafanaTheme2) => ({
     fontFamily: theme.typography.fontFamilyMonospace,
     fontSize: 12,
     wordBreak: 'break-all',
+  }),
+  flags: css({
+    display: 'flex',
+    flexWrap: 'wrap',
+    gap: 4,
   }),
   evidence: css({
     maxWidth: 340,

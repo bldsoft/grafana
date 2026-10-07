@@ -16,9 +16,13 @@ export function parseProviderScope(providerIds: string): ProviderScope {
   return sanitizePids(value.split(','));
 }
 
+/** Words people type to mean "every provider": treated like an empty filter. */
+const ALL_WORDS = new Set(['*', 'all', 'все', 'всё']);
+
 /** Intersects the org scope with the PIDs typed into the page filter. */
 export function effectiveScope(orgScope: ProviderScope, filter: string): ProviderScope {
-  const wanted = sanitizePids(filter.split(','));
+  const tokens = filter.split(/[,\s;]+/).filter((p) => !ALL_WORDS.has(p.trim().toLowerCase()));
+  const wanted = sanitizePids(tokens);
   if (!wanted.length) {
     return orgScope;
   }

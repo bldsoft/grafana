@@ -102,6 +102,16 @@ function ruleFields(): RuleField[] {
       unit: 'min',
     },
     {
+      key: 'flapCount',
+      label: t('ai-insider-alerts.rule-flap-count', 'Unstable channel: failures'),
+      unit: '',
+    },
+    {
+      key: 'flapWindowMinutes',
+      label: t('ai-insider-alerts.rule-flap-window', 'Unstable channel: within'),
+      unit: 'min',
+    },
+    {
       key: 'apologyWatchMinutes',
       label: t('ai-insider-alerts.rule-apology', 'Apology if watched in the hour before'),
       unit: 'min',
@@ -158,6 +168,7 @@ function snapshotOf(engine: AlertEngine, from: number, to: number): AlertsSnapsh
     decisions: engine.getDecisions(),
     customer: engine.getCustomerSide(),
     dead: engine.getDeadChannels(),
+    channels: engine.getChannelReport(),
     groups: engine.getGroups(),
     blips: engine.blipCount,
     classOf: (i) => engine.incidentClass(i),
@@ -413,7 +424,7 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
             noMargin
           >
             <Input
-              placeholder={t('ai-insider-alerts.providers-placeholder', 'All in scope, or ids: 111, 222')}
+              placeholder={t('ai-insider-alerts.providers-placeholder', 'Empty = all in scope, or ids: 111, 222')}
               value={settings.providers}
               onChange={(e) => update({ providers: e.currentTarget.value })}
               disabled={running}

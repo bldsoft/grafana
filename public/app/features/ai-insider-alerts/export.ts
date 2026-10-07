@@ -74,6 +74,7 @@ export async function exportRun(snapshot: AlertsSnapshot, meta: ExportMeta) {
     decisions: snapshot.decisions,
     customerSide: snapshot.customer,
     deadChannels: snapshot.dead,
+    channelReport: snapshot.channels,
   };
   const { blob, gzipped } = await packText([JSON.stringify(doc)], 'application/json');
   downloadBlob(blob, exportFileName('run', meta.from, meta.to, gzipped ? 'json.gz' : 'json'));

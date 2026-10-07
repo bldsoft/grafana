@@ -12,6 +12,7 @@ import type {
   AlertSummary,
   BadMinuteRow,
   ChannelHealthRow,
+  ChannelReportRow,
   CorrelationGroup,
   CustomerSideRow,
   DeadChannel,
@@ -191,6 +192,7 @@ export class AlertEngine {
 
     if (inc.detectedAt === undefined && inc.badMinutes >= Math.max(1, r.confirmMinutes)) {
       inc.detectedAt = row.minute + MIN;
+      this.markUnstable(inc);
     }
     if (
       inc.detectedAt !== undefined &&
@@ -237,9 +239,44 @@ export class AlertEngine {
       platforms: {},
       codes: {},
       chronic: false,
+      unstable: false,
       cleanStreak: 0,
       reopenOf: reopen,
     };
+  }
+
+  /**
+   * A confirmed incident on a channel that already failed recently joins (or
+   * starts) an unstable series: either the previous incident is in a series
+   * that has not settled for the flap window yet, or this is the flapCount-th
+   * confirmed incident inside the window.
+   */
+  private markUnstable(inc: Incident) {
+    const window = Math.max(1, this.rules.flapWindowMinutes) * MIN;
+    const previous = this.incidents.filter(
+      (i) => i !== inc && i.pid === inc.pid && i.cid === inc.cid && i.detectedAt !== undefined && i.start < inc.start
+    );
+    const last = previous[previous.length - 1];
+    if (last?.episodeId && inc.start - (last.closedAt ?? last.lastBad + MIN) <= window) {
+      inc.unstable = true;
+      inc.episodeId = last.episodeId;
+      return;
+    }
+    const recent = previous.filter((i) => i.start >= inc.start - window);
+    if (recent.length + 1 >= Math.max(2, this.rules.flapCount)) {
+      inc.unstable = true;
+      inc.episodeId = `ep-${inc.id}`;
+    }
+  }
+
+  /** When an unstable series settled (no failure for the flap window), or undefined while it has not. */
+  private episodeEnd(episodeId: string): number | undefined {
+    const members = this.incidents.filter((i) => i.episodeId === episodeId);
+    if (!members.length || members.some((i) => i.closedAt === undefined)) {
+      return undefined;
+    }
+    const end = Math.max(...members.map((i) => i.closedAt!)) + Math.max(1, this.rules.flapWindowMinutes) * MIN;
+    return end <= this.clock ? end : undefined;
   }
 
   /**
@@ -370,6 +407,9 @@ export class AlertEngine {
     if (inc.chronic) {
       return 'chronic';
     }
+    if (inc.unstable) {
+      return 'unstable';
+    }
     if (inc.escalatedAt !== undefined) {
       return 'push';
     }
@@ -409,17 +449,33 @@ export class AlertEngine {
   getDecisions(): Decision[] {
     const r = this.rules;
     const decisions: Decision[] = [];
-    const lastDown = new Map<string, number>();
+    const cooldown = r.cooldownMinutes * MIN;
+    /** Last "down"/"unstable" per viewer and channel, and per viewer and outage group. */
+    const told = new Map<string, number>();
+    /** Viewers told about an outage group: their single "back" waits for the whole group. */
+    const groupTold = new Map<string, { seen: Decision; watchedBeforeSec: number }>();
+    /** Viewers told a channel is unstable: one "stable again" when the series settles. */
+    const episodeTold = new Map<string, Decision>();
+    const groups = this.groupOf();
     const confirmed = this.incidents
       .filter((i) => i.detectedAt !== undefined)
       .sort((a, b) => (a.detectedAt ?? 0) - (b.detectedAt ?? 0));
+    const byId = new Map(confirmed.map((i) => [i.id, i]));
 
     for (const inc of confirmed) {
       const detectedAt = inc.detectedAt!;
       const provider = this.providerName(inc.pid);
       const base = { pid: inc.pid, provider, cid: inc.cid, title: inc.title, incidentId: inc.id };
+      const groupId = groups.get(inc.id);
       for (const user of this.affected.get(inc.id) ?? []) {
-        const seen = { ...base, userId: user.userId, platform: user.platform };
+        const seen: Decision = {
+          ...base,
+          userId: user.userId,
+          platform: user.platform,
+          kind: 'down',
+          at: 0,
+          reason: '',
+        };
         if (inc.chronic) {
           if (user.lastErr >= detectedAt) {
             decisions.push({
@@ -431,6 +487,26 @@ export class AlertEngine {
           }
           continue;
         }
+        const channelKeyOf = `ch|${inc.pid}|${inc.cid}|${user.userId}`;
+
+        if (inc.unstable && inc.episodeId) {
+          const at = Math.max(user.firstErr, detectedAt);
+          const key = `${inc.episodeId}|${user.userId}`;
+          if (episodeTold.has(key)) {
+            decisions.push({ ...seen, kind: 'suppressed', at, reason: 'Already told the channel is unstable' });
+            continue;
+          }
+          episodeTold.set(key, seen);
+          told.set(channelKeyOf, at);
+          decisions.push({
+            ...seen,
+            kind: 'unstable',
+            at,
+            reason: `Channel unstable: ${r.flapCount}+ failures within ${r.flapWindowMinutes} min, being fixed`,
+          });
+          continue;
+        }
+
         if (inc.escalatedAt === undefined) {
           if (user.lastErr >= detectedAt) {
             decisions.push({
@@ -445,10 +521,11 @@ export class AlertEngine {
           }
           continue;
         }
+
         const at = Math.max(user.firstErr, inc.escalatedAt);
-        const key = `${inc.pid}|${inc.cid}|${user.userId}`;
-        const previous = lastDown.get(key);
-        if (previous !== undefined && at - previous < r.cooldownMinutes * MIN) {
+        const groupKey = groupId ? `grp|${groupId}|${user.userId}` : undefined;
+        const previous = told.get(channelKeyOf);
+        if (previous !== undefined && at - previous < cooldown) {
           decisions.push({
             ...seen,
             kind: 'suppressed',
@@ -457,8 +534,28 @@ export class AlertEngine {
           });
           continue;
         }
-        lastDown.set(key, at);
-        decisions.push({ ...seen, kind: 'down', at, reason: 'Channel down on the operator side, being fixed' });
+        if (groupKey && told.has(groupKey)) {
+          decisions.push({
+            ...seen,
+            kind: 'suppressed',
+            at,
+            reason: 'Already told about the outage that took down several channels at once',
+          });
+          continue;
+        }
+        told.set(channelKeyOf, at);
+        if (groupKey) {
+          told.set(groupKey, at);
+          groupTold.set(groupKey, { seen, watchedBeforeSec: user.watchedBeforeSec });
+        }
+        decisions.push({
+          ...seen,
+          kind: 'down',
+          at,
+          reason: groupKey
+            ? 'Several channels down at once on the operator side, being fixed'
+            : 'Channel down on the operator side, being fixed',
+        });
         if (user.errEvents > 1) {
           decisions.push({
             ...seen,
@@ -467,7 +564,7 @@ export class AlertEngine {
             reason: `${user.errEvents - 1} repeated errors in the same incident, no new message`,
           });
         }
-        if (inc.closedAt !== undefined && inc.recovered) {
+        if (!groupKey && inc.closedAt !== undefined && inc.recovered) {
           decisions.push({
             ...seen,
             kind: 'back',
@@ -483,6 +580,38 @@ export class AlertEngine {
             });
           }
         }
+      }
+    }
+
+    // One "back" per viewer and outage group, once every channel of the
+    // group is closed and at least one recovered on clean viewing.
+    for (const [key, { seen, watchedBeforeSec }] of groupTold) {
+      const groupId = key.split('|')[1];
+      const members = [...groups].filter(([, g]) => g === groupId).map(([id]) => byId.get(id)!);
+      if (!members.length || members.some((m) => m.closedAt === undefined) || !members.some((m) => m.recovered)) {
+        continue;
+      }
+      const at = Math.max(...members.map((m) => m.closedAt!));
+      decisions.push({ ...seen, kind: 'back', at, reason: 'All channels of the outage are back' });
+      if (watchedBeforeSec >= r.apologyWatchMinutes * MIN) {
+        decisions.push({
+          ...seen,
+          kind: 'apology',
+          at,
+          reason: `Watched ${Math.round(watchedBeforeSec / MIN)} min of the channel in the hour before`,
+        });
+      }
+    }
+
+    for (const [key, seen] of episodeTold) {
+      const end = this.episodeEnd(key.split('|')[0]);
+      if (end !== undefined) {
+        decisions.push({
+          ...seen,
+          kind: 'back',
+          at: end,
+          reason: `Channel stable again: no failure for ${r.flapWindowMinutes} min`,
+        });
       }
     }
 
@@ -579,6 +708,81 @@ export class AlertEngine {
     return result;
   }
 
+  /**
+   * Channels across the whole run, for the ops report: recurring problems
+   * (incidents on several days), unstable series and channels that look
+   * off-air rather than broken (everyone failing, nobody watching after).
+   */
+  getChannelReport(): ChannelReportRow[] {
+    const rows = new Map<
+      string,
+      ChannelReportRow & {
+        _days: Set<string>;
+        _paths: Record<string, number>;
+        _platforms: Record<string, number>;
+        _codes: Record<string, number>;
+      }
+    >();
+    for (const inc of this.incidents) {
+      if (inc.detectedAt === undefined) {
+        continue;
+      }
+      const key = channelKey(inc.pid, inc.cid);
+      const row = rows.get(key) ?? {
+        pid: inc.pid,
+        provider: this.providerName(inc.pid),
+        cid: inc.cid,
+        title: inc.title,
+        incidents: 0,
+        days: 0,
+        failingMinutes: 0,
+        viewersHit: 0,
+        pushIncidents: 0,
+        unstableIncidents: 0,
+        offAir: 0,
+        dead: this.dead.has(key),
+        topPath: '',
+        topPlatform: '',
+        topCode: '',
+        firstStart: inc.start,
+        lastStart: inc.start,
+        _days: new Set<string>(),
+        _paths: {},
+        _platforms: {},
+        _codes: {},
+      };
+      const cls = this.incidentClass(inc);
+      row.incidents += 1;
+      row._days.add(new Date(inc.start * 1000).toISOString().slice(0, 10));
+      row.failingMinutes += inc.badMinutes;
+      row.viewersHit += (this.affected.get(inc.id) ?? []).length;
+      row.pushIncidents += cls === 'push' ? 1 : 0;
+      row.unstableIncidents += cls === 'unstable' ? 1 : 0;
+      row.offAir += inc.recovered === false && inc.peakErrShare >= 0.9 ? 1 : 0;
+      row.firstStart = Math.min(row.firstStart, inc.start);
+      row.lastStart = Math.max(row.lastStart, inc.start);
+      for (const [k, v] of Object.entries(inc.paths)) {
+        bump(row._paths, k, v);
+      }
+      for (const [k, v] of Object.entries(inc.platforms)) {
+        bump(row._platforms, k, v);
+      }
+      for (const [k, v] of Object.entries(inc.codes)) {
+        bump(row._codes, k, v);
+      }
+      rows.set(key, row);
+    }
+    return [...rows.values()]
+      .map(({ _days, _paths, _platforms, _codes, ...row }) => ({
+        ...row,
+        days: _days.size,
+        topPath: topKey(_paths),
+        topPlatform: topKey(_platforms),
+        topCode: topKey(_codes),
+      }))
+      .sort((a, b) => b.viewersHit - a.viewersHit);
+  }
+
   getSummary(): AlertSummary {
     const incidents = this.incidents.filter((i) => i.detectedAt !== undefined);
     const decisions = this.getDecisions();
@@ -599,10 +803,12 @@ export class AlertEngine {
     return {
       incidents: incidents.length,
       pushIncidents: classes.filter((c) => c === 'push').length,
+      unstableIncidents: classes.filter((c) => c === 'unstable').length,
       inAppIncidents: classes.filter((c) => c === 'in_app').length,
       chronicIncidents: classes.filter((c) => c === 'chronic').length,
       openIncidents: incidents.filter((i) => i.closedAt === undefined).length,
       down: count('down'),
+      unstable: count('unstable'),
       back: count('back'),
       apology: count('apology'),
       inApp: count('in_app'),
