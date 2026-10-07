@@ -13,8 +13,20 @@ export interface AlertRules {
   minErrShare: number;
   /** Bad minutes needed before an incident is confirmed (detection). */
   confirmMinutes: number;
-  /** Clean minutes after the last bad one before the channel is declared back. */
+  /**
+   * Clean minutes (watched, almost no errors) needed before the channel is
+   * declared back. Minutes too thin to judge do not count: a channel whose
+   * audience merely dropped below the thresholds is not "back".
+   */
   recoveryMinutes: number;
+  /** A minute counts as clean only with at least this many active viewers. */
+  recoveryMinUsers: number;
+  /**
+   * With no clean minutes at all, a confirmed incident is closed this long
+   * after its last failing minute — silently, without a "back" message,
+   * because nothing proves the channel works again.
+   */
+  quietCloseMinutes: number;
   /**
    * Minutes after detection the channel must still be failing before a push is
    * sent. Shorter blips only get an in-player message: on 2026-09-29, 54 of 82
@@ -38,6 +50,8 @@ export const DEFAULT_RULES: AlertRules = {
   minErrShare: 0.25,
   confirmMinutes: 2,
   recoveryMinutes: 5,
+  recoveryMinUsers: 3,
+  quietCloseMinutes: 60,
   pushDelayMinutes: 3,
   cooldownMinutes: 60,
   apologyWatchMinutes: 10,
@@ -127,8 +141,15 @@ export interface Incident {
   escalatedAt?: number;
   /** Start of the last bad minute seen so far. */
   lastBad: number;
-  /** When recovery was confirmed; undefined while still open. */
+  /** When the incident was closed; undefined while still open. */
   closedAt?: number;
+  /**
+   * true = closed on clean viewing (a "back" message is due), false = closed
+   * after a quiet period without evidence (no "back" message).
+   */
+  recovered?: boolean;
+  /** Consecutive clean minutes seen while open. */
+  cleanStreak: number;
   badMinutes: number;
   peakUsers: number;
   peakErrUsers: number;

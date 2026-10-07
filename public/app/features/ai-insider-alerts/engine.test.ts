@@ -23,6 +23,18 @@ function bad(minuteOffset: number, overrides: Partial<BadMinuteRow> = {}): BadMi
   };
 }
 
+/** A watched minute without errors: evidence of recovery. */
+function clean(minuteOffset: number, overrides: Partial<BadMinuteRow> = {}): BadMinuteRow {
+  return bad(minuteOffset, { errUsers: 0, errEvents: 0, srvErrUsers: 0, ...overrides });
+}
+
+/** Still failing for the few who watch, below the incident thresholds. */
+function thin(minuteOffset: number): BadMinuteRow {
+  return bad(minuteOffset, { users: 6, errUsers: 4, errEvents: 6, srvErrUsers: 4 });
+}
+
+const range = (from: number, to: number) => Array.from({ length: to - from }, (_, i) => from + i);
+
 function user(userId: string, firstErr: number, overrides: Partial<AffectedUserRow> = {}): AffectedUserRow {
   return {
     incidentId: '',
@@ -50,7 +62,7 @@ function run(engine: AlertEngine, rows: BadMinuteRow[], until: number, users: (i
 describe('AlertEngine', () => {
   it('confirms, escalates and closes a long outage, with down, back and apology messages', () => {
     const engine = new AlertEngine(DEFAULT_RULES);
-    const rows = Array.from({ length: 10 }, (_, i) => bad(i));
+    const rows = [...range(0, 10).map((i) => bad(i)), ...range(10, 15).map((i) => clean(i))];
     run(engine, rows, T0 + 60 * MIN, () => [
       user('AA-111-111', T0, { watchedBeforeSec: 30 * MIN }),
       user('BB-222-222', T0 + 7 * MIN, { errEvents: 1 }),
@@ -59,8 +71,9 @@ describe('AlertEngine', () => {
     const [incident] = engine.getIncidents();
     expect(incident.detectedAt).toBe(T0 + 2 * MIN);
     expect(incident.escalatedAt).toBe(T0 + 5 * MIN);
-    // Last bad minute starts at +9, recovery = 1 + 5 clean minutes.
+    // Five clean minutes +10..+14: back at the end of the fifth one.
     expect(incident.closedAt).toBe(T0 + 15 * MIN);
+    expect(incident.recovered).toBe(true);
     expect(engine.incidentClass(incident)).toBe('push');
 
     const kinds = engine.getDecisions().map((d) => `${d.kind}:${d.userId}:${(d.at - T0) / MIN}`);
@@ -79,7 +92,7 @@ describe('AlertEngine', () => {
 
   it('keeps a blip that recovers before the push delay in the player only', () => {
     const engine = new AlertEngine(DEFAULT_RULES);
-    run(engine, [bad(0), bad(1)], T0 + 30 * MIN, () => [
+    run(engine, [bad(0), bad(1), ...range(2, 7).map((i) => clean(i))], T0 + 30 * MIN, () => [
       user('AA-111-111', T0 + MIN, { lastErr: T0 + 2 * MIN }),
       // Failed and left before the detector knew: nothing to tell.
       user('CC-333-333', T0, { lastErr: T0 + 30 }),
@@ -91,6 +104,39 @@ describe('AlertEngine', () => {
     expect(decisions.map((d) => `${d.kind}:${d.userId}`)).toEqual(['in_app:AA-111-111']);
   });
 
+  it('does not call a channel back when its audience only thinned out', () => {
+    const engine = new AlertEngine(DEFAULT_RULES);
+    // Sport 1 on 2026-09-29 14:13-14:19: 4 of 6 viewers failing, too few for
+    // a "bad" minute, yet nothing like a recovery.
+    const rows = [
+      ...range(0, 6).map((i) => bad(i)),
+      ...range(6, 13).map((i) => thin(i)),
+      ...range(13, 16).map((i) => bad(i)),
+      ...range(16, 21).map((i) => clean(i)),
+    ];
+    run(engine, rows, T0 + 60 * MIN, () => [user('AA-111-111', T0)]);
+
+    const incidents = engine.getIncidents();
+    expect(incidents).toHaveLength(1);
+    expect(incidents[0].closedAt).toBe(T0 + 21 * MIN);
+    expect(engine.getDecisions().filter((d) => d.kind === 'back')).toHaveLength(1);
+  });
+
+  it('closes silently, without a "back" message, when nobody watches after the outage', () => {
+    const engine = new AlertEngine(DEFAULT_RULES);
+    run(
+      engine,
+      range(0, 6).map((i) => bad(i)),
+      T0 + 120 * MIN,
+      () => [user('AA-111-111', T0)]
+    );
+
+    const [incident] = engine.getIncidents();
+    expect(incident.recovered).toBe(false);
+    expect(incident.closedAt).toBe(T0 + (5 + 1 + DEFAULT_RULES.quietCloseMinutes) * MIN);
+    expect(engine.getDecisions().map((d) => d.kind)).toEqual(['down', 'suppressed']);
+  });
+
   it('drops a single failing minute as noise', () => {
     const engine = new AlertEngine(DEFAULT_RULES);
     run(engine, [bad(0)], T0 + 30 * MIN, () => []);
@@ -100,8 +146,8 @@ describe('AlertEngine', () => {
 
   it('does not tell a viewer twice about a flapping channel inside the cooldown', () => {
     const engine = new AlertEngine(DEFAULT_RULES);
-    const first = Array.from({ length: 6 }, (_, i) => bad(i));
-    const second = Array.from({ length: 6 }, (_, i) => bad(20 + i));
+    const first = [...range(0, 6).map((i) => bad(i)), ...range(6, 11).map((i) => clean(i))];
+    const second = range(20, 26).map((i) => bad(i));
     run(engine, [...first, ...second], T0 + 60 * MIN, (id) => [
       user('AA-111-111', id === engine.getIncidents().at(-1)?.id ? T0 : T0 + 20 * MIN),
     ]);

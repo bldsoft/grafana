@@ -75,7 +75,7 @@ function epoch(sec: number): string {
  * derived columns every query below groups on. `pids === null` means all
  * providers; an empty array means none.
  */
-function baseRows(from: number, to: number, pids: string[] | null): string {
+function baseRows(from: number, to: number, pids: string[] | null, extra = ''): string {
   return `SELECT
         event_timestamp AS ts,
         toStartOfMinute(event_timestamp) AS minute,
@@ -96,14 +96,11 @@ function baseRows(from: number, to: number, pids: string[] | null): string {
     WHERE event_timestamp >= ${epoch(from)} AND event_timestamp < ${epoch(to)}
       AND event_type IN ('player_open', 'play_start', 'play_stop')
       AND event_parameter2 = 'tv'
-      AND event_parameter1 != ''${pidClause(pids)}
+      AND event_parameter1 != ''${pidClause(pids)}${extra ? `\n      AND ${extra}` : ''}
       AND ${VERSION_GATE}`;
 }
 
-/** Query A: the failing channel-minutes of a window. */
-export function badMinutesSql(from: number, to: number, pids: string[] | null, rules: AlertRules): string {
-  return `SELECT
-    toUnixTimestamp(minute) AS minute_ts,
+const MINUTE_COLUMNS = `toUnixTimestamp(minute) AS minute_ts,
     pid,
     cid,
     any(ch_title) AS channel_title,
@@ -114,7 +111,12 @@ export function badMinutesSql(from: number, to: number, pids: string[] | null, r
     arrayElement(topKIf(1)(path, is_err), 1) AS top_path,
     arrayElement(topKIf(1)(host, is_err), 1) AS top_host,
     arrayElement(topKIf(1)(platform, is_err), 1) AS top_platform,
-    arrayElement(topKIf(1)(code, is_err), 1) AS top_code
+    arrayElement(topKIf(1)(code, is_err), 1) AS top_code`;
+
+/** Query A: the failing channel-minutes of a window (discovers which channels to follow). */
+export function badMinutesSql(from: number, to: number, pids: string[] | null, rules: AlertRules): string {
+  return `SELECT
+    ${MINUTE_COLUMNS}
 FROM (
     ${baseRows(from, to, pids)}
 )
@@ -122,6 +124,33 @@ GROUP BY minute, pid, cid
 HAVING users >= ${Math.max(1, Math.floor(rules.minUsers))}
    AND err_users >= ${Math.max(1, Math.floor(rules.minErrUsers))}
    AND err_users >= ${Number(rules.minErrShare).toFixed(4)} * users
+ORDER BY minute_ts, pid, cid
+${SETTINGS}`;
+}
+
+export interface ChannelKey {
+  pid: string;
+  cid: string;
+}
+
+/**
+ * Query A2: every watched minute of the given channels — failing, clean and
+ * thin alike. Recovery is decided on these: a channel is back only after
+ * minutes in which it was actually watched without errors, never because its
+ * audience fell below the incident thresholds.
+ */
+export function channelMinutesSql(from: number, to: number, pids: string[] | null, channels: ChannelKey[]): string {
+  const keys = channels.filter((c) => PID_RE.test(c.pid) && PID_RE.test(c.cid));
+  if (!keys.length) {
+    throw new Error('No channels to follow');
+  }
+  const list = keys.map((c) => `('${c.pid}', '${c.cid}')`).join(', ');
+  return `SELECT
+    ${MINUTE_COLUMNS}
+FROM (
+    ${baseRows(from, to, pids, `(content_provider_id, event_parameter1) IN (${list})`)}
+)
+GROUP BY minute, pid, cid
 ORDER BY minute_ts, pid, cid
 ${SETTINGS}`;
 }

@@ -111,14 +111,57 @@ export class AlertEngine {
     return this.providerNames.get(pid) ?? '';
   }
 
-  /** Feed the failing channel-minutes of one window, sorted by minute. */
+  /** Feed the failing channel-minutes of one window (only bad rows). */
   ingestBadMinutes(rows: BadMinuteRow[]) {
+    this.ingestMinutes(rows);
+  }
+
+  /**
+   * Feed the watched minutes of the followed channels — failing, clean and
+   * thin alike — sorted by minute. Failing minutes open and extend
+   * incidents; clean ones count towards recovery; thin ones are neutral.
+   */
+  ingestMinutes(rows: BadMinuteRow[]) {
     const sorted = [...rows].sort((a, b) => a.minute - b.minute);
     for (const row of sorted) {
-      // Recovery of other channels is confirmed as time passes, so the open
-      // set always reflects "now" = this minute while walking the window.
+      // Incidents are closed as time passes, so the open set always reflects
+      // "now" = this minute while walking the window.
       this.advance(row.minute);
-      this.addBadMinute(row);
+      if (this.isBad(row)) {
+        this.addBadMinute(row);
+      } else {
+        this.addOtherMinute(row);
+      }
+    }
+  }
+
+  /** Channels with an open incident: their every minute must be read next. */
+  followedChannels(): Array<{ pid: string; cid: string }> {
+    return [...this.open.values()].map((i) => ({ pid: i.pid, cid: i.cid }));
+  }
+
+  private isBad(row: BadMinuteRow): boolean {
+    const r = this.rules;
+    return row.users >= r.minUsers && row.errUsers >= r.minErrUsers && row.errUsers >= r.minErrShare * row.users;
+  }
+
+  private addOtherMinute(row: BadMinuteRow) {
+    const inc = this.open.get(channelKey(row.pid, row.cid));
+    if (!inc || inc.detectedAt === undefined) {
+      return;
+    }
+    const share = row.users ? row.errUsers / row.users : 0;
+    if (row.users >= Math.max(1, this.rules.recoveryMinUsers) && share < this.rules.minErrShare / 2) {
+      inc.cleanStreak += 1;
+      if (inc.cleanStreak >= Math.max(1, this.rules.recoveryMinutes)) {
+        inc.closedAt = row.minute + MIN;
+        inc.recovered = true;
+        this.open.delete(channelKey(inc.pid, inc.cid));
+      }
+    } else if (row.errUsers > 0 && share >= this.rules.minErrShare) {
+      // Still failing for the few who watch: below the incident thresholds,
+      // but certainly not a sign of recovery.
+      inc.cleanStreak = 0;
     }
   }
 
@@ -133,6 +176,7 @@ export class AlertEngine {
     const r = this.rules;
     inc.lastBad = Math.max(inc.lastBad, row.minute);
     inc.badMinutes += 1;
+    inc.cleanStreak = 0;
     inc.title = inc.title || row.title;
     inc.peakUsers = Math.max(inc.peakUsers, row.users);
     inc.peakErrUsers = Math.max(inc.peakErrUsers, row.errUsers);
@@ -193,23 +237,31 @@ export class AlertEngine {
       platforms: {},
       codes: {},
       chronic: false,
+      cleanStreak: 0,
       reopenOf: reopen,
     };
   }
 
-  /** Move the clock: confirm recovery of incidents that stayed clean long enough. */
+  /**
+   * Move the clock. A single failing minute that did not confirm expires as
+   * noise after the recovery window; a confirmed incident without any clean
+   * minute is closed silently after the quiet window.
+   */
   advance(clock: number) {
     this.clock = Math.max(this.clock, clock);
-    const recovery = (1 + Math.max(0, this.rules.recoveryMinutes)) * MIN;
+    const blipWindow = (1 + Math.max(0, this.rules.recoveryMinutes)) * MIN;
+    const quietWindow = MIN + Math.max(1, this.rules.quietCloseMinutes) * MIN;
     for (const [key, inc] of this.open) {
-      if (inc.lastBad + recovery <= this.clock) {
-        inc.closedAt = inc.lastBad + recovery;
-        this.open.delete(key);
-        if (inc.detectedAt === undefined) {
-          // A single bad minute that never confirmed: noise, not an incident.
+      if (inc.detectedAt === undefined) {
+        if (inc.lastBad + blipWindow <= this.clock) {
+          this.open.delete(key);
           this.incidents = this.incidents.filter((i) => i.id !== inc.id);
           this.blips += 1;
         }
+      } else if (inc.lastBad + quietWindow <= this.clock) {
+        inc.closedAt = inc.lastBad + quietWindow;
+        inc.recovered = false;
+        this.open.delete(key);
       }
     }
   }
@@ -415,8 +467,13 @@ export class AlertEngine {
             reason: `${user.errEvents - 1} repeated errors in the same incident, no new message`,
           });
         }
-        if (inc.closedAt !== undefined) {
-          decisions.push({ ...seen, kind: 'back', at: inc.closedAt, reason: 'Channel is back' });
+        if (inc.closedAt !== undefined && inc.recovered) {
+          decisions.push({
+            ...seen,
+            kind: 'back',
+            at: inc.closedAt,
+            reason: 'Channel is back: watched without errors again',
+          });
           if (user.watchedBeforeSec >= r.apologyWatchMinutes * MIN) {
             decisions.push({
               ...seen,
@@ -470,7 +527,7 @@ export class AlertEngine {
       group.label =
         paths.size === 1
           ? `Same source ${[...paths][0]} on ${pids.size} provider${pids.size > 1 ? 's' : ''}`
-          : `Same origin ${parentPath(topKey(members[0].paths)) || topKey(members[0].hosts)}: ${members.length} channels`;
+          : `Same origin ${parentPath(topKey(members[0].paths)) || topKey(members[0].hosts)}: ${members.length} channels on ${pids.size} provider${pids.size > 1 ? 's' : ''}`;
     }
     return [...groups.values()];
   }
@@ -486,7 +543,7 @@ export class AlertEngine {
       parent.set(id, root);
       return root;
     };
-    const end = (i: Incident) => i.closedAt ?? i.lastBad + MIN;
+    const end = (i: Incident) => (i.recovered === false ? i.lastBad + MIN : (i.closedAt ?? i.lastBad + MIN));
     for (let a = 0; a < confirmed.length; a++) {
       for (let b = a + 1; b < confirmed.length; b++) {
         const x = confirmed[a];

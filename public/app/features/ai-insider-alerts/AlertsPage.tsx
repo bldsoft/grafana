@@ -81,6 +81,16 @@ function ruleFields(): RuleField[] {
       unit: 'min',
     },
     {
+      key: 'recoveryMinUsers',
+      label: t('ai-insider-alerts.rule-recovery-users', 'Clean minute needs at least'),
+      unit: t('ai-insider-alerts.unit-viewers', 'viewers'),
+    },
+    {
+      key: 'quietCloseMinutes',
+      label: t('ai-insider-alerts.rule-quiet-close', 'No clean viewing: close silently after'),
+      unit: 'min',
+    },
+    {
       key: 'pushDelayMinutes',
       label: t('ai-insider-alerts.rule-push-delay', 'Push only if still failing after'),
       unit: 'min',

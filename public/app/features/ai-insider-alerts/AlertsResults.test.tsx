@@ -30,10 +30,13 @@ function bad(i: number, overrides: Partial<BadMinuteRow> = {}): BadMinuteRow {
 function snapshot(): AlertsSnapshot {
   const engine = new AlertEngine(DEFAULT_RULES);
   engine.setProviderNames({ '222': 'NimiTV' });
-  engine.ingestBadMinutes([
+  const clean = (i: number, cid = '20002549') => bad(i, { cid, errUsers: 0, errEvents: 0, srvErrUsers: 0 });
+  engine.ingestMinutes([
     ...Array.from({ length: 10 }, (_, i) => bad(i)),
+    ...Array.from({ length: 5 }, (_, i) => clean(10 + i)),
     bad(30, { cid: '20002305', title: 'Top Channel' }),
     bad(31, { cid: '20002305', title: 'Top Channel' }),
+    ...Array.from({ length: 5 }, (_, i) => clean(32 + i, '20002305')),
   ]);
   engine.advance(T0 + 60 * MIN);
   for (const w of engine.takeIncidentWindows()) {

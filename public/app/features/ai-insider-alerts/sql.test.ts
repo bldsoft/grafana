@@ -5,6 +5,7 @@ import {
   affectedUsersSql,
   badMinutesSql,
   channelHealthSql,
+  channelMinutesSql,
   customerSideSql,
   errorVolumeSql,
   providerNamesSql,
@@ -19,6 +20,7 @@ const statements = () => [
   affectedUsersSql([{ id: 'inc-1', pid: '222', cid: '20002549', start: FROM, end: TO }], null),
   customerSideSql(FROM, TO, null, DEFAULT_RULES),
   channelHealthSql(FROM, TO, ['111']),
+  channelMinutesSql(FROM, TO, null, [{ pid: '222', cid: '20002549' }]),
   errorVolumeSql(FROM, TO, null),
 ];
 

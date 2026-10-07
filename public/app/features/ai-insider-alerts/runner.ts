@@ -12,6 +12,8 @@ import {
   affectedUsersSql,
   badMinutesSql,
   channelHealthSql,
+  channelMinutesSql,
+  ChannelKey,
   customerSideSql,
   errorVolumeSql,
   IncidentWindow,
@@ -22,6 +24,8 @@ import type { AffectedUserRow, BadMinuteRow, ChannelHealthRow, CustomerSideRow, 
 const MAX_ROWS = 50000;
 /** Incidents per viewer query: each adds one branch to a multiIf. */
 const USERS_BATCH = 20;
+/** Channels per minutes query (one tuple each in an IN list). */
+const CHANNELS_BATCH = 50;
 /** Live mode stays this far behind the wall clock so late events can land. */
 export const LIVE_LAG_SEC = 120;
 /** Live mode looks back this far on start, so open incidents are picked up. */
@@ -134,11 +138,14 @@ async function query(opts: RunOptions, sql: string): Promise<Row[]> {
 
 /**
  * Processes one window [from, to): health first (so a dead channel is known
- * before its minutes are classified), then the failing minutes, then the
- * viewers of every incident that moved, then customer-side and volume.
+ * before its minutes are classified), then every watched minute of the
+ * channels worth following — those already in an incident plus those that
+ * fail in this window — then the viewers of every incident that moved, then
+ * customer-side and volume.
  */
 async function processChunk(opts: RunOptions, from: number, to: number, customerFrom: number | null) {
   const { engine, pids } = opts;
+  const followed = engine.followedChannels();
   const [health, bad, customer, volume] = await Promise.all([
     query(opts, channelHealthSql(from, to, pids)),
     query(opts, badMinutesSql(from, to, pids, engine.rules)),
@@ -147,7 +154,19 @@ async function processChunk(opts: RunOptions, from: number, to: number, customer
   ]);
 
   engine.ingestChannelHealth(health.map(toChannelHealth), from, to);
-  engine.ingestBadMinutes(bad.map(toBadMinute));
+
+  const channels = new Map<string, ChannelKey>();
+  for (const c of [...followed, ...bad.map((r) => ({ pid: str(r.pid), cid: str(r.cid) }))]) {
+    if (/^[A-Za-z0-9_-]+$/.test(c.pid) && /^[A-Za-z0-9_-]+$/.test(c.cid)) {
+      channels.set(`${c.pid}|${c.cid}`, c);
+    }
+  }
+  const keys = [...channels.values()];
+  const minutes: Row[] = [];
+  for (let i = 0; i < keys.length; i += CHANNELS_BATCH) {
+    minutes.push(...(await query(opts, channelMinutesSql(from, to, pids, keys.slice(i, i + CHANNELS_BATCH)))));
+  }
+  engine.ingestMinutes(minutes.map(toBadMinute));
   engine.advance(to);
 
   const windows = engine.takeIncidentWindows().filter((w) => /^[A-Za-z0-9_-]+$/.test(w.cid));

@@ -332,7 +332,14 @@ function IncidentsTab({
                       <span className={styles.sub}>+{formatMinutes(inc.start, inc.detectedAt)}</span>
                     </td>
                     <td>
-                      {inc.closedAt ? (
+                      {inc.closedAt && inc.recovered === false ? (
+                        <>
+                          —
+                          <span className={styles.sub}>
+                            <Trans i18nKey="ai-insider-alerts.faded">no clean viewing seen, no &quot;back&quot;</Trans>
+                          </span>
+                        </>
+                      ) : inc.closedAt ? (
                         <>
                           {formatUtcTime(inc.closedAt)}
                           <span className={styles.sub}>{formatMinutes(inc.start, inc.closedAt)}</span>

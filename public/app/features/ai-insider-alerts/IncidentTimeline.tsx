@@ -78,7 +78,7 @@ export function IncidentTimeline({ incidents, classOf, from, to, onSelect }: Pro
         ))}
         {rows.map((inc, i) => {
           const y = AXIS_H + i * ROW_H;
-          const end = inc.closedAt ?? to;
+          const end = inc.recovered === false ? inc.lastBad + 60 : (inc.closedAt ?? to);
           const color = classColor(theme, classOf(inc));
           const label = `${inc.provider || inc.pid} · ${inc.title || inc.cid}`;
           return (

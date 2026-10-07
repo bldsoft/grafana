@@ -399,6 +399,7 @@
     "detail-where": "Where it fails",
     "error-title": "Query failed",
     "export-csv": "Export CSV",
+    "faded": "no clean viewing seen, no \"back\"",
     "filter-all": "All",
     "from": "From (UTC)",
     "intro": "Finds channels that go down on the operator side, decides which viewers would be told — and which would not, because they were already told or the problem is on their side — and shows every message before anything is sent. Replay past days to see whether an incident would have been caught.",
@@ -440,7 +441,9 @@
     "rule-min-share": "Min share with errors",
     "rule-min-users": "Min active viewers",
     "rule-push-delay": "Push only if still failing after",
+    "rule-quiet-close": "No clean viewing: close silently after",
     "rule-recovery": "Clean minutes to call it back",
+    "rule-recovery-users": "Clean minute needs at least",
     "rules": "Detection and messaging rules",
     "rules-reset": "Reset to defaults",
     "run-replay": "Run replay",
@@ -474,7 +477,8 @@
     "tile-naive-detail": "{{errors}} errors → {{sent}} messages · detection lag {{lag}} min",
     "timeline-aria": "Incident timeline",
     "timeline-legend": "Bar: failing → recovered. Tick: detected. Diamond: push due. Top 40 by peak viewers with errors; click a lane to open it.",
-    "to": "To (UTC)"
+    "to": "To (UTC)",
+    "unit-viewers": "viewers"
   },
   "alerting": {
     "active-timing-fields": {
