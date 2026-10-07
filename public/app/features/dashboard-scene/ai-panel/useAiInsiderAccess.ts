@@ -13,12 +13,25 @@ import { contextSrv } from 'app/core/services/context_srv';
 /** The subset of the /api/org OrgDetailsDTO this gate reads. */
 interface CurrentOrg {
   externalServicesTeamId?: string;
+  providerIds?: string;
 }
 
 /** The subset of the /api/user/teams TeamDTO this gate reads. */
 interface UserTeam {
   id?: number;
   uid?: string;
+}
+
+/** Result of the access lookup, for pages that must tell "loading" from "denied". */
+export interface AiInsiderAccess {
+  allowed: boolean;
+  loading: boolean;
+  /**
+   * The active organisation's provider scope (org attribute providerIds):
+   * `*` = every provider, a comma-separated PID list, or '' = none. Only
+   * meaningful when `allowed`.
+   */
+  providerIds: string;
 }
 
 /**
@@ -32,29 +45,36 @@ interface UserTeam {
  * same gate on every request, so this is a UX gate, not the security boundary.
  */
 export function useAiInsiderAccess(): boolean {
+  return useAiInsiderAccessState().allowed;
+}
+
+/** {@link useAiInsiderAccess} plus the loading state and the org's provider scope. */
+export function useAiInsiderAccessState(): AiInsiderAccess {
   const signedIn = contextSrv.isSignedIn;
   const orgId = contextSrv.user.orgId;
 
-  const { value: allowed } = useAsync(async () => {
+  const { value, loading } = useAsync(async () => {
     if (!signedIn) {
-      return false;
+      return { allowed: false, providerIds: '' };
     }
     const org = await getBackendSrv().get<CurrentOrg>('/api/org', undefined, undefined, {
       showErrorAlert: false,
     });
     const teamId = typeof org?.externalServicesTeamId === 'string' ? org.externalServicesTeamId.trim() : '';
+    const providerIds = typeof org?.providerIds === 'string' ? org.providerIds.trim() : '';
     if (!teamId) {
-      return false;
+      return { allowed: false, providerIds };
     }
     const teams = await getBackendSrv().get<UserTeam[]>('/api/user/teams', undefined, undefined, {
       showErrorAlert: false,
     });
     // Compare only present fields: a team without an id must never match the
     // literal "undefined"/"null".
-    return teams.some(
+    const allowed = teams.some(
       (team) => (team.uid != null && team.uid === teamId) || (team.id != null && String(team.id) === teamId)
     );
+    return { allowed, providerIds };
   }, [signedIn, orgId]);
 
-  return Boolean(allowed);
+  return { allowed: Boolean(value?.allowed), loading, providerIds: value?.providerIds ?? '' };
 }

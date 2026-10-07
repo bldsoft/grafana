@@ -46,6 +46,14 @@ export function getAppRoutes(): RouteDescriptor[] {
       ),
     },
     {
+      // Analytix: AI Insider Alerts (channel incidents and the viewer messages
+      // they would trigger). The page applies the AI Insider team gate itself.
+      path: '/ai-insider/alerts',
+      component: SafeDynamicImport(
+        () => import(/* webpackChunkName: "AiInsiderAlertsPage" */ '../features/ai-insider-alerts/AlertsPage')
+      ),
+    },
+    {
       path: '/d/:uid/:slug?',
       pageClass: 'page-dashboard',
       routeName: DashboardRoutes.Normal,

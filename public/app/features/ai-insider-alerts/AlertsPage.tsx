@@ -1,0 +1,523 @@
+// Analytix: AI Insider Alerts — "tell the customer" up to (not including) the
+// send step. Detects operator-side channel outages in the Analytix event
+// stream, decides per viewer who would be told what and when (or deliberately
+// not told), and replays past days as if they were live so the rules can be
+// checked against real incidents before any message is ever sent.
+
+import { css } from '@emotion/css';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+import { DataSourceInstanceSettings, DataSourceRef, GrafanaTheme2, NavModelItem, store } from '@grafana/data';
+import { Trans, t } from '@grafana/i18n';
+import { DataSourcePicker, getDataSourceSrv, reportInteraction } from '@grafana/runtime';
+import { Alert, Button, Collapse, Field, Input, RadioButtonGroup, Spinner, useStyles2 } from '@grafana/ui';
+import { Page } from 'app/core/components/Page/Page';
+import { useAiInsiderAccessState } from 'app/features/dashboard-scene/ai-panel/useAiInsiderAccess';
+import { analytix } from 'app/features/home/analytixTokens';
+
+import { AlertsResults, AlertsSnapshot } from './AlertsResults';
+import { AlertEngine } from './engine';
+import { formatUtc, fromUtcInput, toUtcInput } from './format';
+import { runLive, runReplay } from './runner';
+import { ProviderScope, effectiveScope, parseProviderScope } from './scope';
+import { AlertRules, DEFAULT_RULES } from './types';
+
+const SETTINGS_KEY = 'analytix.aiAlerts.settings.v1';
+const MAX_REPLAY_SEC = 7 * 86400;
+const LIVE_POLL_MS = 60000;
+
+type Mode = 'replay' | 'live';
+
+interface Settings {
+  datasourceUid?: string;
+  mode: Mode;
+  from: string;
+  to: string;
+  step: number;
+  providers: string;
+  rules: AlertRules;
+}
+
+function defaultSettings(): Settings {
+  const today = Math.floor(Date.now() / 86400000) * 86400;
+  return {
+    mode: 'replay',
+    from: toUtcInput(today - 86400),
+    to: toUtcInput(today),
+    step: 3600,
+    providers: '',
+    rules: DEFAULT_RULES,
+  };
+}
+
+function loadSettings(): Settings {
+  const saved = store.getObject<Partial<Settings>>(SETTINGS_KEY, {});
+  const base = defaultSettings();
+  return { ...base, ...saved, rules: { ...DEFAULT_RULES, ...(saved.rules ?? {}) } };
+}
+
+interface RuleField {
+  key: keyof AlertRules;
+  label: string;
+  unit: string;
+  /** Shown as percent, stored as a 0..1 share. */
+  percent?: boolean;
+}
+
+function ruleFields(): RuleField[] {
+  return [
+    { key: 'minUsers', label: t('ai-insider-alerts.rule-min-users', 'Min active viewers'), unit: '' },
+    { key: 'minErrUsers', label: t('ai-insider-alerts.rule-min-err-users', 'Min viewers with errors'), unit: '' },
+    {
+      key: 'minErrShare',
+      label: t('ai-insider-alerts.rule-min-share', 'Min share with errors'),
+      unit: '%',
+      percent: true,
+    },
+    { key: 'confirmMinutes', label: t('ai-insider-alerts.rule-confirm', 'Failing minutes to confirm'), unit: 'min' },
+    {
+      key: 'recoveryMinutes',
+      label: t('ai-insider-alerts.rule-recovery', 'Clean minutes to call it back'),
+      unit: 'min',
+    },
+    {
+      key: 'pushDelayMinutes',
+      label: t('ai-insider-alerts.rule-push-delay', 'Push only if still failing after'),
+      unit: 'min',
+    },
+    {
+      key: 'cooldownMinutes',
+      label: t('ai-insider-alerts.rule-cooldown', 'Do not repeat to a viewer within'),
+      unit: 'min',
+    },
+    {
+      key: 'apologyWatchMinutes',
+      label: t('ai-insider-alerts.rule-apology', 'Apology if watched in the hour before'),
+      unit: 'min',
+    },
+    {
+      key: 'customerMinChannels',
+      label: t('ai-insider-alerts.rule-customer-channels', 'Customer side: min healthy channels failing'),
+      unit: '',
+    },
+    {
+      key: 'customerMinMinutes',
+      label: t('ai-insider-alerts.rule-customer-minutes', 'Customer side: min minutes'),
+      unit: 'min',
+    },
+  ];
+}
+
+export function AlertsPage() {
+  const access = useAiInsiderAccessState();
+  const styles = useStyles2(getStyles);
+  const pageNav: NavModelItem = {
+    id: 'ai-insider-alerts',
+    text: t('ai-insider-alerts.page-title', 'AI Insider Alerts'),
+    icon: 'bell',
+  };
+
+  return (
+    <Page navId="home" pageNav={pageNav}>
+      <Page.Contents>
+        {access.loading ? (
+          <div className={styles.center}>
+            <Spinner />
+          </div>
+        ) : access.allowed ? (
+          <AlertsWorkbench orgScope={parseProviderScope(access.providerIds)} />
+        ) : (
+          <Alert severity="info" title={t('ai-insider-alerts.no-access-title', 'AI Insider is not enabled for you')}>
+            <Trans i18nKey="ai-insider-alerts.no-access-body">
+              Alerts are available to members of the organisation&apos;s AI Insider team. Ask a server admin to add you.
+            </Trans>
+          </Alert>
+        )}
+      </Page.Contents>
+    </Page>
+  );
+}
+
+export default AlertsPage;
+
+function snapshotOf(engine: AlertEngine, from: number, to: number): AlertsSnapshot {
+  return {
+    summary: engine.getSummary(),
+    incidents: engine.getIncidents(),
+    decisions: engine.getDecisions(),
+    customer: engine.getCustomerSide(),
+    dead: engine.getDeadChannels(),
+    groups: engine.getGroups(),
+    blips: engine.blipCount,
+    classOf: (i) => engine.incidentClass(i),
+    affected: (id) => engine.getAffectedUsers(id),
+    from,
+    to,
+  };
+}
+
+function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
+  const styles = useStyles2(getStyles);
+  const [settings, setSettings] = useState<Settings>(loadSettings);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [error, setError] = useState<string>();
+  const [warning, setWarning] = useState<string>();
+  const [snapshot, setSnapshot] = useState<AlertsSnapshot>();
+  const [progress, setProgress] = useState<{ clock: number; from: number; to?: number }>();
+  const abortRef = useRef<AbortController>();
+
+  const clickhouse = useMemo(
+    () =>
+      getDataSourceSrv()
+        .getList({ all: true })
+        .filter((ds) => ds.type.includes('clickhouse')),
+    []
+  );
+  const datasource: DataSourceRef | undefined = useMemo(() => {
+    const ds = clickhouse.find((d) => d.uid === settings.datasourceUid) ?? clickhouse[0];
+    return ds ? { uid: ds.uid, type: ds.type } : undefined;
+  }, [clickhouse, settings.datasourceUid]);
+
+  useEffect(() => {
+    store.setObject(SETTINGS_KEY, settings);
+  }, [settings]);
+
+  // Stop polling / replaying when the page is left.
+  useEffect(() => () => abortRef.current?.abort(), []);
+
+  const update = (patch: Partial<Settings>) => setSettings((s) => ({ ...s, ...patch }));
+  const updateRule = (key: keyof AlertRules, value: number) =>
+    setSettings((s) => ({ ...s, rules: { ...s.rules, [key]: value } }));
+
+  const scope = effectiveScope(orgScope, settings.providers);
+  const from = fromUtcInput(settings.from);
+  const to = fromUtcInput(settings.to);
+  const rangeError =
+    settings.mode !== 'replay'
+      ? undefined
+      : !Number.isFinite(from) || !Number.isFinite(to) || to <= from
+        ? t('ai-insider-alerts.range-invalid', 'Set a valid range: "to" must be after "from".')
+        : to - from > MAX_REPLAY_SEC
+          ? t('ai-insider-alerts.range-too-long', 'Replay at most 7 days at a time.')
+          : to > Date.now() / 1000
+            ? t('ai-insider-alerts.range-future', 'The replay range cannot end in the future; use Live for now.')
+            : undefined;
+  const scopeEmpty = Array.isArray(scope) && scope.length === 0;
+  const canRun = Boolean(datasource) && !rangeError && !scopeEmpty && !running;
+
+  const stop = useCallback(() => {
+    abortRef.current?.abort();
+  }, []);
+
+  const start = async () => {
+    if (!datasource) {
+      return;
+    }
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const engine = new AlertEngine(settings.rules);
+    const windowFrom = settings.mode === 'replay' ? from : Math.floor(Date.now() / 1000) - 3600;
+    setError(undefined);
+    setWarning(undefined);
+    setRunning(true);
+    setSnapshot(snapshotOf(engine, windowFrom, windowFrom));
+    setProgress({ clock: windowFrom, from: windowFrom, to: settings.mode === 'replay' ? to : undefined });
+    reportInteraction('analytix_ai_alerts_run', { mode: settings.mode, hours: Math.round((to - from) / 3600) });
+
+    const common = {
+      datasource,
+      pids: scope,
+      engine,
+      signal: controller.signal,
+      onChunk: (clock: number) => {
+        setProgress((p) => (p ? { ...p, clock } : p));
+        setSnapshot(snapshotOf(engine, windowFrom, clock));
+      },
+      onWarning: (message: string) =>
+        setWarning(
+          t('ai-insider-alerts.names-warning', 'Provider names unavailable, showing ids ({{message}})', { message })
+        ),
+    };
+    try {
+      if (settings.mode === 'replay') {
+        await runReplay({ ...common, from, to, step: settings.step });
+      } else {
+        await runLive({ ...common, pollMs: LIVE_POLL_MS });
+      }
+    } catch (e) {
+      if (!controller.signal.aborted) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    } finally {
+      if (abortRef.current === controller) {
+        setRunning(false);
+      }
+    }
+  };
+
+  const modeOptions = [
+    { label: t('ai-insider-alerts.mode-replay', 'Replay'), value: 'replay' as const },
+    { label: t('ai-insider-alerts.mode-live', 'Live'), value: 'live' as const },
+  ];
+  const stepOptions = [
+    { label: t('ai-insider-alerts.step-15m', '15 min'), value: 900 },
+    { label: t('ai-insider-alerts.step-1h', '1 h'), value: 3600 },
+  ];
+  const scopeText =
+    orgScope === null
+      ? t('ai-insider-alerts.scope-all', 'Organisation scope: all providers')
+      : orgScope.length
+        ? t('ai-insider-alerts.scope-list', 'Organisation scope: {{pids}}', { pids: orgScope.join(', ') })
+        : t('ai-insider-alerts.scope-none', 'Organisation scope: no providers assigned');
+
+  const pct =
+    progress?.to !== undefined && progress.to > progress.from
+      ? Math.min(100, Math.round(((progress.clock - progress.from) / (progress.to - progress.from)) * 100))
+      : undefined;
+
+  return (
+    <div className={styles.page}>
+      <p className={styles.intro}>
+        <Trans i18nKey="ai-insider-alerts.intro">
+          Finds channels that go down on the operator side, decides which viewers would be told — and which would not,
+          because they were already told or the problem is on their side — and shows every message before anything is
+          sent. Replay past days to see whether an incident would have been caught.
+        </Trans>
+      </p>
+
+      <section className={styles.card}>
+        <div className={styles.controls}>
+          <Field label={t('ai-insider-alerts.datasource', 'ClickHouse datasource')} className={styles.field} noMargin>
+            <DataSourcePicker
+              current={datasource?.uid ?? null}
+              filter={(ds: DataSourceInstanceSettings) => ds.type.includes('clickhouse')}
+              onChange={(ds: DataSourceInstanceSettings) => update({ datasourceUid: ds.uid })}
+              noDefault
+              disabled={running}
+            />
+          </Field>
+          <Field label={t('ai-insider-alerts.mode', 'Mode')} className={styles.field} noMargin>
+            <RadioButtonGroup
+              options={modeOptions}
+              value={settings.mode}
+              onChange={(mode) => update({ mode })}
+              disabled={running}
+            />
+          </Field>
+          {settings.mode === 'replay' && (
+            <>
+              <Field label={t('ai-insider-alerts.from', 'From (UTC)')} className={styles.field} noMargin>
+                <Input
+                  type="datetime-local"
+                  value={settings.from}
+                  onChange={(e) => update({ from: e.currentTarget.value })}
+                  disabled={running}
+                />
+              </Field>
+              <Field label={t('ai-insider-alerts.to', 'To (UTC)')} className={styles.field} noMargin>
+                <Input
+                  type="datetime-local"
+                  value={settings.to}
+                  onChange={(e) => update({ to: e.currentTarget.value })}
+                  disabled={running}
+                />
+              </Field>
+              <Field
+                label={t('ai-insider-alerts.step', 'Step')}
+                description={t('ai-insider-alerts.step-description', 'how far the clock moves per query round')}
+                className={styles.field}
+                noMargin
+              >
+                <RadioButtonGroup
+                  options={stepOptions}
+                  value={settings.step}
+                  onChange={(step) => update({ step })}
+                  disabled={running}
+                />
+              </Field>
+            </>
+          )}
+          <Field
+            label={t('ai-insider-alerts.providers', 'Providers')}
+            description={scopeText}
+            className={styles.field}
+            noMargin
+          >
+            <Input
+              placeholder={t('ai-insider-alerts.providers-placeholder', 'All in scope, or ids: 111, 222')}
+              value={settings.providers}
+              onChange={(e) => update({ providers: e.currentTarget.value })}
+              disabled={running}
+            />
+          </Field>
+          <div className={styles.actions}>
+            {running ? (
+              <Button variant="destructive" icon="square-shape" onClick={stop}>
+                <Trans i18nKey="ai-insider-alerts.stop">Stop</Trans>
+              </Button>
+            ) : (
+              <Button icon={settings.mode === 'replay' ? 'history' : 'play'} onClick={start} disabled={!canRun}>
+                {settings.mode === 'replay'
+                  ? t('ai-insider-alerts.run-replay', 'Run replay')
+                  : t('ai-insider-alerts.start-live', 'Start live')}
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <Collapse
+          label={t('ai-insider-alerts.rules', 'Detection and messaging rules')}
+          isOpen={rulesOpen}
+          onToggle={() => setRulesOpen((o) => !o)}
+          collapsible
+        >
+          <div className={styles.rules}>
+            {ruleFields().map((f) => (
+              <Field key={f.key} label={f.label} className={styles.field} noMargin>
+                <Input
+                  type="number"
+                  min={0}
+                  step={f.percent ? 1 : 1}
+                  suffix={f.unit || undefined}
+                  value={f.percent ? Math.round(settings.rules[f.key] * 100) : settings.rules[f.key]}
+                  onChange={(e) => {
+                    const n = Number(e.currentTarget.value);
+                    if (Number.isFinite(n) && n >= 0) {
+                      updateRule(f.key, f.percent ? Math.min(100, n) / 100 : n);
+                    }
+                  }}
+                  disabled={running}
+                />
+              </Field>
+            ))}
+            <div className={styles.actions}>
+              <Button
+                variant="secondary"
+                fill="text"
+                onClick={() => update({ rules: DEFAULT_RULES })}
+                disabled={running}
+              >
+                <Trans i18nKey="ai-insider-alerts.rules-reset">Reset to defaults</Trans>
+              </Button>
+            </div>
+          </div>
+        </Collapse>
+
+        {(running || progress) && (
+          <div className={styles.status}>
+            {running && <Spinner inline />}
+            <span>
+              {settings.mode === 'replay' || progress?.to !== undefined
+                ? t('ai-insider-alerts.progress-replay', 'Replayed up to {{clock}} UTC', {
+                    clock: formatUtc(progress?.clock),
+                  })
+                : t('ai-insider-alerts.progress-live', 'Live: processed up to {{clock}} UTC, checking every minute', {
+                    clock: formatUtc(progress?.clock),
+                  })}
+              {pct !== undefined ? ` · ${pct}%` : ''}
+            </span>
+            {pct !== undefined && (
+              <div className={styles.bar}>
+                <div className={styles.barFill} style={{ width: `${pct}%` }} />
+              </div>
+            )}
+          </div>
+        )}
+        {!datasource && (
+          <Alert severity="warning" title={t('ai-insider-alerts.no-ds', 'No ClickHouse datasource')}>
+            <Trans i18nKey="ai-insider-alerts.no-ds-body">Add a ClickHouse datasource to read the event stream.</Trans>
+          </Alert>
+        )}
+        {rangeError && <div className={styles.error}>{rangeError}</div>}
+        {scopeEmpty && (
+          <div className={styles.error}>
+            <Trans i18nKey="ai-insider-alerts.scope-empty">
+              No providers to read: the organisation has none assigned, or the filter is outside its scope.
+            </Trans>
+          </div>
+        )}
+        {error && (
+          <Alert severity="error" title={t('ai-insider-alerts.error-title', 'Query failed')}>
+            {error}
+          </Alert>
+        )}
+        {warning && <div className={styles.warning}>{warning}</div>}
+      </section>
+
+      {snapshot && <AlertsResults snapshot={snapshot} />}
+    </div>
+  );
+}
+
+const getStyles = (theme: GrafanaTheme2) => ({
+  center: css({
+    display: 'flex',
+    justifyContent: 'center',
+    padding: theme.spacing(8),
+  }),
+  page: css({
+    display: 'grid',
+    gap: theme.spacing(2),
+    minWidth: 0,
+  }),
+  intro: css({
+    color: analytix.textMuted,
+    maxWidth: '80ch',
+    margin: 0,
+  }),
+  card: css({
+    background: analytix.surfaceRaised,
+    border: `1px solid ${analytix.border}`,
+    borderRadius: analytix.radiusPanel,
+    padding: theme.spacing(2),
+    display: 'grid',
+    gap: theme.spacing(1.5),
+  }),
+  controls: css({
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'flex-end',
+    gap: theme.spacing(1.5, 2),
+  }),
+  field: css({
+    minWidth: 180,
+  }),
+  actions: css({
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: theme.spacing(1),
+  }),
+  rules: css({
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
+    gap: theme.spacing(1.5, 2),
+    alignItems: 'end',
+  }),
+  status: css({
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    color: analytix.textMuted,
+  }),
+  bar: css({
+    flex: '1 1 200px',
+    height: 4,
+    background: analytix.control,
+    borderRadius: theme.shape.radius.default,
+    overflow: 'hidden',
+  }),
+  barFill: css({
+    height: '100%',
+    background: analytix.green,
+  }),
+  error: css({
+    color: theme.colors.error.text,
+  }),
+  warning: css({
+    color: theme.colors.warning.text,
+    fontSize: theme.typography.bodySmall.fontSize,
+  }),
+});
