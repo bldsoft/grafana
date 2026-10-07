@@ -10,6 +10,8 @@ import { runRawQuery } from 'app/features/dashboard-scene/ai-panel/datasourceQue
 import { AlertEngine } from './engine';
 import { withRetry } from './retry';
 import {
+  ACTIVITY_BUCKET_SEC,
+  activitySql,
   affectedUsersSql,
   badMinutesSql,
   channelHealthSql,
@@ -24,6 +26,7 @@ import {
   providerUsersSql,
 } from './sql';
 import type {
+  ActivityBucketRow,
   AffectedUserRow,
   BadMinuteRow,
   ChannelHealthRow,
@@ -96,6 +99,18 @@ export function toProviderBucket(r: Row): ProviderBucketRow {
     errEvents: num(r.err_events),
     topCode: str(r.top_code),
     topPlatform: str(r.top_platform),
+  };
+}
+
+export function toActivityBucket(r: Row): ActivityBucketRow {
+  return {
+    bucket: num(r.bucket_ts),
+    pid: str(r.pid),
+    users: num(r.users),
+    sessions: num(r.sessions),
+    plays: num(r.plays),
+    errEvents: num(r.err_events),
+    events: num(r.events),
   };
 }
 
@@ -178,7 +193,8 @@ async function query(opts: RunOptions, sql: string): Promise<Row[]> {
   return result.data;
 }
 
-interface ProviderFetch {
+/** Complete buckets of a window plus the same buckets of previous days not read yet. */
+interface BucketFetch {
   start: number;
   end: number;
   current: Row[];
@@ -190,7 +206,8 @@ interface ChunkData {
   minutes: Row[];
   customer: Row[];
   volume: Row[];
-  providers?: ProviderFetch;
+  providers?: BucketFetch;
+  activity?: BucketFetch;
   pids: string[];
 }
 
@@ -235,13 +252,14 @@ async function fetchChunk(opts: RunOptions, from: number, to: number, customerFr
   for (let i = 0; i < keys.length; i += CHANNELS_BATCH) {
     minutes.push(...(await query(opts, channelMinutesSql(from, to, pids, keys.slice(i, i + CHANNELS_BATCH)))));
   }
-  const providers = await fetchProviders(opts, from, to);
+  const [providers, activity] = await Promise.all([fetchProviders(opts, from, to), fetchActivity(opts, from, to)]);
   return {
     health,
     minutes,
     customer,
     volume,
     providers,
+    activity,
     pids: [...health.map((r) => str(r.pid)), ...bad.map((r) => str(r.pid))],
   };
 }
@@ -256,6 +274,12 @@ function applyChunk(engine: AlertEngine, data: ChunkData, from: number, to: numb
     baselines.forEach((b) => engine.ingestProviderBaseline(b.rows.map(toProviderBucket), b.from, b.to));
     engine.ingestProviderBuckets(current.map(toProviderBucket), start, end);
     engine.providerWatermark = end;
+  }
+  if (data.activity) {
+    const { start, end, current, baselines } = data.activity;
+    baselines.forEach((b) => engine.activity.ingestBaseline(b.rows.map(toActivityBucket), b.from, b.to));
+    engine.activity.ingest(current.map(toActivityBucket), start, end);
+    engine.activity.watermark = end;
   }
   engine.ingestCustomerSide(data.customer.map(toCustomerSide));
   engine.ingestErrorVolume(toErrorVolume(data.volume[0]));
@@ -297,27 +321,34 @@ async function fetchViewers(opts: RunOptions) {
 const DAY = 86400;
 
 /**
- * Provider level: reads the 15-minute buckets that became complete up to
- * `to`, plus the same buckets of previous days (once — a replay that already
- * went through those days reuses them).
+ * Reads the complete buckets of `size` seconds from the watermark up to `to`,
+ * plus the same buckets of previous days for the baseline (once — a replay
+ * that already went through those days reuses them).
  */
-async function fetchProviders(opts: RunOptions, from: number, to: number): Promise<ProviderFetch | undefined> {
-  const { engine, pids } = opts;
-  const start = engine.providerWatermark ?? Math.ceil(from / PROVIDER_BUCKET_SEC) * PROVIDER_BUCKET_SEC;
-  const end = Math.floor(to / PROVIDER_BUCKET_SEC) * PROVIDER_BUCKET_SEC;
+async function fetchBuckets(
+  opts: RunOptions,
+  from: number,
+  to: number,
+  size: number,
+  watermark: number | undefined,
+  covered: (from: number, to: number) => boolean,
+  sql: (from: number, to: number, pids: string[] | null) => string
+): Promise<BucketFetch | undefined> {
+  const start = watermark ?? Math.ceil(from / size) * size;
+  const end = Math.floor(to / size) * size;
   if (end <= start) {
     return undefined;
   }
-  const days = Math.min(7, Math.max(1, Math.round(engine.rules.providerBaselineDays)));
+  const days = Math.min(7, Math.max(1, Math.round(opts.engine.rules.providerBaselineDays)));
   const baselineWindows: Array<[number, number]> = [];
   for (let d = 1; d <= days; d++) {
-    if (!engine.providerCoveredRange(start - d * DAY, end - d * DAY)) {
+    if (!covered(start - d * DAY, end - d * DAY)) {
       baselineWindows.push([start - d * DAY, end - d * DAY]);
     }
   }
   const [current, ...baselines] = await Promise.all([
-    query(opts, providerBucketsSql(start, end, pids)),
-    ...baselineWindows.map(([f, t]) => query(opts, providerBucketsSql(f, t, pids))),
+    query(opts, sql(start, end, opts.pids)),
+    ...baselineWindows.map(([f, t]) => query(opts, sql(f, t, opts.pids))),
   ]);
   return {
     start,
@@ -325,6 +356,34 @@ async function fetchProviders(opts: RunOptions, from: number, to: number): Promi
     current,
     baselines: baselineWindows.map(([f, t], i) => ({ from: f, to: t, rows: baselines[i] })),
   };
+}
+
+/** Provider level: 15-minute buckets of viewers with errors. */
+function fetchProviders(opts: RunOptions, from: number, to: number) {
+  const { engine } = opts;
+  return fetchBuckets(
+    opts,
+    from,
+    to,
+    PROVIDER_BUCKET_SEC,
+    engine.providerWatermark,
+    (f, t) => engine.providerCoveredRange(f, t),
+    providerBucketsSql
+  );
+}
+
+/** App level: 5-minute buckets of app starts, playback starts and events. */
+function fetchActivity(opts: RunOptions, from: number, to: number) {
+  const { activity } = opts.engine;
+  return fetchBuckets(
+    opts,
+    from,
+    to,
+    ACTIVITY_BUCKET_SEC,
+    activity.watermark,
+    (f, t) => activity.coveredRange(f, t),
+    activitySql
+  );
 }
 
 const resolvedPids = new WeakMap<AlertEngine, Set<string>>();

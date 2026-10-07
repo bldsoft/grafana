@@ -65,6 +65,7 @@ function snapshot(): AlertsSnapshot {
     dead: engine.getDeadChannels(),
     channels: engine.getChannelReport(),
     providers: engine.getProviderIncidents(),
+    activity: engine.getActivityIncidents(),
     providerAffected: (id) => engine.getProviderAffected(id),
     groups: engine.getGroups(),
     blips: engine.blipCount,
@@ -94,6 +95,49 @@ describe('AlertsResults', () => {
     await userEvent.click(screen.getByText('Sport 1'));
     expect(screen.getByText('AA-549-001')).toBeInTheDocument();
     expect(screen.getByText(/1 down · 1 back · 1 apology/)).toBeInTheDocument();
+  });
+
+  it('lists app-level incidents on the Service & data tab', async () => {
+    const sample = (bucket: number) => ({
+      bucket,
+      sessions: 200,
+      plays: 40,
+      errEvents: 0,
+      events: 2000,
+      baseSessions: 40,
+      basePlays: 400,
+      baseErrEvents: 6,
+      baseEvents: 2000,
+      providers: 1,
+    });
+    render(
+      <AlertsResults
+        snapshot={{
+          ...snapshot(),
+          activity: [
+            {
+              id: 'act-1',
+              kind: 'service_down',
+              pid: '326',
+              provider: '',
+              pids: { '326': 3 },
+              start: T0,
+              detectedAt: T0 + 15 * MIN,
+              lastSeen: T0 + 10 * MIN,
+              closedAt: T0 + 15 * MIN,
+              series: [sample(T0), sample(T0 + 5 * MIN), sample(T0 + 10 * MIN)],
+            },
+          ],
+        }}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('tab', { name: /Service & data/ }));
+    const rows = screen.getAllByRole('row');
+    expect(within(rows[1]).getByText('Service down')).toBeInTheDocument();
+    expect(within(rows[1]).getByText('App starts 5.0× usual · playback 10% of usual')).toBeInTheDocument();
+    await userEvent.click(within(rows[1]).getByText('326'));
+    expect(screen.getByText(/Bars: playback starts per 5 min/)).toBeInTheDocument();
   });
 
   it('filters the message log by kind', async () => {

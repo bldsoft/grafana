@@ -60,6 +60,25 @@ export interface AlertRules {
    * surge get the in-player message instead.
    */
   providerMinViewerErrors: number;
+  /**
+   * App level, per provider and 5 minutes against the same time on previous
+   * days (providerBaselineDays). "Service down" (a middleware or login
+   * outage): app starts at least serviceStormFactor × usual while playback
+   * starts fall to servicePlayShare of usual, for serviceConfirmBuckets
+   * periods in a row — viewers keep reopening the app and cannot watch, often
+   * without a single player error.
+   */
+  serviceStormFactor: number;
+  servicePlayShare: number;
+  serviceConfirmBuckets: number;
+  /** "Outage across providers": at least this many providers abnormal at once, twice in a row. */
+  outageMinProviders: number;
+  /**
+   * "No data": at least this many providers send no events at all where they
+   * usually do — the analytics intake is down (it shares the data centre), so
+   * silence must not be read as "all is well".
+   */
+  noDataMinProviders: number;
   /** Viewers who watched the channel this long in the hour before get an apology. */
   apologyWatchMinutes: number;
   /** Customer-side diagnosis: errors on at least this many healthy channels... */
@@ -85,6 +104,11 @@ export const DEFAULT_RULES: AlertRules = {
   providerConfirmBuckets: 2,
   providerBaselineDays: 3,
   providerMinViewerErrors: 3,
+  serviceStormFactor: 2,
+  servicePlayShare: 0.5,
+  serviceConfirmBuckets: 3,
+  outageMinProviders: 8,
+  noDataMinProviders: 3,
   apologyWatchMinutes: 10,
   customerMinChannels: 3,
   customerMinMinutes: 3,
@@ -119,6 +143,60 @@ export interface ProviderBucketRow {
   errEvents: number;
   topCode: string;
   topPlatform: string;
+}
+
+/** One provider and 5-minute bucket of app activity, all clients (query S). */
+export interface ActivityBucketRow {
+  bucket: number;
+  pid: string;
+  users: number;
+  /** App starts (session_start). */
+  sessions: number;
+  /** Playback starts. */
+  plays: number;
+  errEvents: number;
+  events: number;
+}
+
+/**
+ * no_data: the analytics intake went silent for several providers at once.
+ * outage: many providers abnormal at once (a data centre, a network).
+ * service_down: one provider's app starts pile up without playback (middleware, login).
+ */
+export type ActivityKind = 'no_data' | 'outage' | 'service_down';
+
+/** One 5-minute point of an app-level incident, summed over the providers it covers. */
+export interface ActivitySample {
+  bucket: number;
+  sessions: number;
+  plays: number;
+  errEvents: number;
+  events: number;
+  baseSessions: number;
+  basePlays: number;
+  baseErrEvents: number;
+  baseEvents: number;
+  /** Providers abnormal (outage) or silent (no_data) in this bucket. */
+  providers: number;
+}
+
+export interface ActivityIncident {
+  id: string;
+  kind: ActivityKind;
+  /** The provider of a service_down; empty for the cross-provider kinds. */
+  pid: string;
+  provider: string;
+  /** Providers involved, with the number of abnormal 5-minute periods of each. */
+  pids: Record<string, number>;
+  /** Start of the first abnormal bucket. */
+  start: number;
+  /** End of the confirming bucket; undefined until confirmed. */
+  detectedAt?: number;
+  /** Start of the last abnormal bucket. */
+  lastSeen: number;
+  /** End of the last abnormal bucket, once activity was back to usual. */
+  closedAt?: number;
+  series: ActivitySample[];
 }
 
 /** A provider-wide error surge against its usual level. */
@@ -308,6 +386,10 @@ export interface ChannelReportRow {
 export interface AlertSummary {
   incidents: number;
   providerIncidents: number;
+  /** App-level incidents by kind (see ActivityKind). */
+  serviceDown: number;
+  outages: number;
+  noData: number;
   /** Provider incidents that overlap with other providers' (shared infrastructure). */
   infraGroups: number;
   pushIncidents: number;

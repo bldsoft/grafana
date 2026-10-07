@@ -209,10 +209,10 @@ function ruleFields(): RuleField[] {
     },
     {
       key: 'providerBaselineDays',
-      label: t('ai-insider-alerts.rule-provider-days', 'Provider-wide: usual level from previous'),
+      label: t('ai-insider-alerts.rule-provider-days', 'Usual level from previous'),
       description: t(
         'ai-insider-alerts.rule-provider-days-desc',
-        'Previous days the usual level is taken from (median). The first days of a run have no baseline.'
+        'Previous days the usual level is taken from (median), for the provider-wide and app-level rules. The first days of a run have no baseline.'
       ),
       unit: t('ai-insider-alerts.unit-days', 'days'),
     },
@@ -224,6 +224,52 @@ function ruleFields(): RuleField[] {
         'Who gets the "service problems" push: viewers with this many errors over 2+ minutes; others get the in-player message.'
       ),
       unit: t('ai-insider-alerts.unit-errors', 'errors'),
+    },
+    {
+      key: 'serviceStormFactor',
+      label: t('ai-insider-alerts.rule-service-storm', 'Service down: app starts, times the usual'),
+      description: t(
+        'ai-insider-alerts.rule-service-storm-desc',
+        'Middleware or login outage: viewers keep reopening the app. App starts at least this many times the usual level for the time of day…'
+      ),
+      unit: '×',
+    },
+    {
+      key: 'servicePlayShare',
+      label: t('ai-insider-alerts.rule-service-plays', 'Service down: playback at most'),
+      description: t(
+        'ai-insider-alerts.rule-service-plays-desc',
+        '…while playback starts fall to this share of usual. Often without a single player error.'
+      ),
+      unit: '%',
+      percent: true,
+    },
+    {
+      key: 'serviceConfirmBuckets',
+      label: t('ai-insider-alerts.rule-service-confirm', 'Service down: 5-min periods to confirm'),
+      description: t(
+        'ai-insider-alerts.rule-service-confirm-desc',
+        'Periods in a row before a service outage is confirmed. 3 = 15 minutes, about one false alarm in five days.'
+      ),
+      unit: '',
+    },
+    {
+      key: 'outageMinProviders',
+      label: t('ai-insider-alerts.rule-outage-providers', 'Outage across providers: at least'),
+      description: t(
+        'ai-insider-alerts.rule-outage-providers-desc',
+        'A data centre or network down: this many providers abnormal at once (playback, errors or app starts), 10 minutes in a row.'
+      ),
+      unit: t('ai-insider-alerts.unit-providers', 'providers'),
+    },
+    {
+      key: 'noDataMinProviders',
+      label: t('ai-insider-alerts.rule-no-data', 'No data: providers silent at once'),
+      description: t(
+        'ai-insider-alerts.rule-no-data-desc',
+        'The analytics intake is down: this many providers send no events where they usually do. Silence is then not "all well".'
+      ),
+      unit: t('ai-insider-alerts.unit-providers', 'providers'),
     },
     {
       key: 'apologyWatchMinutes',
@@ -296,6 +342,7 @@ function snapshotOf(engine: AlertEngine, from: number, to: number): AlertsSnapsh
     dead: engine.getDeadChannels(),
     channels: engine.getChannelReport(),
     providers: engine.getProviderIncidents(),
+    activity: engine.getActivityIncidents(),
     providerAffected: (id) => engine.getProviderAffected(id),
     groups: engine.getGroups(),
     blips: engine.blipCount,

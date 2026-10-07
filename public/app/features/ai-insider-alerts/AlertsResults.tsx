@@ -21,6 +21,9 @@ import { IncidentTimeline, classColor } from './IncidentTimeline';
 import { topKey } from './engine';
 import { decisionsToCsv, formatCount, formatMinutes, formatUtc, formatUtcTime } from './format';
 import type {
+  ActivityIncident,
+  ActivityKind,
+  ActivitySample,
   AffectedUserRow,
   AlertSummary,
   ChannelReportRow,
@@ -43,6 +46,8 @@ export interface AlertsSnapshot {
   dead: DeadChannel[];
   channels: ChannelReportRow[];
   providers: ProviderIncident[];
+  /** App level: service outages, outages across providers, no data. */
+  activity: ActivityIncident[];
   providerAffected: (incidentId: string) => AffectedUserRow[];
   groups: CorrelationGroup[];
   blips: number;
@@ -52,7 +57,7 @@ export interface AlertsSnapshot {
   to: number;
 }
 
-type TabId = 'incidents' | 'providers' | 'messages' | 'ops' | 'customer' | 'dead';
+type TabId = 'incidents' | 'providers' | 'service' | 'messages' | 'ops' | 'customer' | 'dead';
 type KindFilter = DecisionKind | 'all';
 
 const LOG_LIMIT = 300;
@@ -105,6 +110,50 @@ function classBadge(cls: IncidentClass): { text: string; color: BadgeColor; tool
   }
 }
 
+function activityBadge(kind: ActivityKind): { text: string; color: BadgeColor; tooltip: string } {
+  switch (kind) {
+    case 'service_down':
+      return {
+        text: t('ai-insider-alerts.activity-service', 'Service down'),
+        color: 'red',
+        tooltip: t(
+          'ai-insider-alerts.activity-service-tip',
+          'Viewers keep reopening the app and cannot watch: middleware, login or the provider API'
+        ),
+      };
+    case 'outage':
+      return {
+        text: t('ai-insider-alerts.activity-outage', 'Outage'),
+        color: 'purple',
+        tooltip: t(
+          'ai-insider-alerts.activity-outage-tip',
+          'Many providers abnormal at once: a data centre or a network'
+        ),
+      };
+    default:
+      return {
+        text: t('ai-insider-alerts.activity-no-data', 'No data'),
+        color: 'darkgrey',
+        tooltip: t(
+          'ai-insider-alerts.activity-no-data-tip',
+          'Several providers sent no events at all: the analytics intake is down, nothing can be judged meanwhile'
+        ),
+      };
+  }
+}
+
+/** Peak deviation of an app-level incident, over its abnormal periods. */
+function activityPeak(inc: ActivityIncident) {
+  const abnormal = inc.series.filter((p) => p.bucket <= inc.lastSeen);
+  const ratio = (a: number, b: number) => (b > 0 ? a / b : 0);
+  return {
+    sessions: Math.max(0, ...abnormal.map((p) => ratio(p.sessions, p.baseSessions))),
+    plays: Math.min(1, ...abnormal.map((p) => ratio(p.plays, p.basePlays))),
+    errors: Math.max(0, ...abnormal.map((p) => ratio(p.errEvents, Math.max(p.baseErrEvents, 1)))),
+    providers: Math.max(0, ...abnormal.map((p) => p.providers)),
+  };
+}
+
 function kindBadge(kind: DecisionKind): { text: string; color: BadgeColor } {
   switch (kind) {
     case 'down':
@@ -144,7 +193,7 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
   const ratio = sent > 0 ? summary.naiveErrEvents / sent : undefined;
 
   const selectIncident = (id: string) => {
-    setTab(id.startsWith('prov-') ? 'providers' : 'incidents');
+    setTab(id.startsWith('prov-') ? 'providers' : id.startsWith('act-') ? 'service' : 'incidents');
     setExpanded(id);
     requestAnimationFrame(() => document.getElementById(`ai-alert-${id}`)?.scrollIntoView({ block: 'center' }));
   };
@@ -186,6 +235,15 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
           detail={t('ai-insider-alerts.tile-providers-detail', '{{infra}} hit several providers at once', {
             infra: summary.infraGroups,
           })}
+        />
+        <Tile
+          label={t('ai-insider-alerts.tile-service', 'Service & data')}
+          value={formatCount(summary.serviceDown + summary.outages + summary.noData)}
+          detail={t(
+            'ai-insider-alerts.tile-service-detail',
+            '{{service}} service down · {{outages}} outages · {{noData}} no data',
+            { service: summary.serviceDown, outages: summary.outages, noData: summary.noData }
+          )}
         />
         <Tile
           label={t('ai-insider-alerts.tile-in-app', 'In-player messages')}
@@ -238,6 +296,12 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
             onChangeTab={() => setTab('providers')}
           />
           <Tab
+            label={t('ai-insider-alerts.tab-service', 'Service & data')}
+            counter={snapshot.activity.length}
+            active={tab === 'service'}
+            onChangeTab={() => setTab('service')}
+          />
+          <Tab
             label={t('ai-insider-alerts.tab-messages', 'Messages')}
             counter={snapshot.decisions.length}
             active={tab === 'messages'}
@@ -271,6 +335,7 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
         )}
         {tab === 'messages' && <MessagesTab decisions={snapshot.decisions} onSelect={selectIncident} />}
         {tab === 'providers' && <ProvidersTab snapshot={snapshot} expanded={expanded} onToggle={setExpanded} />}
+        {tab === 'service' && <ServiceTab incidents={snapshot.activity} expanded={expanded} onToggle={setExpanded} />}
         {tab === 'ops' && <OpsTab rows={snapshot.channels} />}
         {tab === 'customer' && <CustomerTab rows={snapshot.customer} />}
         {tab === 'dead' && <DeadTab rows={snapshot.dead} />}
@@ -955,6 +1020,239 @@ function ProvidersTab({
         </table>
       </div>
     </>
+  );
+}
+
+function ServiceTab({
+  incidents,
+  expanded,
+  onToggle,
+}: {
+  incidents: ActivityIncident[];
+  expanded?: string;
+  onToggle: (id?: string) => void;
+}) {
+  const styles = useStyles2(getStyles);
+  if (!incidents.length) {
+    return (
+      <p className={styles.empty}>
+        <Trans i18nKey="ai-insider-alerts.no-activity">
+          App starts, playback and the event flow stayed near their usual level for every provider. Needs previous days
+          to compare with: the first day of a replay has no baseline.
+        </Trans>
+      </p>
+    );
+  }
+  return (
+    <>
+      <div className={styles.legend}>
+        <Trans i18nKey="ai-insider-alerts.activity-legend">
+          What player errors do not show, per provider and 5 minutes against the same time on previous days, from every
+          client including set-top boxes. Service down: app starts pile up while playback stops (middleware, login).
+          Outage: many providers abnormal at once (a data centre, a network). No data: the analytics intake went silent.
+          These are signals for the operations team; viewer messages come from the channel and provider levels.
+        </Trans>
+      </div>
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-kind">Kind</Trans>
+              </th>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-started">Started (UTC)</Trans>
+              </th>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-detected">Detected</Trans>
+              </th>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-back">Back</Trans>
+              </th>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-provider">Provider</Trans>
+              </th>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-signal">Signal</Trans>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {incidents.map((inc) => {
+              const open = expanded === inc.id;
+              const badge = activityBadge(inc.kind);
+              const peak = activityPeak(inc);
+              const pids = Object.entries(inc.pids)
+                .sort((a, b) => b[1] - a[1])
+                .map(([pid]) => pid);
+              return (
+                <Fragment key={inc.id}>
+                  <tr
+                    id={`ai-alert-${inc.id}`}
+                    className={cx(styles.clickable, open && styles.rowOpen)}
+                    onClick={() => onToggle(open ? undefined : inc.id)}
+                  >
+                    <td>
+                      <Badge text={badge.text} color={badge.color} tooltip={badge.tooltip} />
+                    </td>
+                    <td>{formatUtc(inc.start)}</td>
+                    <td>
+                      {formatUtcTime(inc.detectedAt)}
+                      <span className={styles.sub}>+{formatMinutes(inc.start, inc.detectedAt)}</span>
+                    </td>
+                    <td>
+                      {inc.closedAt === undefined ? (
+                        <Trans i18nKey="ai-insider-alerts.activity-ongoing">still abnormal</Trans>
+                      ) : (
+                        <>
+                          {formatUtcTime(inc.closedAt)}
+                          <span className={styles.sub}>{formatMinutes(inc.start, inc.closedAt)}</span>
+                        </>
+                      )}
+                    </td>
+                    <td>
+                      {inc.kind === 'service_down' ? (
+                        <strong>{inc.provider ? `${inc.pid} ${inc.provider}` : inc.pid}</strong>
+                      ) : (
+                        <>
+                          <strong>
+                            {t('ai-insider-alerts.activity-providers', '{{count}} providers', { count: pids.length })}
+                          </strong>
+                          <span className={styles.sub}>
+                            {[...pids.slice(0, 8), ...(pids.length > 8 ? ['…'] : [])].join(', ')}
+                          </span>
+                        </>
+                      )}
+                    </td>
+                    <td className={styles.evidence}>
+                      {inc.kind === 'no_data'
+                        ? t('ai-insider-alerts.activity-signal-no-data', 'No events from {{count}} providers', {
+                            count: peak.providers,
+                          })
+                        : inc.kind === 'service_down'
+                          ? t(
+                              'ai-insider-alerts.activity-signal-service',
+                              'App starts {{sessions}}× usual · playback {{plays}}% of usual',
+                              { sessions: peak.sessions.toFixed(1), plays: Math.round(peak.plays * 100) }
+                            )
+                          : t(
+                              'ai-insider-alerts.activity-signal-outage',
+                              'Up to {{count}} providers at once · playback {{plays}}% · errors {{errors}}× usual',
+                              {
+                                count: peak.providers,
+                                plays: Math.round(peak.plays * 100),
+                                errors: peak.errors.toFixed(1),
+                              }
+                            )}
+                    </td>
+                  </tr>
+                  {open && (
+                    <tr className={styles.detailRow}>
+                      <td colSpan={6}>
+                        <ServiceDetails incident={inc} />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/** Bars per 5 minutes against the usual level of the same time (dashed). */
+function ActivityChart({
+  series,
+  value,
+  usual,
+  color,
+}: {
+  series: ActivitySample[];
+  value: (p: ActivitySample) => number;
+  usual: (p: ActivitySample) => number;
+  color: string;
+}) {
+  const styles = useStyles2(getStyles);
+  const theme = useTheme2();
+  const w = 600;
+  const h = 64;
+  const bw = w / Math.max(1, series.length);
+  const max = Math.max(1, ...series.map((p) => Math.max(value(p), usual(p))));
+  const y = (v: number) => h - (v / max) * (h - 4);
+  const line = series.map((p, i) => `${i ? 'L' : 'M'} ${i * bw + bw / 2} ${y(usual(p))}`).join(' ');
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className={styles.spark} preserveAspectRatio="none" aria-hidden>
+      {series.map((p, i) => (
+        <rect
+          key={p.bucket}
+          x={i * bw + 1}
+          y={y(value(p))}
+          width={Math.max(1, bw - 2)}
+          height={h - y(value(p))}
+          fill={color}
+          opacity={0.8}
+        />
+      ))}
+      <path d={line} fill="none" stroke={theme.colors.text.primary} strokeWidth={1.5} strokeDasharray="4 3" />
+    </svg>
+  );
+}
+
+function ServiceDetails({ incident }: { incident: ActivityIncident }) {
+  const styles = useStyles2(getStyles);
+  const theme = useTheme2();
+  const { series } = incident;
+  const range = {
+    from: formatUtcTime(series[0]?.bucket),
+    to: formatUtcTime((series[series.length - 1]?.bucket ?? 0) + 300),
+  };
+  if (incident.kind === 'no_data') {
+    return (
+      <div className={styles.details}>
+        <ActivityChart
+          series={series}
+          value={(p) => p.events}
+          usual={(p) => p.baseEvents}
+          color={theme.colors.text.secondary}
+        />
+        <div className={styles.legend}>
+          {t(
+            'ai-insider-alerts.activity-chart-events',
+            'Bars: events per 5 min from the silent providers ({{from}}–{{to}} UTC). Dashed: usual level.',
+            range
+          )}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className={styles.details}>
+      <ActivityChart
+        series={series}
+        value={(p) => p.plays}
+        usual={(p) => p.basePlays}
+        color={theme.colors.error.main}
+      />
+      <div className={styles.legend}>
+        {t(
+          'ai-insider-alerts.activity-chart-plays',
+          'Bars: playback starts per 5 min ({{from}}–{{to}} UTC). Dashed: usual level at the same time on previous days.',
+          range
+        )}
+      </div>
+      <ActivityChart
+        series={series}
+        value={(p) => p.sessions}
+        usual={(p) => p.baseSessions}
+        color={theme.colors.warning.main}
+      />
+      <div className={styles.legend}>
+        {t('ai-insider-alerts.activity-chart-sessions', 'Bars: app starts per 5 min. Dashed: usual level.')}
+      </div>
+    </div>
   );
 }
 

@@ -5,8 +5,10 @@
 //   1. is a channel down on the operator side right now (an incident), and
 //   2. which viewer would be told what, and when — or deliberately not told.
 
+import { ActivityDetector } from './activity';
 import { PROVIDER_BUCKET_SEC, type IncidentWindow, type ProviderWindow } from './sql';
 import type {
+  ActivityIncident,
   AffectedUserRow,
   AlertRules,
   AlertSummary,
@@ -113,9 +115,12 @@ export class AlertEngine {
   providerWatermark?: number;
   /** End of the last window applied as a whole: a stopped run continues from here. */
   processedTo?: number;
+  /** App level: service outages, outages across providers, no data. */
+  readonly activity: ActivityDetector;
 
   constructor(rules: AlertRules) {
     this.rules = rules;
+    this.activity = new ActivityDetector(rules);
   }
 
   setProviderNames(names: Record<string, string>) {
@@ -648,6 +653,10 @@ export class AlertEngine {
     return result;
   }
 
+  getActivityIncidents(): ActivityIncident[] {
+    return this.activity.getIncidents((pid) => this.providerName(pid));
+  }
+
   getProviderIncidents(): ProviderIncident[] {
     const groups = this.providerGroupOf();
     return this.provIncidents
@@ -935,7 +944,8 @@ export class AlertEngine {
       if (
         providerIncidents.some(
           (i) => i.pid === c.pid && i.start <= c.lastMinute + MIN && (i.closedAt ?? Infinity) > c.firstMinute
-        )
+        ) ||
+        this.activity.covers(c.pid, c.firstMinute, c.lastMinute + MIN)
       ) {
         continue;
       }
@@ -1122,9 +1132,13 @@ export class AlertEngine {
       }
     }
     const classes = incidents.map((i) => this.incidentClass(i));
+    const activity = this.activity.getIncidents();
     return {
       incidents: incidents.length,
       providerIncidents: this.provIncidents.filter((i) => i.detectedAt !== undefined).length,
+      serviceDown: activity.filter((i) => i.kind === 'service_down').length,
+      outages: activity.filter((i) => i.kind === 'outage').length,
+      noData: activity.filter((i) => i.kind === 'no_data').length,
       infraGroups: new Set(this.providerGroupOf().values()).size,
       pushIncidents: classes.filter((c) => c === 'push').length,
       unstableIncidents: classes.filter((c) => c === 'unstable').length,

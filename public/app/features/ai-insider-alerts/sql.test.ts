@@ -2,6 +2,7 @@ import { isSafeBridgeSql } from 'app/features/dashboard-scene/ai-panel/datasourc
 
 import { effectiveScope, parseProviderScope } from './scope';
 import {
+  activitySql,
   affectedUsersSql,
   badMinutesSql,
   channelHealthSql,
@@ -51,6 +52,19 @@ describe('alerts SQL', () => {
     expect(sql).not.toContain('DROP');
     expect(errorVolumeSql(FROM, TO, [])).toContain('AND 0');
     expect(errorVolumeSql(FROM, TO, null)).not.toContain('content_provider_id IN');
+  });
+
+  it('counts app activity from every client, gating only the error count', () => {
+    const sql = activitySql(FROM, TO, ['222']);
+    expect(isSafeBridgeSql(sql)).toBe(true);
+    expect(sql).toMatch(/event_timestamp >= toDateTime\(\d+\) AND event_timestamp < toDateTime\(\d+\)/);
+    expect(sql).toContain("content_provider_id IN ('222')");
+    expect(sql).toContain("countIf(event_type = 'session_start') AS sessions");
+    // The version gate sits on the error count only, never in WHERE.
+    expect(sql.split('WHERE')[1]).not.toContain('analytics_version');
+    expect(sql).toMatch(/countIf\(\(.+\) AND analytics_version != ''/);
+    expect(sql.trim().endsWith("log_comment = 'ai-insider:alerts'")).toBe(true);
+    expect(activitySql(FROM, TO, [])).toContain('AND 0');
   });
 
   it('rejects malformed incident keys instead of inlining them', () => {

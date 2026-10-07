@@ -12,6 +12,7 @@ import type { AlertsSnapshot } from './AlertsResults';
 import { isTransientError, withRetry } from './retry';
 import { ALERTS_MAX_RESULT_CHARS, chunks } from './runner';
 import {
+  activitySql,
   badMinutesSql,
   channelHealthSql,
   channelMinutesSql,
@@ -84,6 +85,7 @@ export async function exportRun(snapshot: AlertsSnapshot, meta: ExportMeta) {
     deadChannels: snapshot.dead,
     channelReport: snapshot.channels,
     providerIncidents: snapshot.providers.map((p) => ({ ...p, viewers: snapshot.providerAffected(p.id) })),
+    serviceIncidents: snapshot.activity,
   };
   const { blob, gzipped } = await packText([JSON.stringify(doc)], 'application/json');
   downloadBlob(blob, exportFileName('run', meta.from, meta.to, gzipped ? 'json.gz' : 'json'));
@@ -116,7 +118,8 @@ class TruncatedResult extends Error {
  * compact arrays `["<type>", v1, v2, …]` (a week of two big operators is
  * ~1M rows, so keys are not repeated per row). Types: `min` (channel-minute),
  * `err` (viewer-minute with an error), `health` (per channel and hour),
- * `prov` (per provider and 15 minutes: viewers, viewers with errors). A
+ * `prov` (per provider and 15 minutes: viewers, viewers with errors), `act`
+ * (per provider and 5 minutes: app starts, playback starts, events). A
  * channel keeps its minutes for one more hour after it last qualified, so
  * recoveries that cross an hour boundary stay visible. The last line is
  * `{"t":"end","complete":…,"upTo":…}`: an export that hit a persistent
@@ -213,6 +216,7 @@ export async function runDatasetExport(opts: DatasetOptions): Promise<DatasetRes
       const errors = await runSplit((f, t) => userErrorsSql(f, t, opts.pids), from, to);
       const health = await run(channelHealthSql(from, to, opts.pids));
       const providers = await runSplit((f, t) => providerBucketsSql(f, t, opts.pids), from, to, 900);
+      const activity = await runSplit((f, t) => activitySql(f, t, opts.pids), from, to, 300);
       const current = new Map<string, ChannelKey>();
       for (const r of bad) {
         const key = { pid: String(r.pid ?? ''), cid: String(r.cid ?? '') };
@@ -231,7 +235,8 @@ export async function runDatasetExport(opts: DatasetOptions): Promise<DatasetRes
       errors.forEach((r) => emit('err', r));
       health.forEach((r) => emit('health', { chunk_from: from, chunk_to: to, ...r }));
       providers.forEach((r) => emit('prov', r));
-      rows += minutes.length + errors.length + health.length + providers.length;
+      activity.forEach((r) => emit('act', r));
+      rows += minutes.length + errors.length + health.length + providers.length + activity.length;
       previous = current;
       upTo = to;
       opts.onChunk(to, rows);

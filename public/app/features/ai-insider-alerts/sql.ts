@@ -411,3 +411,33 @@ GROUP BY inc, user_id
 ORDER BY inc, first_err
 ${SETTINGS}`;
 }
+
+/** App-level buckets: short enough to catch a 15-minute middleware outage. */
+export const ACTIVITY_BUCKET_SEC = 300;
+
+/**
+ * Query S: per provider and 5-minute bucket, the app's own activity — app
+ * starts (session_start), playback starts, playback errors and all events —
+ * from every client, set-top boxes and old versions included. Unlike the
+ * queries above it reads no event_parameter of non-playback rows and needs no
+ * version gate for the counts: an outage of the middleware or of a data centre
+ * shows as app starts piling up without playback, or as no events at all,
+ * not as player errors. The error count keeps the gate (old builds report
+ * codes that are not errors).
+ */
+export function activitySql(from: number, to: number, pids: string[] | null): string {
+  return `SELECT
+    toUnixTimestamp(toStartOfFiveMinutes(event_timestamp)) AS bucket_ts,
+    content_provider_id AS pid,
+    uniq(${USER_ID}) AS users,
+    countIf(event_type = 'session_start') AS sessions,
+    countIf(event_type = 'play_start') AS plays,
+    countIf((${IS_ERR}) AND ${VERSION_GATE}) AS err_events,
+    count() AS events
+FROM ${TABLE}
+WHERE event_timestamp >= ${epoch(from)} AND event_timestamp < ${epoch(to)}
+  AND content_provider_id != ''${pidClause(pids)}
+GROUP BY bucket_ts, pid
+ORDER BY bucket_ts, pid
+${SETTINGS}`;
+}
