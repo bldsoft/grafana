@@ -112,6 +112,31 @@ function ruleFields(): RuleField[] {
       unit: 'min',
     },
     {
+      key: 'providerMinErrUsers',
+      label: t('ai-insider-alerts.rule-provider-min', 'Provider-wide: min viewers with errors per 15 min'),
+      unit: '',
+    },
+    {
+      key: 'providerSurgeFactor',
+      label: t('ai-insider-alerts.rule-provider-factor', 'Provider-wide: times the usual level'),
+      unit: '×',
+    },
+    {
+      key: 'providerConfirmBuckets',
+      label: t('ai-insider-alerts.rule-provider-confirm', 'Provider-wide: 15-min periods to confirm'),
+      unit: '',
+    },
+    {
+      key: 'providerBaselineDays',
+      label: t('ai-insider-alerts.rule-provider-days', 'Provider-wide: usual level from previous'),
+      unit: t('ai-insider-alerts.unit-days', 'days'),
+    },
+    {
+      key: 'providerMinViewerErrors',
+      label: t('ai-insider-alerts.rule-provider-viewer', 'Provider-wide push: viewer had at least'),
+      unit: t('ai-insider-alerts.unit-errors', 'errors'),
+    },
+    {
       key: 'apologyWatchMinutes',
       label: t('ai-insider-alerts.rule-apology', 'Apology if watched in the hour before'),
       unit: 'min',
@@ -169,6 +194,8 @@ function snapshotOf(engine: AlertEngine, from: number, to: number): AlertsSnapsh
     customer: engine.getCustomerSide(),
     dead: engine.getDeadChannels(),
     channels: engine.getChannelReport(),
+    providers: engine.getProviderIncidents(),
+    providerAffected: (id) => engine.getProviderAffected(id),
     groups: engine.getGroups(),
     blips: engine.blipCount,
     classOf: (i) => engine.incidentClass(i),
@@ -471,7 +498,7 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
                 <Input
                   type="number"
                   min={0}
-                  step={f.percent ? 1 : 1}
+                  step={f.key === 'providerSurgeFactor' ? 0.1 : 1}
                   suffix={f.unit || undefined}
                   value={f.percent ? Math.round(settings.rules[f.key] * 100) : settings.rules[f.key]}
                   onChange={(e) => {

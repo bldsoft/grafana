@@ -5,7 +5,7 @@
 //   1. is a channel down on the operator side right now (an incident), and
 //   2. which viewer would be told what, and when — or deliberately not told.
 
-import type { IncidentWindow } from './sql';
+import { PROVIDER_BUCKET_SEC, type IncidentWindow, type ProviderWindow } from './sql';
 import type {
   AffectedUserRow,
   AlertRules,
@@ -20,6 +20,8 @@ import type {
   ErrorVolumeRow,
   Incident,
   IncidentClass,
+  ProviderBucketRow,
+  ProviderIncident,
 } from './types';
 
 const MIN = 60;
@@ -30,6 +32,10 @@ const DEAD_WINDOW_SEC = 3 * 3600;
 const DEAD_MIN_SRV_USERS = 3;
 /** Incidents on one origin directory belong together only when they start this close. */
 const ORIGIN_ONSET_SEC = 5 * MIN;
+/** Provider incidents of several providers belong together when they start this close. */
+const INFRA_ONSET_SEC = 30 * MIN;
+/** A provider in an incident with no activity at all for this long is closed without evidence. */
+const PROVIDER_QUIET_SEC = 4 * 900;
 /** One customer-side diagnosis per viewer per day. */
 const DIAGNOSIS_COOLDOWN_SEC = DAY;
 
@@ -92,9 +98,19 @@ export class AlertEngine {
   private volume: ErrorVolumeRow = { errEvents: 0, errUsers: 0, userErrMinutes: 0 };
   private providerNames = new Map<string, string>();
   private blips = 0;
+  /** Provider buckets read so far (window and baseline days), by pid|bucket. */
+  private provRows = new Map<string, ProviderBucketRow>();
+  /** Buckets whose provider rows were read: a missing row there means "no activity". */
+  private provCovered = new Set<number>();
+  private provIncidents: ProviderIncident[] = [];
+  private provOpen = new Map<string, ProviderIncident>();
+  private provDirty = new Set<string>();
+  private provAffected = new Map<string, AffectedUserRow[]>();
   private seq = 0;
   /** End of the last processed window. */
   clock = 0;
+  /** Provider buckets are evaluated up to here (complete buckets only). */
+  providerWatermark?: number;
 
   constructor(rules: AlertRules) {
     this.rules = rules;
@@ -441,6 +457,197 @@ export class AlertEngine {
       .sort((a, b) => b.errEvents - a.errEvents);
   }
 
+  // ---- Provider level ------------------------------------------------------
+
+  /** Provider buckets of the same time on previous days (the baseline), for [from, to). */
+  ingestProviderBaseline(rows: ProviderBucketRow[], from: number, to: number) {
+    for (let b = Math.floor(from / PROVIDER_BUCKET_SEC) * PROVIDER_BUCKET_SEC; b < to; b += PROVIDER_BUCKET_SEC) {
+      this.provCovered.add(b);
+    }
+    for (const row of rows) {
+      this.provRows.set(`${row.pid}|${row.bucket}`, row);
+    }
+  }
+
+  /**
+   * Complete provider buckets of [from, to), compared with the baseline. They
+   * also become the baseline of the days that follow.
+   */
+  ingestProviderBuckets(rows: ProviderBucketRow[], from: number, to: number) {
+    this.ingestProviderBaseline(rows, from, to);
+    this.clock = Math.max(this.clock, to);
+    const byBucket = new Map<number, ProviderBucketRow[]>();
+    for (const row of rows) {
+      const list = byBucket.get(row.bucket) ?? [];
+      list.push(row);
+      byBucket.set(row.bucket, list);
+    }
+    for (let b = Math.floor(from / PROVIDER_BUCKET_SEC) * PROVIDER_BUCKET_SEC; b < to; b += PROVIDER_BUCKET_SEC) {
+      const present = new Set<string>();
+      for (const row of byBucket.get(b) ?? []) {
+        present.add(row.pid);
+        this.addProviderBucket(row);
+      }
+      for (const [pid, inc] of this.provOpen) {
+        if (!present.has(pid) && b - inc.lastSurge >= PROVIDER_QUIET_SEC) {
+          this.closeProvider(inc, inc.lastSurge + PROVIDER_BUCKET_SEC + PROVIDER_QUIET_SEC, false);
+        }
+      }
+    }
+  }
+
+  /** True when every bucket of [from, to) was already read (no need to fetch it as baseline). */
+  providerCoveredRange(from: number, to: number): boolean {
+    for (let b = Math.floor(from / PROVIDER_BUCKET_SEC) * PROVIDER_BUCKET_SEC; b < to; b += PROVIDER_BUCKET_SEC) {
+      if (!this.provCovered.has(b)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** Median errors and error share of the same bucket on previous days; undefined without any day read. */
+  providerBaseline(pid: string, bucket: number): { err: number; share: number; days: number } | undefined {
+    const days = Math.min(7, Math.max(1, Math.round(this.rules.providerBaselineDays)));
+    const errs: number[] = [];
+    const shares: number[] = [];
+    for (let d = 1; d <= days; d++) {
+      const b = bucket - d * DAY;
+      if (!this.provCovered.has(b)) {
+        continue;
+      }
+      const row = this.provRows.get(`${pid}|${b}`);
+      errs.push(row?.errUsers ?? 0);
+      shares.push(row && row.users ? row.errUsers / row.users : 0);
+    }
+    if (!errs.length) {
+      return undefined;
+    }
+    return { err: median(errs)!, share: median(shares)!, days: errs.length };
+  }
+
+  private addProviderBucket(row: ProviderBucketRow) {
+    const r = this.rules;
+    const base = this.providerBaseline(row.pid, row.bucket);
+    let inc = this.provOpen.get(row.pid);
+    if (!base) {
+      return;
+    }
+    const share = row.users ? row.errUsers / row.users : 0;
+    const surge =
+      row.errUsers >= r.providerMinErrUsers &&
+      row.errUsers >= r.providerSurgeFactor * Math.max(base.err, 1) &&
+      row.errUsers - base.err >= r.providerMinErrUsers &&
+      // A bigger audience (a match) brings more errors at the usual rate: not an outage.
+      !(row.users > 0 && base.share > 0 && share < 1.5 * base.share);
+    if (!surge) {
+      if (inc) {
+        if (inc.detectedAt !== undefined) {
+          inc.series.push({ bucket: row.bucket, users: row.users, errUsers: row.errUsers, baselineErr: base.err });
+        }
+        this.closeProvider(inc, row.bucket + PROVIDER_BUCKET_SEC, true);
+      }
+      return;
+    }
+    if (!inc) {
+      this.seq += 1;
+      inc = {
+        id: `prov-${this.seq}`,
+        pid: row.pid,
+        provider: '',
+        start: row.bucket,
+        lastSurge: row.bucket,
+        surgeBuckets: 0,
+        series: [],
+        peakErrUsers: 0,
+        peakBaselineErr: 0,
+        peakRatio: 0,
+        codes: {},
+        platforms: {},
+      };
+      this.provOpen.set(row.pid, inc);
+      this.provIncidents.push(inc);
+    }
+    inc.lastSurge = row.bucket;
+    inc.surgeBuckets += 1;
+    inc.series.push({ bucket: row.bucket, users: row.users, errUsers: row.errUsers, baselineErr: base.err });
+    if (row.errUsers > inc.peakErrUsers) {
+      inc.peakErrUsers = row.errUsers;
+      inc.peakBaselineErr = base.err;
+      inc.peakRatio = row.errUsers / Math.max(base.err, 1);
+    }
+    bump(inc.codes, row.topCode, row.errUsers);
+    bump(inc.platforms, row.topPlatform, row.errUsers);
+    if (inc.detectedAt === undefined && inc.surgeBuckets >= Math.max(1, r.providerConfirmBuckets)) {
+      inc.detectedAt = row.bucket + PROVIDER_BUCKET_SEC;
+    }
+    if (inc.detectedAt !== undefined) {
+      this.provDirty.add(inc.id);
+    }
+  }
+
+  private closeProvider(inc: ProviderIncident, at: number, recovered: boolean) {
+    this.provOpen.delete(inc.pid);
+    if (inc.detectedAt === undefined) {
+      // A single surging bucket that did not confirm.
+      this.provIncidents = this.provIncidents.filter((i) => i.id !== inc.id);
+      return;
+    }
+    inc.closedAt = at;
+    inc.recovered = recovered;
+  }
+
+  /** Provider incidents whose viewers must be (re)read. */
+  takeProviderWindows(): ProviderWindow[] {
+    const windows: ProviderWindow[] = [];
+    for (const id of this.provDirty) {
+      const inc = this.provIncidents.find((i) => i.id === id);
+      if (inc) {
+        windows.push({ id, pid: inc.pid, start: inc.start, end: inc.lastSurge + PROVIDER_BUCKET_SEC });
+      }
+    }
+    this.provDirty.clear();
+    return windows;
+  }
+
+  setProviderAffected(incidentId: string, rows: AffectedUserRow[]) {
+    this.provAffected.set(incidentId, rows);
+  }
+
+  getProviderAffected(incidentId: string): AffectedUserRow[] {
+    return this.provAffected.get(incidentId) ?? [];
+  }
+
+  /** Several providers surging at once: shared infrastructure (a data centre, a network). */
+  private providerGroupOf(): Map<string, string> {
+    const confirmed = this.provIncidents.filter((i) => i.detectedAt !== undefined);
+    const result = new Map<string, string>();
+    const sorted = [...confirmed].sort((a, b) => a.start - b.start);
+    let group: ProviderIncident[] = [];
+    const flush = () => {
+      if (new Set(group.map((g) => g.pid)).size > 1) {
+        group.forEach((g) => result.set(g.id, `infra-${group[0].id}`));
+      }
+    };
+    for (const inc of sorted) {
+      if (group.length && inc.start - group[0].start > INFRA_ONSET_SEC) {
+        flush();
+        group = [];
+      }
+      group.push(inc);
+    }
+    flush();
+    return result;
+  }
+
+  getProviderIncidents(): ProviderIncident[] {
+    const groups = this.providerGroupOf();
+    return this.provIncidents
+      .filter((i) => i.detectedAt !== undefined)
+      .map((i) => ({ ...i, provider: this.providerName(i.pid), groupId: groups.get(i.id) }))
+      .sort((a, b) => b.start - a.start);
+  }
+
   /**
    * Every message the rules would send (and every one they deliberately
    * hold back), in time order. Recomputed from scratch each call, so later
@@ -461,6 +668,24 @@ export class AlertEngine {
       .filter((i) => i.detectedAt !== undefined)
       .sort((a, b) => (a.detectedAt ?? 0) - (b.detectedAt ?? 0));
     const byId = new Map(confirmed.map((i) => [i.id, i]));
+    const providerIncidents = this.provIncidents
+      .filter((i) => i.detectedAt !== undefined)
+      .sort((a, b) => a.detectedAt! - b.detectedAt!);
+    /** When each viewer would first hear about a provider-wide problem. */
+    const providerPlan = new Map<string, number>();
+    for (const inc of providerIncidents) {
+      for (const u of this.provAffected.get(inc.id) ?? []) {
+        const at = Math.max(u.firstErr, inc.detectedAt!);
+        const key = `${inc.pid}|${u.userId}`;
+        providerPlan.set(key, Math.min(providerPlan.get(key) ?? Infinity, at));
+      }
+    }
+    /** Last channel-level "down"/"unstable" per provider and viewer. */
+    const toldUser = new Map<string, number>();
+    const toldAboutService = (pid: string, userId: string, at: number) => {
+      const p = providerPlan.get(`${pid}|${userId}`);
+      return p !== undefined && p <= at && at - p < cooldown ? p : undefined;
+    };
 
     for (const inc of confirmed) {
       const detectedAt = inc.detectedAt!;
@@ -496,8 +721,19 @@ export class AlertEngine {
             decisions.push({ ...seen, kind: 'suppressed', at, reason: 'Already told the channel is unstable' });
             continue;
           }
+          const service = toldAboutService(inc.pid, user.userId, at);
+          if (service !== undefined) {
+            decisions.push({
+              ...seen,
+              kind: 'suppressed',
+              at,
+              reason: `Already told about service problems ${Math.round((at - service) / MIN)} min ago`,
+            });
+            continue;
+          }
           episodeTold.set(key, seen);
           told.set(channelKeyOf, at);
+          toldUser.set(`${inc.pid}|${user.userId}`, at);
           decisions.push({
             ...seen,
             kind: 'unstable',
@@ -534,6 +770,16 @@ export class AlertEngine {
           });
           continue;
         }
+        const service = toldAboutService(inc.pid, user.userId, at);
+        if (service !== undefined) {
+          decisions.push({
+            ...seen,
+            kind: 'suppressed',
+            at,
+            reason: `Already told about service problems ${Math.round((at - service) / MIN)} min ago`,
+          });
+          continue;
+        }
         if (groupKey && told.has(groupKey)) {
           decisions.push({
             ...seen,
@@ -544,6 +790,7 @@ export class AlertEngine {
           continue;
         }
         told.set(channelKeyOf, at);
+        toldUser.set(`${inc.pid}|${user.userId}`, at);
         if (groupKey) {
           told.set(groupKey, at);
           groupTold.set(groupKey, { seen, watchedBeforeSec: user.watchedBeforeSec });
@@ -615,8 +862,75 @@ export class AlertEngine {
       }
     }
 
+    // Provider-wide problems: one message per viewer who hit an error while
+    // the provider surged, unless a channel message reached them first.
+    const lastService = new Map<string, number>();
+    for (const inc of providerIncidents) {
+      const provider = this.providerName(inc.pid);
+      for (const u of this.provAffected.get(inc.id) ?? []) {
+        const at = Math.max(u.firstErr, inc.detectedAt!);
+        const key = `${inc.pid}|${u.userId}`;
+        const seen: Decision = {
+          kind: 'down',
+          at,
+          userId: u.userId,
+          pid: inc.pid,
+          provider,
+          cid: '',
+          // Provider-wide: no single channel (the UI labels it "All channels").
+          title: '',
+          incidentId: inc.id,
+          platform: u.platform,
+          reason: '',
+        };
+        const channel = toldUser.get(key);
+        if (channel !== undefined && channel < at && at - channel < cooldown) {
+          decisions.push({
+            ...seen,
+            kind: 'suppressed',
+            reason: `Already told about a channel outage ${Math.round((at - channel) / MIN)} min ago`,
+          });
+          continue;
+        }
+        const previous = lastService.get(key);
+        if (previous !== undefined && at - previous < cooldown) {
+          decisions.push({
+            ...seen,
+            kind: 'suppressed',
+            reason: `Already told about service problems ${Math.round((at - previous) / MIN)} min ago`,
+          });
+          continue;
+        }
+        if (u.errEvents < r.providerMinViewerErrors || u.lastErr - u.firstErr < 2 * MIN) {
+          decisions.push({
+            ...seen,
+            kind: 'in_app',
+            reason: 'One-off error during service problems: message in the player on retry',
+          });
+          continue;
+        }
+        lastService.set(key, at);
+        decisions.push({
+          ...seen,
+          reason: `Service problems on the operator side: ${inc.peakRatio.toFixed(1)}× the usual errors, being fixed`,
+        });
+        if (inc.closedAt !== undefined && inc.recovered) {
+          decisions.push({ ...seen, kind: 'back', at: inc.closedAt, reason: 'Service back to its usual level' });
+        }
+      }
+    }
+
     const lastDiagnosis = new Map<string, number>();
     for (const c of [...this.customer.values()].sort((a, b) => a.lastMinute - b.lastMinute)) {
+      // During a provider-wide problem errors on "healthy" channels are the
+      // operator's, not the viewer's home network.
+      if (
+        providerIncidents.some(
+          (i) => i.pid === c.pid && i.start <= c.lastMinute + MIN && (i.closedAt ?? Infinity) > c.firstMinute
+        )
+      ) {
+        continue;
+      }
       const at = c.lastMinute + MIN;
       const key = `${c.pid}|${c.userId}`;
       const previous = lastDiagnosis.get(key);
@@ -802,6 +1116,8 @@ export class AlertEngine {
     const classes = incidents.map((i) => this.incidentClass(i));
     return {
       incidents: incidents.length,
+      providerIncidents: this.provIncidents.filter((i) => i.detectedAt !== undefined).length,
+      infraGroups: new Set(this.providerGroupOf().values()).size,
       pushIncidents: classes.filter((c) => c === 'push').length,
       unstableIncidents: classes.filter((c) => c === 'unstable').length,
       inAppIncidents: classes.filter((c) => c === 'in_app').length,

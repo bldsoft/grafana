@@ -341,3 +341,73 @@ GROUP BY minute, pid, cid, user_id
 ORDER BY minute_ts
 ${SETTINGS}`;
 }
+
+/** Provider-level buckets: wide enough to see an outage spread thinly over many channels. */
+export const PROVIDER_BUCKET_SEC = 900;
+
+/**
+ * Query P: per provider and 15-minute bucket — viewers, viewers with an error
+ * (any channel), server-side errors. Read for the window and, shifted by whole
+ * days, for the same time on previous days (the baseline).
+ */
+export function providerBucketsSql(from: number, to: number, pids: string[] | null): string {
+  return `SELECT
+    toUnixTimestamp(toStartOfFifteenMinutes(ts)) AS bucket_ts,
+    pid,
+    uniq(user_id) AS users,
+    uniqIf(user_id, is_err) AS err_users,
+    uniqIf(user_id, is_srv) AS srv_err_users,
+    countIf(is_err) AS err_events,
+    arrayElement(topKIf(1)(code, is_err), 1) AS top_code,
+    arrayElement(topKIf(1)(platform, is_err), 1) AS top_platform
+FROM (
+    ${baseRows(from, to, pids)}
+)
+GROUP BY bucket_ts, pid
+ORDER BY bucket_ts, pid
+${SETTINGS}`;
+}
+
+export interface ProviderWindow {
+  id: string;
+  pid: string;
+  start: number;
+  end: number;
+}
+
+/** Query PB: the viewers with an error during each provider-wide incident. */
+export function providerUsersSql(windows: ProviderWindow[], pids: string[] | null): string {
+  if (!windows.length) {
+    throw new Error('No incidents to query');
+  }
+  const from = Math.min(...windows.map((w) => w.start));
+  const to = Math.max(...windows.map((w) => w.end));
+  const branches = windows.map((w, i) => {
+    if (!PID_RE.test(w.pid)) {
+      throw new Error('Invalid incident key');
+    }
+    return `pid = '${w.pid}' AND ts >= ${epoch(w.start)} AND ts < ${epoch(w.end)}, ${i}`;
+  });
+  const providers = Array.from(new Set(windows.map((w) => `'${w.pid}'`))).join(', ');
+  return `SELECT
+    inc,
+    user_id,
+    any(platform) AS platform_any,
+    any(network) AS network_any,
+    any(isp) AS isp_any,
+    any(city) AS city_any,
+    min(toUnixTimestamp(ts)) AS first_err,
+    max(toUnixTimestamp(ts)) AS last_err,
+    count() AS err_events,
+    arrayElement(topK(1)(code), 1) AS top_code
+FROM (
+    SELECT *, multiIf(${branches.join(', ')}, -1) AS inc
+    FROM (
+        ${baseRows(from, to, pids, `content_provider_id IN (${providers}) AND (${IS_ERR})`, true)}
+    )
+)
+WHERE inc >= 0
+GROUP BY inc, user_id
+ORDER BY inc, first_err
+${SETTINGS}`;
+}

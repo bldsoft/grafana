@@ -17,9 +17,19 @@ import {
   customerSideSql,
   errorVolumeSql,
   IncidentWindow,
+  PROVIDER_BUCKET_SEC,
+  providerBucketsSql,
   providerNamesSql,
+  providerUsersSql,
 } from './sql';
-import type { AffectedUserRow, BadMinuteRow, ChannelHealthRow, CustomerSideRow, ErrorVolumeRow } from './types';
+import type {
+  AffectedUserRow,
+  BadMinuteRow,
+  ChannelHealthRow,
+  CustomerSideRow,
+  ErrorVolumeRow,
+  ProviderBucketRow,
+} from './types';
 
 const MAX_ROWS = 50000;
 /** Incidents per viewer query: each adds one branch to a multiIf. */
@@ -72,6 +82,19 @@ export function toAffectedUser(r: Row, incidentId: string): AffectedUserRow {
     errEvents: num(r.err_events),
     topCode: str(r.top_code),
     watchedBeforeSec: num(r.watched_before),
+  };
+}
+
+export function toProviderBucket(r: Row): ProviderBucketRow {
+  return {
+    bucket: num(r.bucket_ts),
+    pid: str(r.pid),
+    users: num(r.users),
+    errUsers: num(r.err_users),
+    srvErrUsers: num(r.srv_err_users),
+    errEvents: num(r.err_events),
+    topCode: str(r.top_code),
+    topPlatform: str(r.top_platform),
   };
 }
 
@@ -200,9 +223,54 @@ async function processChunk(opts: RunOptions, from: number, to: number, customer
     batch.forEach((w, idx) => engine.setAffectedUsers(w.id, byInc.get(idx) ?? []));
   }
 
+  await processProviders(opts, from, to);
   engine.ingestCustomerSide(customer.map(toCustomerSide));
   engine.ingestErrorVolume(toErrorVolume(volume[0]));
   await resolveProviderNames(opts, [...health.map((r) => str(r.pid)), ...bad.map((r) => str(r.pid))]);
+}
+
+const DAY = 86400;
+
+/**
+ * Provider level: evaluates the 15-minute buckets that became complete up to
+ * `to`, reading the same buckets of previous days first (once — a replay
+ * that already went through those days reuses them).
+ */
+async function processProviders(opts: RunOptions, from: number, to: number) {
+  const { engine, pids } = opts;
+  const start = engine.providerWatermark ?? Math.ceil(from / PROVIDER_BUCKET_SEC) * PROVIDER_BUCKET_SEC;
+  const end = Math.floor(to / PROVIDER_BUCKET_SEC) * PROVIDER_BUCKET_SEC;
+  if (end <= start) {
+    return;
+  }
+  const days = Math.min(7, Math.max(1, Math.round(engine.rules.providerBaselineDays)));
+  const baselineWindows: Array<[number, number]> = [];
+  for (let d = 1; d <= days; d++) {
+    if (!engine.providerCoveredRange(start - d * DAY, end - d * DAY)) {
+      baselineWindows.push([start - d * DAY, end - d * DAY]);
+    }
+  }
+  const [current, ...baselines] = await Promise.all([
+    query(opts, providerBucketsSql(start, end, pids)),
+    ...baselineWindows.map(([f, t]) => query(opts, providerBucketsSql(f, t, pids))),
+  ]);
+  baselineWindows.forEach(([f, t], i) => engine.ingestProviderBaseline(baselines[i].map(toProviderBucket), f, t));
+  engine.ingestProviderBuckets(current.map(toProviderBucket), start, end);
+  engine.providerWatermark = end;
+
+  const windows = engine.takeProviderWindows();
+  for (let i = 0; i < windows.length; i += USERS_BATCH) {
+    const batch = windows.slice(i, i + USERS_BATCH);
+    const rows = await query(opts, providerUsersSql(batch, pids));
+    const byInc = new Map<number, AffectedUserRow[]>();
+    for (const row of rows) {
+      const idx = num(row.inc);
+      const list = byInc.get(idx) ?? [];
+      list.push(toAffectedUser(row, batch[idx]?.id ?? ''));
+      byInc.set(idx, list);
+    }
+    batch.forEach((w, idx) => engine.setProviderAffected(w.id, byInc.get(idx) ?? []));
+  }
 }
 
 const resolvedPids = new WeakMap<AlertEngine, Set<string>>();

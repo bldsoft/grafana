@@ -43,6 +43,23 @@ export interface AlertRules {
    */
   flapCount: number;
   flapWindowMinutes: number;
+  /**
+   * Provider-wide detection, for outages spread thinly over many channels
+   * (a data centre, a middleware): per provider and 15 minutes, viewers with
+   * an error against the median of the same time on previous days.
+   */
+  providerMinErrUsers: number;
+  providerSurgeFactor: number;
+  /** Consecutive surging 15-minute buckets that confirm a provider incident. */
+  providerConfirmBuckets: number;
+  /** Previous days the baseline is taken from (1-7). */
+  providerBaselineDays: number;
+  /**
+   * A provider-wide push goes only to viewers who kept failing: at least this
+   * many errors spread over two minutes or more. One-off errors during the
+   * surge get the in-player message instead.
+   */
+  providerMinViewerErrors: number;
   /** Viewers who watched the channel this long in the hour before get an apology. */
   apologyWatchMinutes: number;
   /** Customer-side diagnosis: errors on at least this many healthy channels... */
@@ -63,6 +80,11 @@ export const DEFAULT_RULES: AlertRules = {
   cooldownMinutes: 60,
   flapCount: 3,
   flapWindowMinutes: 120,
+  providerMinErrUsers: 30,
+  providerSurgeFactor: 2.5,
+  providerConfirmBuckets: 2,
+  providerBaselineDays: 3,
+  providerMinViewerErrors: 3,
   apologyWatchMinutes: 10,
   customerMinChannels: 3,
   customerMinMinutes: 3,
@@ -85,6 +107,44 @@ export interface BadMinuteRow {
   topHost: string;
   topPlatform: string;
   topCode: string;
+}
+
+/** One provider and 15-minute bucket (query P). */
+export interface ProviderBucketRow {
+  bucket: number;
+  pid: string;
+  users: number;
+  errUsers: number;
+  srvErrUsers: number;
+  errEvents: number;
+  topCode: string;
+  topPlatform: string;
+}
+
+/** A provider-wide error surge against its usual level. */
+export interface ProviderIncident {
+  id: string;
+  pid: string;
+  provider: string;
+  /** Start of the first surging bucket. */
+  start: number;
+  /** End of the confirming bucket; undefined until confirmed. */
+  detectedAt?: number;
+  /** Start of the last surging bucket. */
+  lastSurge: number;
+  closedAt?: number;
+  /** true = back to its usual level, false = went quiet without evidence. */
+  recovered?: boolean;
+  surgeBuckets: number;
+  series: Array<{ bucket: number; users: number; errUsers: number; baselineErr: number }>;
+  peakErrUsers: number;
+  /** Baseline of the peak bucket. */
+  peakBaselineErr: number;
+  peakRatio: number;
+  codes: Record<string, number>;
+  platforms: Record<string, number>;
+  /** Shared with other providers surging at the same time (infrastructure). */
+  groupId?: string;
 }
 
 /** One viewer hit by one incident (query B). */
@@ -247,6 +307,9 @@ export interface ChannelReportRow {
 
 export interface AlertSummary {
   incidents: number;
+  providerIncidents: number;
+  /** Provider incidents that overlap with other providers' (shared infrastructure). */
+  infraGroups: number;
   pushIncidents: number;
   unstableIncidents: number;
   inAppIncidents: number;

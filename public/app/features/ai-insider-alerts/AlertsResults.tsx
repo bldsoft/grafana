@@ -31,6 +31,7 @@ import type {
   DecisionKind,
   Incident,
   IncidentClass,
+  ProviderIncident,
 } from './types';
 
 /** Everything the results view renders, taken from the engine after each chunk. */
@@ -41,6 +42,8 @@ export interface AlertsSnapshot {
   customer: CustomerSideRow[];
   dead: DeadChannel[];
   channels: ChannelReportRow[];
+  providers: ProviderIncident[];
+  providerAffected: (incidentId: string) => AffectedUserRow[];
   groups: CorrelationGroup[];
   blips: number;
   classOf: (incident: Incident) => IncidentClass;
@@ -49,7 +52,7 @@ export interface AlertsSnapshot {
   to: number;
 }
 
-type TabId = 'incidents' | 'messages' | 'ops' | 'customer' | 'dead';
+type TabId = 'incidents' | 'providers' | 'messages' | 'ops' | 'customer' | 'dead';
 type KindFilter = DecisionKind | 'all';
 
 const LOG_LIMIT = 300;
@@ -141,7 +144,7 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
   const ratio = sent > 0 ? summary.naiveErrEvents / sent : undefined;
 
   const selectIncident = (id: string) => {
-    setTab('incidents');
+    setTab(id.startsWith('prov-') ? 'providers' : 'incidents');
     setExpanded(id);
     requestAnimationFrame(() => document.getElementById(`ai-alert-${id}`)?.scrollIntoView({ block: 'center' }));
   };
@@ -176,6 +179,13 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
               apology: formatCount(summary.apology),
             }
           )}
+        />
+        <Tile
+          label={t('ai-insider-alerts.tile-providers', 'Provider-wide problems')}
+          value={formatCount(summary.providerIncidents)}
+          detail={t('ai-insider-alerts.tile-providers-detail', '{{infra}} hit several providers at once', {
+            infra: summary.infraGroups,
+          })}
         />
         <Tile
           label={t('ai-insider-alerts.tile-in-app', 'In-player messages')}
@@ -222,6 +232,12 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
             onChangeTab={() => setTab('incidents')}
           />
           <Tab
+            label={t('ai-insider-alerts.tab-providers', 'Providers')}
+            counter={snapshot.providers.length}
+            active={tab === 'providers'}
+            onChangeTab={() => setTab('providers')}
+          />
+          <Tab
             label={t('ai-insider-alerts.tab-messages', 'Messages')}
             counter={snapshot.decisions.length}
             active={tab === 'messages'}
@@ -254,6 +270,7 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
           <IncidentsTab snapshot={snapshot} expanded={expanded} onToggle={setExpanded} onSelect={selectIncident} />
         )}
         {tab === 'messages' && <MessagesTab decisions={snapshot.decisions} onSelect={selectIncident} />}
+        {tab === 'providers' && <ProvidersTab snapshot={snapshot} expanded={expanded} onToggle={setExpanded} />}
         {tab === 'ops' && <OpsTab rows={snapshot.channels} />}
         {tab === 'customer' && <CustomerTab rows={snapshot.customer} />}
         {tab === 'dead' && <DeadTab rows={snapshot.dead} />}
@@ -656,7 +673,7 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
                   <td>
                     {d.incidentId ? (
                       <button type="button" className={styles.link} onClick={() => onSelect(d.incidentId!)}>
-                        {d.title || d.cid}
+                        {d.title || d.cid || t('ai-insider-alerts.all-channels', 'All channels')}
                       </button>
                     ) : (
                       d.title
@@ -751,6 +768,234 @@ function CustomerTab({ rows }: { rows: CustomerSideRow[] }) {
         </table>
       </div>
     </>
+  );
+}
+
+function ProvidersTab({
+  snapshot,
+  expanded,
+  onToggle,
+}: {
+  snapshot: AlertsSnapshot;
+  expanded?: string;
+  onToggle: (id?: string) => void;
+}) {
+  const styles = useStyles2(getStyles);
+  const groupSize = useMemo(() => {
+    const sizes = new Map<string, number>();
+    snapshot.providers.forEach((p) => p.groupId && sizes.set(p.groupId, (sizes.get(p.groupId) ?? 0) + 1));
+    return sizes;
+  }, [snapshot.providers]);
+
+  if (!snapshot.providers.length) {
+    return (
+      <p className={styles.empty}>
+        <Trans i18nKey="ai-insider-alerts.no-providers">
+          No provider had errors well above its usual level. Needs previous days to compare with: the first day of a
+          replay has no baseline.
+        </Trans>
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className={styles.legend}>
+        <Trans i18nKey="ai-insider-alerts.providers-legend">
+          Outages spread thinly over many channels (a data centre, a network, a middleware): per provider and 15
+          minutes, viewers with an error against the same time on previous days. Viewers who kept failing get one
+          &quot;service problems&quot; push; one-off errors get the in-player message.
+        </Trans>
+      </div>
+      <div className={styles.tableWrap}>
+        <table className={styles.table}>
+          <thead>
+            <tr>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-started">Started (UTC)</Trans>
+              </th>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-detected">Detected</Trans>
+              </th>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-back">Back</Trans>
+              </th>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-provider">Provider</Trans>
+              </th>
+              <th className={styles.num}>
+                <Trans i18nKey="ai-insider-alerts.col-vs-usual">Errors vs usual</Trans>
+              </th>
+              <th className={styles.num}>
+                <Trans i18nKey="ai-insider-alerts.col-viewers">Viewers hit</Trans>
+              </th>
+              <th>
+                <Trans i18nKey="ai-insider-alerts.col-evidence">Evidence</Trans>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {snapshot.providers.map((p) => {
+              const open = expanded === p.id;
+              const viewers = snapshot.providerAffected(p.id);
+              const decisions = snapshot.decisions.filter((d) => d.incidentId === p.id);
+              const pushed = new Set(decisions.filter((d) => d.kind === 'down').map((d) => d.userId));
+              const inApp = new Set(decisions.filter((d) => d.kind === 'in_app').map((d) => d.userId));
+              return (
+                <Fragment key={p.id}>
+                  <tr
+                    id={`ai-alert-${p.id}`}
+                    className={cx(styles.clickable, open && styles.rowOpen)}
+                    onClick={() => onToggle(open ? undefined : p.id)}
+                  >
+                    <td>{formatUtc(p.start)}</td>
+                    <td>
+                      {formatUtcTime(p.detectedAt)}
+                      <span className={styles.sub}>+{formatMinutes(p.start, p.detectedAt)}</span>
+                    </td>
+                    <td>
+                      {p.closedAt === undefined ? (
+                        <Trans i18nKey="ai-insider-alerts.still-surging">still above usual</Trans>
+                      ) : p.recovered === false ? (
+                        <>
+                          —
+                          <span className={styles.sub}>
+                            <Trans i18nKey="ai-insider-alerts.provider-quiet">went quiet, no &quot;back&quot;</Trans>
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          {formatUtcTime(p.closedAt)}
+                          <span className={styles.sub}>{formatMinutes(p.start, p.closedAt)}</span>
+                        </>
+                      )}
+                    </td>
+                    <td>
+                      <strong>{p.provider ? `${p.pid} ${p.provider}` : p.pid}</strong>
+                      {p.groupId && (
+                        <span className={styles.sub}>
+                          {t('ai-insider-alerts.infra-group', 'with {{count}} providers at once', {
+                            count: groupSize.get(p.groupId) ?? 1,
+                          })}
+                        </span>
+                      )}
+                    </td>
+                    <td className={styles.num}>
+                      {p.peakErrUsers} / {Math.round(p.peakBaselineErr)}
+                      <span className={styles.sub}>{p.peakRatio.toFixed(1)}×</span>
+                    </td>
+                    <td className={styles.num}>
+                      {formatCount(viewers.length)}
+                      <span className={styles.sub}>
+                        {t('ai-insider-alerts.provider-pushed', '{{count}} push', { count: pushed.size })}
+                      </span>
+                    </td>
+                    <td className={styles.evidence}>
+                      {topKey(p.platforms)} · {topKey(p.codes)}
+                    </td>
+                  </tr>
+                  {open && (
+                    <tr className={styles.detailRow}>
+                      <td colSpan={7}>
+                        <ProviderDetails incident={p} />
+                        <table className={cx(styles.table, styles.innerTable)}>
+                          <thead>
+                            <tr>
+                              <th>
+                                <Trans i18nKey="ai-insider-alerts.col-viewer">Viewer</Trans>
+                              </th>
+                              <th>
+                                <Trans i18nKey="ai-insider-alerts.col-platform">Platform · network</Trans>
+                              </th>
+                              <th>
+                                <Trans i18nKey="ai-insider-alerts.col-first-error">First error</Trans>
+                              </th>
+                              <th className={styles.num}>
+                                <Trans i18nKey="ai-insider-alerts.col-errors">Errors</Trans>
+                              </th>
+                              <th>
+                                <Trans i18nKey="ai-insider-alerts.col-decision">Decision</Trans>
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {viewers.slice(0, USERS_LIMIT).map((u) => {
+                              const kind: DecisionKind = pushed.has(u.userId)
+                                ? 'down'
+                                : inApp.has(u.userId)
+                                  ? 'in_app'
+                                  : 'suppressed';
+                              const badge = kindBadge(kind);
+                              return (
+                                <tr key={u.userId}>
+                                  <td className={styles.mono}>{u.userId}</td>
+                                  <td>
+                                    {u.platform} · {u.network || '—'}
+                                    <span className={styles.sub}>
+                                      {[u.isp, u.city].filter(Boolean).join(' · ') || '—'}
+                                    </span>
+                                  </td>
+                                  <td>{formatUtcTime(u.firstErr)}</td>
+                                  <td className={styles.num}>{u.errEvents}</td>
+                                  <td>
+                                    <Badge text={badge.text} color={badge.color} />
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </>
+  );
+}
+
+/** Errors per 15 minutes (bars) against the usual level of the same time (line). */
+function ProviderDetails({ incident }: { incident: ProviderIncident }) {
+  const styles = useStyles2(getStyles);
+  const theme = useTheme2();
+  const w = 600;
+  const h = 64;
+  const n = Math.max(1, incident.series.length);
+  const max = Math.max(1, ...incident.series.map((p) => Math.max(p.errUsers, p.baselineErr)));
+  const bw = w / n;
+  const y = (v: number) => h - (v / max) * (h - 4);
+  const line = incident.series.map((p, i) => `${i ? 'L' : 'M'} ${i * bw + bw / 2} ${y(p.baselineErr)}`).join(' ');
+  return (
+    <div className={styles.details}>
+      <svg viewBox={`0 0 ${w} ${h}`} className={styles.spark} preserveAspectRatio="none" aria-hidden>
+        {incident.series.map((p, i) => (
+          <rect
+            key={p.bucket}
+            x={i * bw + 1}
+            y={y(p.errUsers)}
+            width={Math.max(1, bw - 2)}
+            height={h - y(p.errUsers)}
+            fill={theme.colors.error.main}
+            opacity={0.8}
+          />
+        ))}
+        <path d={line} fill="none" stroke={theme.colors.text.primary} strokeWidth={1.5} strokeDasharray="4 3" />
+      </svg>
+      <div className={styles.legend}>
+        {t(
+          'ai-insider-alerts.provider-chart-legend',
+          'Bars: viewers with errors per 15 min ({{from}}–{{to}} UTC). Dashed: usual level at the same time on previous days.',
+          {
+            from: formatUtcTime(incident.series[0]?.bucket),
+            to: formatUtcTime((incident.series[incident.series.length - 1]?.bucket ?? 0) + 900),
+          }
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -10,7 +10,14 @@ import { runRawQuery } from 'app/features/dashboard-scene/ai-panel/datasourceQue
 
 import type { AlertsSnapshot } from './AlertsResults';
 import { ALERTS_MAX_RESULT_CHARS, chunks } from './runner';
-import { badMinutesSql, channelHealthSql, channelMinutesSql, ChannelKey, userErrorsSql } from './sql';
+import {
+  badMinutesSql,
+  channelHealthSql,
+  channelMinutesSql,
+  ChannelKey,
+  providerBucketsSql,
+  userErrorsSql,
+} from './sql';
 import type { AlertRules } from './types';
 
 export const EXPORT_FORMAT_VERSION = 1;
@@ -75,6 +82,7 @@ export async function exportRun(snapshot: AlertsSnapshot, meta: ExportMeta) {
     customerSide: snapshot.customer,
     deadChannels: snapshot.dead,
     channelReport: snapshot.channels,
+    providerIncidents: snapshot.providers.map((p) => ({ ...p, viewers: snapshot.providerAffected(p.id) })),
   };
   const { blob, gzipped } = await packText([JSON.stringify(doc)], 'application/json');
   downloadBlob(blob, exportFileName('run', meta.from, meta.to, gzipped ? 'json.gz' : 'json'));
@@ -104,7 +112,8 @@ class TruncatedResult extends Error {
  * by a `{"t":"columns","type":…,"columns":[…]}` line, and its rows follow as
  * compact arrays `["<type>", v1, v2, …]` (a week of two big operators is
  * ~1M rows, so keys are not repeated per row). Types: `min` (channel-minute),
- * `err` (viewer-minute with an error), `health` (per channel and hour). A
+ * `err` (viewer-minute with an error), `health` (per channel and hour),
+ * `prov` (per provider and 15 minutes: viewers, viewers with errors). A
  * channel keeps its minutes for one more hour after it last qualified, so
  * recoveries that cross an hour boundary stay visible.
  */
@@ -164,10 +173,11 @@ export async function runDatasetExport(opts: DatasetOptions): Promise<{ blob: Bl
     if (opts.signal.aborted) {
       throw new Error('Export cancelled.');
     }
-    const [bad, errors, health] = await Promise.all([
+    const [bad, errors, health, providers] = await Promise.all([
       run(badMinutesSql(from, to, opts.pids, discovery)),
       runSplit((f, t) => userErrorsSql(f, t, opts.pids), from, to),
       run(channelHealthSql(from, to, opts.pids)),
+      run(providerBucketsSql(from, to, opts.pids)),
     ]);
     const current = new Map<string, ChannelKey>();
     for (const r of bad) {
@@ -185,7 +195,8 @@ export async function runDatasetExport(opts: DatasetOptions): Promise<{ blob: Bl
     }
     errors.forEach((r) => emit('err', r));
     health.forEach((r) => emit('health', { chunk_from: from, chunk_to: to, ...r }));
-    rows += errors.length + health.length;
+    providers.forEach((r) => emit('prov', r));
+    rows += errors.length + health.length + providers.length;
     previous = current;
     opts.onChunk(to, rows);
   }
