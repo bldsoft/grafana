@@ -135,8 +135,21 @@ export function chunks(from: number, to: number, step: number): Array<[number, n
   return out;
 }
 
+/**
+ * Results stay in the browser, so the bridge's 3M-character budget does not
+ * apply; a result that still does not fit is an error, never a silent cut.
+ */
+export const ALERTS_MAX_RESULT_CHARS = 64_000_000;
+
 async function query(opts: RunOptions, sql: string): Promise<Row[]> {
-  const result = await runRawQuery(opts.datasource, sql, MAX_ROWS, opts.signal);
+  const result = await runRawQuery(opts.datasource, sql, MAX_ROWS, opts.signal, {
+    maxResultChars: ALERTS_MAX_RESULT_CHARS,
+  });
+  if (result.truncated) {
+    throw new Error(
+      `A query returned more than ${MAX_ROWS} rows and was cut. Narrow the providers or use the 15 min step.`
+    );
+  }
   return result.data;
 }
 

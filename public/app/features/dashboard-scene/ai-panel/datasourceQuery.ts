@@ -8,7 +8,15 @@
 
 import { lastValueFrom, map, merge, Observable, takeUntil, timer } from 'rxjs';
 
-import { CoreApp, DataFrame, DataQuery, DataQueryRequest, DataSourceRef, FieldType, getDefaultTimeRange } from '@grafana/data';
+import {
+  CoreApp,
+  DataFrame,
+  DataQuery,
+  DataQueryRequest,
+  DataSourceRef,
+  FieldType,
+  getDefaultTimeRange,
+} from '@grafana/data';
 import { DataSourceWithBackend, getDataSourceSrv } from '@grafana/runtime';
 
 /** A raw SQL query understood by both the official and community ClickHouse plugins. */
@@ -50,6 +58,17 @@ export interface RawQueryResult {
   data: Array<Record<string, unknown>>;
   rows: number;
   meta: Array<{ name: string; type: string }>;
+  /** True when rows were dropped by `maxRows` or the result-size budget. */
+  truncated: boolean;
+}
+
+export interface RawQueryOptions {
+  /**
+   * Result-size budget in characters (default {@link MAX_RESULT_CHARS}, sized
+   * for the backend bridge). Callers that keep results in the browser, like
+   * AI Insider Alerts, may raise it — and must check `truncated`.
+   */
+  maxResultChars?: number;
 }
 
 // Client-side mirror of the backend's SQL gate (services/clickhouse.js).
@@ -57,7 +76,8 @@ export interface RawQueryResult {
 // assistant URL override (localStorage) ever points at a hostile host, this
 // keeps it from driving arbitrary reads through the user's datasource.
 const ALLOWED_RE = /^\s*(select|show|describe|desc|exists|with|explain)\b/i;
-const FORBIDDEN_RE = /\b(insert|alter|drop|truncate|create|rename|attach|detach|optimize|grant|revoke|set\s+role|kill)\b/i;
+const FORBIDDEN_RE =
+  /\b(insert|alter|drop|truncate|create|rename|attach|detach|optimize|grant|revoke|set\s+role|kill)\b/i;
 // The object-storage families (s3 and its aliases cosn/gcs/oss, plus azure,
 // hdfs, iceberg, deltaLake, hudi) take a `\w*` suffix so ClickHouse variants the
 // list did not name (s3Cluster, icebergS3, deltaLakeAzure, hdfsCluster, ...)
@@ -129,7 +149,8 @@ export async function runRawQuery(
   datasource: DataSourceRef,
   sql: string,
   maxRows: number,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options: RawQueryOptions = {}
 ): Promise<RawQueryResult> {
   if (!isSafeBridgeSql(sql)) {
     throw new Error('Rejected by the client-side gate: only single-statement read-only queries are allowed.');
@@ -197,22 +218,26 @@ export async function runRawQuery(
     throw timeoutError();
   }
 
-  const errorText = result.errors?.map((e) => e.message).filter(Boolean).join('; ') || result.error?.message;
+  const errorText =
+    result.errors
+      ?.map((e) => e.message)
+      .filter(Boolean)
+      .join('; ') || result.error?.message;
   if (errorText) {
     throw new Error(errorText);
   }
 
   const frame: DataFrame | undefined = result.data?.[0];
   if (!frame) {
-    return { data: [], rows: 0, meta: [] };
+    return { data: [], rows: 0, meta: [], truncated: false };
   }
-  return frameToRows(frame, maxRows);
+  return frameToRows(frame, maxRows, options.maxResultChars ?? MAX_RESULT_CHARS);
 }
 
-function frameToRows(frame: DataFrame, maxRows: number): RawQueryResult {
+function frameToRows(frame: DataFrame, maxRows: number, maxChars: number): RawQueryResult {
   const limit = Math.min(frame.length, Math.max(1, maxRows));
   const data: Array<Record<string, unknown>> = [];
-  let budget = MAX_RESULT_CHARS;
+  let budget = maxChars;
 
   for (let i = 0; i < limit && budget > 0; i++) {
     const row: Record<string, unknown> = {};
@@ -236,5 +261,6 @@ function frameToRows(frame: DataFrame, maxRows: number): RawQueryResult {
     data,
     rows: data.length,
     meta: frame.fields.map((f) => ({ name: f.name, type: f.type })),
+    truncated: data.length < frame.length,
   };
 }

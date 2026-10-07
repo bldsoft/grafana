@@ -28,7 +28,9 @@ function answer(sql: string) {
 describe('runDatasetExport', () => {
   beforeEach(() => {
     runRawQuery.mockReset();
-    runRawQuery.mockImplementation((_ds: unknown, sql: string) => Promise.resolve({ data: answer(sql) }));
+    runRawQuery.mockImplementation((_ds: unknown, sql: string) =>
+      Promise.resolve({ data: answer(sql), truncated: false })
+    );
   });
 
   it('writes NDJSON lines and keeps following a channel one hour after it last failed', async () => {
@@ -58,5 +60,40 @@ describe('runDatasetExport', () => {
     expect(lines.filter((l) => Array.isArray(l) && l[0] === 'err')).toHaveLength(1);
     expect(lines.filter((l) => l.t === 'columns').map((l) => l.type)).toEqual(['min', 'err']);
     expect(progress).toEqual([H0 + 3600, H0 + 7200, H0 + 10800]);
+  });
+
+  it('re-reads a cut result in half windows instead of losing the rest of the hour', async () => {
+    // The viewer-error query only fits for windows of 15 minutes or less;
+    // every minute of the hour has one row.
+    runRawQuery.mockImplementation((_ds: unknown, sql: string) => {
+      if (!sql.includes('GROUP BY minute, pid, cid, user_id')) {
+        return Promise.resolve({ data: [], truncated: false });
+      }
+      const [from, to] = [...sql.matchAll(/toDateTime\((\d+)\)/g)].map((m) => Number(m[1]));
+      if (to - from > 900) {
+        return Promise.resolve({ data: [{ minute_ts: from }], truncated: true });
+      }
+      const rows = [];
+      for (let t = from; t < to; t += 60) {
+        rows.push({ minute_ts: t, pid: '111', cid: '1', user_id: `U${t}` });
+      }
+      return Promise.resolve({ data: rows, truncated: false });
+    });
+
+    const { blob } = await runDatasetExport({
+      datasource: { uid: 'ch', type: 'grafana-clickhouse-datasource' },
+      pids: null,
+      from: H0,
+      to: H0 + 3600,
+      rules: DEFAULT_RULES,
+      signal: new AbortController().signal,
+      onChunk: () => {},
+    });
+    const errRows = (await blob.text())
+      .trim()
+      .split('\n')
+      .map((l) => JSON.parse(l))
+      .filter((l) => Array.isArray(l) && l[0] === 'err');
+    expect(errRows).toHaveLength(60);
   });
 });

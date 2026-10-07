@@ -9,7 +9,7 @@ import { DataSourceRef } from '@grafana/data';
 import { runRawQuery } from 'app/features/dashboard-scene/ai-panel/datasourceQuery';
 
 import type { AlertsSnapshot } from './AlertsResults';
-import { chunks } from './runner';
+import { ALERTS_MAX_RESULT_CHARS, chunks } from './runner';
 import { badMinutesSql, channelHealthSql, channelMinutesSql, ChannelKey, userErrorsSql } from './sql';
 import type { AlertRules } from './types';
 
@@ -92,6 +92,12 @@ export interface DatasetOptions {
 
 type Row = Record<string, unknown>;
 
+class TruncatedResult extends Error {
+  constructor() {
+    super('Result was cut by the size budget.');
+  }
+}
+
 /**
  * Walks [from, to) hour by hour and collects the tuning dataset as NDJSON.
  * The first line is the `meta` object; each record type is announced once
@@ -103,8 +109,31 @@ type Row = Record<string, unknown>;
  * recoveries that cross an hour boundary stay visible.
  */
 export async function runDatasetExport(opts: DatasetOptions): Promise<{ blob: Blob; gzipped: boolean }> {
-  const run = async (sql: string): Promise<Row[]> =>
-    (await runRawQuery(opts.datasource, sql, MAX_ROWS, opts.signal)).data;
+  const run = async (sql: string): Promise<Row[]> => {
+    const result = await runRawQuery(opts.datasource, sql, MAX_ROWS, opts.signal, {
+      maxResultChars: ALERTS_MAX_RESULT_CHARS,
+    });
+    if (result.truncated) {
+      throw new TruncatedResult();
+    }
+    return result.data;
+  };
+  /**
+   * Viewer-level results of a busy hour (an outage across all providers) can
+   * outgrow one response: a cut result is re-read as two half windows, down
+   * to single minutes, so the dataset never silently loses the busiest part.
+   */
+  const runSplit = async (make: (from: number, to: number) => string, from: number, to: number): Promise<Row[]> => {
+    try {
+      return await run(make(from, to));
+    } catch (e) {
+      if (!(e instanceof TruncatedResult) || to - from <= 60) {
+        throw e instanceof TruncatedResult ? new Error('A one-minute result is still too large to export.') : e;
+      }
+      const mid = from + Math.max(60, Math.floor((to - from) / 120) * 60);
+      return [...(await runSplit(make, from, mid)), ...(await runSplit(make, mid, to))];
+    }
+  };
   const columns = new Map<string, string[]>();
   const emit = (type: string, row: Row) => {
     let cols = columns.get(type);
@@ -137,7 +166,7 @@ export async function runDatasetExport(opts: DatasetOptions): Promise<{ blob: Bl
     }
     const [bad, errors, health] = await Promise.all([
       run(badMinutesSql(from, to, opts.pids, discovery)),
-      run(userErrorsSql(from, to, opts.pids)),
+      runSplit((f, t) => userErrorsSql(f, t, opts.pids), from, to),
       run(channelHealthSql(from, to, opts.pids)),
     ]);
     const current = new Map<string, ChannelKey>();
@@ -149,7 +178,8 @@ export async function runDatasetExport(opts: DatasetOptions): Promise<{ blob: Bl
     }
     const followed = [...new Map([...previous, ...current]).values()];
     for (let i = 0; i < followed.length; i += CHANNELS_BATCH) {
-      const minutes = await run(channelMinutesSql(from, to, opts.pids, followed.slice(i, i + CHANNELS_BATCH)));
+      const batch = followed.slice(i, i + CHANNELS_BATCH);
+      const minutes = await runSplit((f, t) => channelMinutesSql(f, t, opts.pids, batch), from, to);
       minutes.forEach((r) => emit('min', r));
       rows += minutes.length;
     }
