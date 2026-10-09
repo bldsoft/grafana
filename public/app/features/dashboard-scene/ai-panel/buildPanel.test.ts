@@ -18,6 +18,7 @@ import {
   buildGeneratedPanel,
   isLongTimeSeries,
   numericBarLabelField,
+  staticPanelData,
   timeFieldName,
   timeHasNulls,
   timeSeriesTransformations,
@@ -521,5 +522,62 @@ describe('zeroBaselineMin', () => {
 
   it('drops it when any value is negative', () => {
     expect(zeroBaselineMin(panelData(['a', 'b'], [12, -3]))).toBeUndefined();
+  });
+});
+
+describe('staticPanelData (GA4 panels)', () => {
+  it('turns the spec frame into typed fields over the spec window', () => {
+    const spec: GeneratedPanelSpec = {
+      panelType: 'timeseries',
+      title: 'Daily entries',
+      rawSql: '',
+      source: 'ga4',
+      timeFrom: '2026-10-01T00:00:00.000Z',
+      timeTo: '2026-10-03T00:00:00.000Z',
+      data: {
+        fields: [
+          { name: 'date', type: 'time' },
+          { name: 'streamName', type: 'string' },
+          { name: 'eventCount', type: 'number' },
+        ],
+        rows: [
+          [Date.UTC(2026, 9, 1), 'Android', 30],
+          [Date.UTC(2026, 9, 2), 'Android', 31],
+        ],
+      },
+    };
+    const data = staticPanelData(spec);
+    expect(data.state).toBe(LoadingState.Done);
+    const [frame] = data.series;
+    expect(frame.fields.map((f) => [f.name, f.type])).toEqual([
+      ['date', FieldType.time],
+      ['streamName', FieldType.string],
+      ['eventCount', FieldType.number],
+    ]);
+    expect(frame.length).toBe(2);
+    expect(data.timeRange.from.valueOf()).toBe(Date.UTC(2026, 9, 1));
+    expect(data.timeRange.to.valueOf()).toBe(Date.UTC(2026, 9, 3));
+  });
+
+  it('builds the panel without a datasource or SQL', () => {
+    const spec: GeneratedPanelSpec = {
+      panelType: 'barchart',
+      title: 'Entries by platform',
+      rawSql: '',
+      source: 'ga4',
+      data: {
+        fields: [
+          { name: 'streamName', type: 'string' },
+          { name: 'eventCount', type: 'number' },
+        ],
+        rows: [
+          ['Android', 871],
+          ['iOS', 265],
+        ],
+      },
+    };
+    const panel = buildGeneratedPanel(spec, { uid: 'unused', type: 'unused' });
+    expect(panel.state.pluginId).toBe('barchart');
+    expect(panel.state.options).toMatchObject({ xTickLabelRotation: 0 });
   });
 });

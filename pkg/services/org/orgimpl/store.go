@@ -153,6 +153,10 @@ func (ss *sqlStore) Update(ctx context.Context, cmd *org.UpdateOrgCommand) error
 			orga.ExternalServicesTeamID = *cmd.ExternalServicesTeamID
 			updateSess = updateSess.MustCols("external_services_team_id")
 		}
+		if cmd.GA4PropertyIDs != nil {
+			orga.GA4PropertyIDs = *cmd.GA4PropertyIDs
+			updateSess = updateSess.MustCols("ga4_property_ids")
+		}
 
 		affectedRows, err := updateSess.Update(&orga)
 
@@ -319,6 +323,7 @@ func (ss *sqlStore) CreateWithMember(ctx context.Context, cmd *org.CreateOrgComm
 		Name:                   cmd.Name,
 		ProviderIDs:            cmd.ProviderIDs,
 		ExternalServicesTeamID: cmd.ExternalServicesTeamID,
+		GA4PropertyIDs:         cmd.GA4PropertyIDs,
 		Created:                time.Now(),
 		Updated:                time.Now(),
 	}

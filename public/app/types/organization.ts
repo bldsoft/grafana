@@ -8,6 +8,9 @@ export interface Organization {
   // UID (or numeric id) of the team whose members may use external services
   // such as AI Insider; empty = the services are off for this organization
   externalServicesTeamId?: string;
+  // Comma-separated Google Analytics 4 property ids whose app behavior data the
+  // organization may query in AI Insider; empty = the domain is off
+  ga4PropertyIds?: string;
 }
 
 export interface OrganizationState {

@@ -31,11 +31,13 @@ import { useGrafana } from 'app/core/context/GrafanaContext';
 import { analytix } from 'app/features/home/analytixTokens';
 
 import { CapabilityGuide } from './CapabilityGuide';
+import { DataAccessMenu } from './DataAccessMenu';
 import {
   AssistantError,
   AssistantProgress,
   SuggestedPrompt,
   checkAssistantHealth,
+  fetchCapabilities,
   fetchSuggestions,
   generatePanel,
   resetAssistantHistory,
@@ -167,6 +169,16 @@ function toolLabel(tool: string): string {
       return t('dashboard.ai-panel.tool-emit', 'building panel');
     case 'escalate':
       return t('dashboard.ai-panel.tool-escalate', 'deep analysis');
+    case 'ga4_metadata':
+      return t('dashboard.ai-panel.tool-ga4-metadata', 'reading app analytics setup');
+    case 'ga4_doc':
+      return t('dashboard.ai-panel.tool-ga4-docs', 'reading app behavior docs');
+    case 'ga4_report':
+      return t('dashboard.ai-panel.tool-ga4-report', 'querying app behavior');
+    case 'ga4_funnel':
+      return t('dashboard.ai-panel.tool-ga4-funnel', 'building a funnel');
+    case 'emit_ga4_panel':
+      return t('dashboard.ai-panel.tool-emit', 'building panel');
     default:
       return tool;
   }
@@ -399,6 +411,9 @@ export function GenPanelChat({ onClose }: Props) {
   // five slots — the cold-start behavior. The epoch bumps after a history
   // reset so the (now empty) server state is re-fetched immediately.
   const [suggestionsEpoch, setSuggestionsEpoch] = useState(0);
+  // Data domains of the user's organization for the header "Data" menu
+  // (streaming / app behavior / finance); null = unknown, streaming only.
+  const { value: dataDomains } = useAsync(() => (AI_PANEL_DEMO_MODE ? Promise.resolve(null) : fetchCapabilities()), []);
   const { value: fetchedSuggestions } = useAsync(
     () => (AI_PANEL_DEMO_MODE ? Promise.resolve<SuggestedPrompt[]>([]) : fetchSuggestions()),
     [suggestionsEpoch]
@@ -704,10 +719,13 @@ export function GenPanelChat({ onClose }: Props) {
           </Trans>
         </div>
       </div>
-      <button type="button" className={styles.guideButton} onClick={onOpenGuide}>
-        <Icon name="book-open" />
-        <Trans i18nKey="dashboard.ai-panel.guide-button">Quick guide</Trans>
-      </button>
+      <div className={styles.headerActions}>
+        <DataAccessMenu domains={dataDomains ?? null} onPick={setInput} />
+        <button type="button" className={styles.guideButton} onClick={onOpenGuide}>
+          <Icon name="book-open" />
+          <Trans i18nKey="dashboard.ai-panel.guide-button">Quick guide</Trans>
+        </button>
+      </div>
     </div>
   );
 
@@ -1074,8 +1092,14 @@ const getStyles = (theme: GrafanaTheme2) => ({
     // Clear the Drawer's absolutely positioned close button in the corner.
     paddingRight: theme.spacing(4),
   }),
-  guideButton: css({
+  headerActions: css({
     marginLeft: 'auto',
+    flexShrink: 0,
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+  }),
+  guideButton: css({
     flexShrink: 0,
     display: 'inline-flex',
     alignItems: 'center',

@@ -32,13 +32,34 @@ export const SUPPORTED_PANEL_TYPES = [
 
 export type SupportedPanelType = (typeof SUPPORTED_PANEL_TYPES)[number];
 
-/** The structured result we expect back from the LLM. */
+/** Column types of a static result frame (GA4 panels). */
+export type StaticFieldType = 'time' | 'number' | 'string';
+
+/**
+ * A result carried inside the spec itself: GA4 app-behavior answers are run by
+ * the service (there is no GA4 datasource to re-run them), so the panel shows
+ * this frame as-is. Time values are epoch millis.
+ */
+export interface StaticPanelData {
+  fields: Array<{ name: string; type: StaticFieldType }>;
+  rows: Array<Array<string | number | null>>;
+}
+
+/**
+ * The structured result we expect back from the LLM. Mirrors
+ * services/panel-spec.js in analytix-ai-insider — keep the two in sync.
+ */
 export interface GeneratedPanelSpec {
   panelType: SupportedPanelType;
   title: string;
+  /** ClickHouse SQL re-run through the user's datasource; '' for GA4 panels. */
   rawSql: string;
   /** Optional Grafana time expression, e.g. "now-30d". */
   timeFrom?: string;
   /** Optional Grafana time expression, e.g. "now". */
   timeTo?: string;
+  /** Data source of the panel: ClickHouse SQL (default) or a GA4 result. */
+  source?: 'clickhouse' | 'ga4';
+  /** GA4 only: the result frame. */
+  data?: StaticPanelData;
 }

@@ -1,17 +1,20 @@
 import {
+  createDataFrame,
   DataFrame,
   DataSourceRef,
   DataTransformerConfig,
   FieldColorModeId,
   FieldConfigSource,
   FieldType,
+  getDefaultTimeRange,
   LoadingState,
   PanelData,
+  rangeUtil,
 } from '@grafana/data';
-import { SceneDataTransformer, SceneQueryRunner, VizPanel } from '@grafana/scenes';
+import { SceneDataNode, SceneDataTransformer, SceneQueryRunner, VizPanel } from '@grafana/scenes';
 
 import { isSafeBridgeSql, rawSqlQuery } from './datasourceQuery';
-import { GeneratedPanelSpec, SupportedPanelType } from './types';
+import { GeneratedPanelSpec, StaticPanelData, SupportedPanelType } from './types';
 
 /**
  * Analytix: per-panel-type visual defaults so generated charts land in the
@@ -610,12 +613,79 @@ const DATA_SHAPED_TRANSFORMATIONS: Partial<Record<SupportedPanelType, (data: Pan
   trend: trendPivotTransformations,
 };
 
+const STATIC_FIELD_TYPES: Record<StaticPanelData['fields'][number]['type'], FieldType> = {
+  time: FieldType.time,
+  number: FieldType.number,
+  string: FieldType.string,
+};
+
+/** The panel data of a GA4 spec's static frame. Exported for tests. */
+export function staticPanelData(spec: GeneratedPanelSpec): PanelData {
+  const data = spec.data ?? { fields: [], rows: [] };
+  const frame = createDataFrame({
+    name: spec.title,
+    fields: data.fields.map((f, i) => ({
+      name: f.name,
+      type: STATIC_FIELD_TYPES[f.type],
+      values: data.rows.map((r) => r[i]),
+    })),
+  });
+  let timeRange = getDefaultTimeRange();
+  if (spec.timeFrom) {
+    try {
+      timeRange = rangeUtil.convertRawToRange({ from: spec.timeFrom, to: spec.timeTo ?? 'now' });
+    } catch {
+      // Keep the default range: the inline scene still opens on the spec's window.
+    }
+  }
+  return { state: LoadingState.Done, series: [frame], timeRange };
+}
+
+/**
+ * A GA4 panel: the service already ran the request, so the data is a fixed
+ * frame (SceneDataNode) and every data-dependent choice the SQL path makes
+ * once its query resolves (reshaping, tick rotation, zero baseline) is made
+ * right here from that frame.
+ */
+function buildStaticPanel(spec: GeneratedPanelSpec): VizPanel {
+  const panelData = staticPanelData(spec);
+  const node = new SceneDataNode({ data: panelData });
+  const reshape = DATA_SHAPED_TRANSFORMATIONS[spec.panelType];
+  const data = reshape ? new SceneDataTransformer({ $data: node, transformations: reshape(panelData) }) : node;
+  const fieldConfig = fieldConfigFor(spec.panelType);
+  if (!UNFORMATTED_PANEL_TYPES.includes(spec.panelType)) {
+    fieldConfig.defaults = { unit: DEFAULT_NUMBER_UNIT, ...fieldConfig.defaults };
+  }
+  if (spec.panelType === 'bargauge') {
+    const min = zeroBaselineMin(panelData);
+    if (min !== undefined) {
+      fieldConfig.defaults = { ...fieldConfig.defaults, min };
+    }
+  }
+  const options: Record<string, unknown> = { ...optionsFor(spec.panelType) };
+  if (spec.panelType === 'barchart' && barLabelsFitHorizontally(panelData)) {
+    options.xTickLabelRotation = 0;
+    options.xTickLabelMaxLength = undefined;
+  }
+  return new VizPanel({
+    title: spec.title,
+    pluginId: spec.panelType,
+    displayMode: 'transparent',
+    fieldConfig,
+    options,
+    $data: data,
+  });
+}
+
 /**
  * Build a panel from a generated spec for inline rendering (not attached to a
  * dashboard). It is a bare VizPanel — no dashboard menu/behaviours — so it
  * renders happily inside an EmbeddedScene.
  */
 export function buildGeneratedPanel(spec: GeneratedPanelSpec, datasource: DataSourceRef): VizPanel {
+  if (spec.source === 'ga4') {
+    return buildStaticPanel(spec);
+  }
   // Final execution boundary: the panel query runs through the user's datasource
   // on every refresh, so it clears the same read-only gate as the bridge queries.
   // normalizeResult already drops unsafe specs; this is defense in depth for any

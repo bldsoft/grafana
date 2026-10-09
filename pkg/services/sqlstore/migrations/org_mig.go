@@ -77,4 +77,10 @@ func addOrgMigrations(mg *Migrator) {
 	mg.AddMigration("Add column external_services_team_id in org", NewAddColumnMigration(orgV1, &Column{
 		Name: "external_services_team_id", Type: DB_NVarchar, Length: 190, Nullable: true,
 	}))
+
+	// Analytix: comma-separated Google Analytics 4 property ids whose app
+	// behavior data the organization may query; empty = the domain is off
+	mg.AddMigration("Add column ga4_property_ids in org", NewAddColumnMigration(orgV1, &Column{
+		Name: "ga4_property_ids", Type: DB_NVarchar, Length: 1024, Nullable: true,
+	}))
 }

@@ -18,21 +18,25 @@ interface OrgSettingsDTO {
   orgName: string;
   providerIds: string;
   externalServicesTeamId: string;
+  ga4PropertyIds: string;
 }
 
 // "*" = all providers; empty = no data access; otherwise a comma-separated id list
 const PROVIDER_IDS_PATTERN = /^\s*(\*|[A-Za-z0-9_-]+(\s*,\s*[A-Za-z0-9_-]+)*)?\s*$/;
 // A single team UID or numeric id; empty = external services are off for the org
 const TEAM_ID_PATTERN = /^\s*[A-Za-z0-9_-]*\s*$/;
+// Comma-separated numeric GA4 property ids, optionally as "properties/<id>"; empty = app behavior data is off
+const GA4_PROPERTY_IDS_PATTERN = /^\s*((properties\/)?\d{1,20}(\s*,\s*(properties\/)?\d{1,20})*)?\s*$/;
 
 const AdminEditOrgPage = () => {
   const { id = '' } = useParams();
   const orgId = parseInt(id, 10);
   const canWriteOrg = contextSrv.hasPermission(AccessControlAction.OrgsWrite);
   const canReadUsers = contextSrv.hasPermission(AccessControlAction.OrgUsersRead);
-  // The provider id scope and the external services team gate access; the API
-  // only lets server admins set them, so an org admin renaming the org must
-  // not send them at all (the API would answer 403 even for unchanged values).
+  // The provider id scope, the external services team and the GA4 properties
+  // gate access; the API only lets server admins set them, so an org admin
+  // renaming the org must not send them at all (the API would answer 403 even
+  // for unchanged values).
   const canWriteAccessFields = canWriteOrg && contextSrv.isGrafanaAdmin;
 
   const [users, setUsers] = useState<OrgUser[]>([]);
@@ -63,11 +67,15 @@ const AdminEditOrgPage = () => {
     fetchOrgUsers(page);
   }, [fetchOrg, fetchOrgUsers, page]);
 
-  const onUpdateOrg = async ({ orgName, providerIds, externalServicesTeamId }: OrgSettingsDTO) => {
+  const onUpdateOrg = async ({ orgName, providerIds, externalServicesTeamId, ga4PropertyIds }: OrgSettingsDTO) => {
     await updateOrg(orgId, {
       name: orgName,
       ...(canWriteAccessFields
-        ? { providerIds: providerIds ?? '', externalServicesTeamId: externalServicesTeamId ?? '' }
+        ? {
+            providerIds: providerIds ?? '',
+            externalServicesTeamId: externalServicesTeamId ?? '',
+            ga4PropertyIds: ga4PropertyIds ?? '',
+          }
         : {}),
     });
     fetchOrg();
@@ -171,6 +179,27 @@ const AdminEditOrgPage = () => {
                     id="org-external-services-team-input"
                     placeholder={t('admin.admin-edit-org-page.placeholder-external-services-team', 'cfwubwdg1oxdsf')}
                     defaultValue={orgState.value.externalServicesTeamId ?? ''}
+                  />
+                </Field>
+                <Field
+                  label={t('admin.admin-edit-org-page.label-ga4-property-ids', 'GA4 properties (app behavior)')}
+                  description={t(
+                    'admin.admin-edit-org-page.description-ga4-property-ids',
+                    'Comma-separated Google Analytics 4 property IDs whose app behavior data (screens, buttons, funnels) this organization can query in AI Insider. Leave empty to turn app behavior questions off. Only server admins can change this.'
+                  )}
+                  invalid={!!errors.ga4PropertyIds}
+                  error={t(
+                    'admin.admin-edit-org-page.error-ga4-property-ids',
+                    'Use numeric GA4 property IDs separated by commas'
+                  )}
+                  disabled={!canWriteAccessFields}
+                  noMargin
+                >
+                  <Input
+                    {...register('ga4PropertyIds', { pattern: GA4_PROPERTY_IDS_PATTERN })}
+                    id="org-ga4-property-ids-input"
+                    placeholder={t('admin.admin-edit-org-page.placeholder-ga4-property-ids', '123456789, 987654321')}
+                    defaultValue={orgState.value.ga4PropertyIds ?? ''}
                   />
                 </Field>
                 <div>

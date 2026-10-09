@@ -6,6 +6,8 @@ type UpdateOrgForm struct {
 	ProviderIds *string `json:"providerIds"`
 	// Team UID (or numeric id) for external services access; nil = keep, "" = clear
 	ExternalServicesTeamId *string `json:"externalServicesTeamId"`
+	// Comma-separated GA4 property ids for app behavior data; nil = keep, "" = clear
+	GA4PropertyIds *string `json:"ga4PropertyIds"`
 }
 
 type UpdateOrgAddressForm struct {

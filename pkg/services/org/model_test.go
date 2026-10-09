@@ -1,6 +1,7 @@
 package org
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -53,5 +54,50 @@ func TestNormalizeExternalServicesTeamID(t *testing.T) {
 	for _, raw := range invalid {
 		_, err := NormalizeExternalServicesTeamID(raw)
 		assert.ErrorIs(t, err, ErrInvalidExternalServicesTeamID, "raw=%q", raw)
+	}
+}
+
+func TestNormalizeGA4PropertyIDs(t *testing.T) {
+	valid := map[string]string{
+		"":                                "",
+		"  ":                              "",
+		" , ,":                            "",
+		"123456789":                       "123456789",
+		" 123456789 , 987654321 ":         "123456789,987654321",
+		"properties/123456789":            "123456789",
+		"properties/123456789, 987654321": "123456789,987654321",
+		"123,456,123":                     "123,456",
+		"properties/123,123":              "123",
+		",123,,456,":                      "123,456",
+		strings.Repeat("9", 20):           strings.Repeat("9", 20),
+	}
+	for raw, want := range valid {
+		got, err := NormalizeGA4PropertyIDs(raw)
+		require.NoError(t, err, "raw=%q", raw)
+		assert.Equal(t, want, got, "raw=%q", raw)
+	}
+
+	// 52 distinct 20-digit ids joined by commas exceed the 1024-char column.
+	tooLong := make([]string, 0, 52)
+	for i := 0; i < 52; i++ {
+		tooLong = append(tooLong, fmt.Sprintf("%020d", i))
+	}
+
+	invalid := []string{
+		"abc",
+		"123a",
+		"*",
+		"123;456",
+		"1 2",
+		"properties/",
+		"properties/abc",
+		"property/123",
+		"-123",
+		strings.Repeat("9", 21),
+		strings.Join(tooLong, ","),
+	}
+	for _, raw := range invalid {
+		_, err := NormalizeGA4PropertyIDs(raw)
+		assert.ErrorIs(t, err, ErrInvalidGA4PropertyIDs, "raw=%q", raw)
 	}
 }

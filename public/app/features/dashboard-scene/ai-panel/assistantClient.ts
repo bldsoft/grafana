@@ -6,7 +6,7 @@ import { DataSourceRef, store } from '@grafana/data';
 import { config } from '@grafana/runtime';
 
 import { isSafeBridgeSql, runRawQuery } from './datasourceQuery';
-import { GeneratedPanelSpec, SUPPORTED_PANEL_TYPES } from './types';
+import { GeneratedPanelSpec, StaticFieldType, StaticPanelData, SUPPORTED_PANEL_TYPES } from './types';
 
 // Silence watchdog: the backend sends a padded SSE heartbeat every 15s, so no
 // bytes at all for this long means the connection died silently (dropped
@@ -116,6 +116,60 @@ export async function checkAssistantHealth(): Promise<{ ok: boolean }> {
   }
 }
 
+/** One data domain of the user's organization, as the chat's "Data" menu shows it. */
+export interface DataDomain {
+  id: 'streaming' | 'behavior' | 'finance';
+  /** on = can be asked about; off = not connected for the org; misconfigured =
+   *  assigned but unreachable right now; unavailable = not offered to anyone yet. */
+  status: 'on' | 'off' | 'misconfigured' | 'unavailable';
+  /** GA4 properties behind the behavior domain (display names). */
+  properties: Array<{ id: string; name: string }>;
+}
+
+const DOMAIN_IDS: Array<DataDomain['id']> = ['streaming', 'behavior', 'finance'];
+const DOMAIN_STATUSES: Array<DataDomain['status']> = ['on', 'off', 'misconfigured', 'unavailable'];
+
+/**
+ * The data domains of the current user's organization (GET /api/capabilities).
+ * Best-effort: null when the service is older than the endpoint or
+ * unreachable — the chat then shows streaming only, as before.
+ */
+export async function fetchCapabilities(): Promise<DataDomain[] | null> {
+  try {
+    const res = await fetch(`${getAssistantBaseUrl()}/api/capabilities`, {
+      headers: authHeaders(),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      return null;
+    }
+    const body = await res.json();
+    if (!isRecord(body) || !Array.isArray(body.domains)) {
+      return null;
+    }
+    const domains: DataDomain[] = [];
+    for (const item of body.domains) {
+      const id = isRecord(item) ? DOMAIN_IDS.find((candidate) => candidate === item.id) : undefined;
+      const status = isRecord(item) ? DOMAIN_STATUSES.find((candidate) => candidate === item.status) : undefined;
+      if (!isRecord(item) || !id || !status) {
+        continue;
+      }
+      const properties = Array.isArray(item.properties)
+        ? item.properties
+            .filter(
+              (p): p is Record<string, unknown> => isRecord(p) && typeof p.id === 'string' && typeof p.name === 'string'
+            )
+            .slice(0, 20)
+            .map((p) => ({ id: String(p.id).slice(0, 40), name: String(p.name).slice(0, 100) }))
+        : [];
+      domains.push({ id, status, properties });
+    }
+    return domains;
+  } catch {
+    return null;
+  }
+}
+
 /** Suggestion chip for the chat empty state: a past prompt plus what it produced. */
 export interface SuggestedPrompt {
   prompt: string;
@@ -160,8 +214,7 @@ export async function fetchSuggestions(): Promise<SuggestedPrompt[]> {
       if (isRecord(item) && typeof item.prompt === 'string' && item.prompt.trim() !== '') {
         suggestions.push({
           prompt: item.prompt.trim().slice(0, MAX_SUGGESTION_PROMPT_CHARS),
-          kind:
-            typeof item.kind === 'string' && item.kind ? item.kind.slice(0, MAX_SUGGESTION_KIND_CHARS) : 'summary',
+          kind: typeof item.kind === 'string' && item.kind ? item.kind.slice(0, MAX_SUGGESTION_KIND_CHARS) : 'summary',
         });
       }
     }
@@ -254,13 +307,24 @@ async function answerQueryEvent(
  * POST /api/generate and consume the SSE stream. Resolves with the terminal
  * `result` event; rejects on `error` events, HTTP errors or malformed specs.
  */
-export async function generatePanel({ prompt, datasource, sessionId, signal, onProgress, onSession }: GenerateArgs): Promise<AssistantResult> {
+export async function generatePanel({
+  prompt,
+  datasource,
+  sessionId,
+  signal,
+  onProgress,
+  onSession,
+}: GenerateArgs): Promise<AssistantResult> {
   const res = await fetch(`${getAssistantBaseUrl()}/api/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...authHeaders() },
     // `user` attributes the request in the backend audit log; access control
     // stays on the bearer token.
-    body: JSON.stringify({ prompt, sessionId: sessionId || undefined, user: config.bootData?.user?.login || undefined }),
+    body: JSON.stringify({
+      prompt,
+      sessionId: sessionId || undefined,
+      user: config.bootData?.user?.login || undefined,
+    }),
     signal,
   });
 
@@ -379,6 +443,50 @@ export async function generatePanel({ prompt, datasource, sessionId, signal, onP
   return result;
 }
 
+// Caps on a GA4 result frame: it is rendered as-is, so a version-skewed or
+// hostile backend must not be able to push an unbounded table into the DOM.
+const MAX_STATIC_FIELDS = 20;
+const MAX_STATIC_ROWS = 5000;
+const MAX_STATIC_CELL_CHARS = 1024;
+const STATIC_FIELD_TYPES: StaticFieldType[] = ['time', 'number', 'string'];
+
+/** Exported for tests: validate a GA4 result frame, or null when malformed. */
+export function normalizeStaticData(raw: unknown): StaticPanelData | null {
+  if (!isRecord(raw) || !Array.isArray(raw.fields) || !Array.isArray(raw.rows)) {
+    return null;
+  }
+  if (raw.fields.length === 0 || raw.fields.length > MAX_STATIC_FIELDS) {
+    return null;
+  }
+  const fields: StaticPanelData['fields'] = [];
+  for (const f of raw.fields) {
+    const type = isRecord(f) ? STATIC_FIELD_TYPES.find((candidate) => candidate === f.type) : undefined;
+    if (!isRecord(f) || typeof f.name !== 'string' || !type) {
+      return null;
+    }
+    fields.push({ name: f.name.slice(0, 100), type });
+  }
+  const rows: StaticPanelData['rows'] = [];
+  for (const r of raw.rows.slice(0, MAX_STATIC_ROWS)) {
+    if (!Array.isArray(r) || r.length !== fields.length) {
+      return null;
+    }
+    rows.push(
+      r.map((v, i) => {
+        if (fields[i].type === 'string') {
+          return typeof v === 'string'
+            ? v.slice(0, MAX_STATIC_CELL_CHARS)
+            : v == null
+              ? null
+              : String(v).slice(0, MAX_STATIC_CELL_CHARS);
+        }
+        return typeof v === 'number' && Number.isFinite(v) ? v : null;
+      })
+    );
+  }
+  return { fields, rows };
+}
+
 /** Exported for tests: the spec/time/SQL gate that guards the terminal event. */
 export function normalizeResult(payload: unknown): AssistantResult {
   const body: Record<string, unknown> = isRecord(payload) ? payload : {};
@@ -390,14 +498,29 @@ export function normalizeResult(payload: unknown): AssistantResult {
     // against a version-skewed service returning an unknown shape.
     const panelType = SUPPORTED_PANEL_TYPES.find((candidate) => candidate === raw.panelType);
     const rawSql = typeof raw.rawSql === 'string' ? raw.rawSql.trim() : '';
+    const title = typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim().slice(0, 120) : 'AI panel';
+    // GA4 panel: no SQL to gate — the result travels as a static frame that
+    // never reaches a datasource; it only has to be well-formed and bounded.
+    const data = raw.source === 'ga4' ? normalizeStaticData(raw.data) : null;
+    if (panelType && data) {
+      spec = {
+        panelType,
+        title,
+        rawSql: '',
+        source: 'ga4',
+        data,
+        timeFrom: sanitizeTime(raw.timeFrom),
+        timeTo: sanitizeTime(raw.timeTo),
+      };
+    }
     // Defense in depth: the panel query executes through the user's datasource
     // just like the bridge queries do, so it must clear the same read-only gate.
     // A hostile backend (reached via the localStorage URL override) can't smuggle
     // a mutating or SSRF-style statement in through the final spec.
-    if (panelType && rawSql !== '' && isSafeBridgeSql(rawSql)) {
+    if (!spec && raw.source !== 'ga4' && panelType && rawSql !== '' && isSafeBridgeSql(rawSql)) {
       spec = {
         panelType,
-        title: typeof raw.title === 'string' && raw.title.trim() ? raw.title.trim() : 'AI panel',
+        title,
         rawSql,
         timeFrom: sanitizeTime(raw.timeFrom),
         timeTo: sanitizeTime(raw.timeTo),

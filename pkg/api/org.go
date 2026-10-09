@@ -83,6 +83,7 @@ func (hs *HTTPServer) GetOrgByName(c *contextmodel.ReqContext) response.Response
 		},
 		ProviderIDs:            orga.ProviderIDs,
 		ExternalServicesTeamID: orga.ExternalServicesTeamID,
+		GA4PropertyIDs:         orga.GA4PropertyIDs,
 	}
 
 	return response.JSON(http.StatusOK, &result)
@@ -113,6 +114,7 @@ func (hs *HTTPServer) getOrgHelper(ctx context.Context, orgID int64) response.Re
 		},
 		ProviderIDs:            orga.ProviderIDs,
 		ExternalServicesTeamID: orga.ExternalServicesTeamID,
+		GA4PropertyIDs:         orga.GA4PropertyIDs,
 	}
 
 	return response.JSON(http.StatusOK, &result)
@@ -154,6 +156,15 @@ func (hs *HTTPServer) CreateOrg(c *contextmodel.ReqContext) response.Response {
 		return response.Error(http.StatusBadRequest, "Invalid external services team id", err)
 	}
 	cmd.ExternalServicesTeamID = teamID
+	// GA4 property ids open app behavior data in AI Insider: server admins only.
+	if cmd.GA4PropertyIDs != "" && !c.GetIsGrafanaAdmin() {
+		return response.Error(http.StatusForbidden, "Only server admins can set GA4 property ids", nil)
+	}
+	ga4PropertyIDs, err := org.NormalizeGA4PropertyIDs(cmd.GA4PropertyIDs)
+	if err != nil {
+		return response.Error(http.StatusBadRequest, "Invalid GA4 property ids", err)
+	}
+	cmd.GA4PropertyIDs = ga4PropertyIDs
 
 	if !c.IsIdentityType(claims.TypeUser) {
 		return response.Error(http.StatusForbidden, "Only users can create organizations", nil)
@@ -204,6 +215,9 @@ func (hs *HTTPServer) UpdateCurrentOrg(c *contextmodel.ReqContext) response.Resp
 	if form.ExternalServicesTeamId != nil && !c.GetIsGrafanaAdmin() {
 		return response.Error(http.StatusForbidden, "Only server admins can change the external services team", nil)
 	}
+	if form.GA4PropertyIds != nil && !c.GetIsGrafanaAdmin() {
+		return response.Error(http.StatusForbidden, "Only server admins can change GA4 property ids", nil)
+	}
 	return hs.updateOrgHelper(c.Req.Context(), form, c.GetOrgID())
 }
 
@@ -233,6 +247,9 @@ func (hs *HTTPServer) UpdateOrg(c *contextmodel.ReqContext) response.Response {
 	if form.ExternalServicesTeamId != nil && !c.GetIsGrafanaAdmin() {
 		return response.Error(http.StatusForbidden, "Only server admins can change the external services team", nil)
 	}
+	if form.GA4PropertyIds != nil && !c.GetIsGrafanaAdmin() {
+		return response.Error(http.StatusForbidden, "Only server admins can change GA4 property ids", nil)
+	}
 	orgId, err := strconv.ParseInt(web.Params(c.Req)[":orgId"], 10, 64)
 	if err != nil {
 		return response.Error(http.StatusBadRequest, "orgId is invalid", err)
@@ -255,6 +272,13 @@ func (hs *HTTPServer) updateOrgHelper(ctx context.Context, form dtos.UpdateOrgFo
 			return response.Error(http.StatusBadRequest, "Invalid external services team id", err)
 		}
 		cmd.ExternalServicesTeamID = &teamID
+	}
+	if form.GA4PropertyIds != nil {
+		ga4PropertyIDs, err := org.NormalizeGA4PropertyIDs(*form.GA4PropertyIds)
+		if err != nil {
+			return response.Error(http.StatusBadRequest, "Invalid GA4 property ids", err)
+		}
+		cmd.GA4PropertyIDs = &ga4PropertyIDs
 	}
 	if err := hs.orgService.UpdateOrg(ctx, &cmd); err != nil {
 		if errors.Is(err, org.ErrOrgNameTaken) {

@@ -39,7 +39,7 @@ export const removeOrgUser = (orgUser: OrgUser, orgId: UrlQueryValue) => {
 
 export const updateOrg = (
   orgId: number,
-  body: { name: string; providerIds?: string; externalServicesTeamId?: string }
+  body: { name: string; providerIds?: string; externalServicesTeamId?: string; ga4PropertyIds?: string }
 ) => {
   return getBackendSrv().put(`/api/orgs/${orgId}`, body);
 };

@@ -1,4 +1,4 @@
-import { normalizeResult } from './assistantClient';
+import { normalizeResult, normalizeStaticData } from './assistantClient';
 import { SUPPORTED_PANEL_TYPES } from './types';
 
 // Contract pin, mirrored by test/contract.test.mjs in the analytix-ai-insider
@@ -74,5 +74,67 @@ describe('normalizeResult', () => {
     expect(normalizeResult(undefined).spec).toBeNull();
     expect(normalizeResult({ spec: 'not-an-object' }).spec).toBeNull();
     expect(normalizeResult({}).message).toBe('');
+  });
+});
+
+describe('normalizeResult — GA4 panels', () => {
+  const ga4Spec = {
+    panelType: 'barchart',
+    title: 'My List entries',
+    rawSql: '',
+    source: 'ga4',
+    data: {
+      fields: [
+        { name: 'streamName', type: 'string' },
+        { name: 'eventCount', type: 'number' },
+      ],
+      rows: [
+        ['Android', 871],
+        ['iOS', 265],
+      ],
+    },
+    query: '{"kind":"report"}',
+  };
+
+  it('accepts a well-formed static frame without SQL', () => {
+    const r = normalizeResult({ spec: ga4Spec });
+    expect(r.spec).toEqual({
+      panelType: 'barchart',
+      title: 'My List entries',
+      rawSql: '',
+      source: 'ga4',
+      data: ga4Spec.data,
+      timeFrom: undefined,
+      timeTo: undefined,
+    });
+  });
+
+  it('drops a malformed frame instead of rendering it', () => {
+    expect(normalizeResult({ spec: { ...ga4Spec, data: { fields: [], rows: [] } } }).spec).toBeNull();
+    expect(
+      normalizeResult({ spec: { ...ga4Spec, data: { fields: [{ name: 'x', type: 'blob' }], rows: [] } } }).spec
+    ).toBeNull();
+    expect(
+      normalizeResult({ spec: { ...ga4Spec, data: { fields: ga4Spec.data.fields, rows: [['only one cell']] } } }).spec
+    ).toBeNull();
+  });
+
+  it('never lets a GA4-labelled spec smuggle SQL through', () => {
+    const r = normalizeResult({ spec: { ...ga4Spec, rawSql: 'SELECT 1', data: undefined } });
+    expect(r.spec).toBeNull();
+  });
+});
+
+describe('normalizeStaticData', () => {
+  it('coerces cells to the declared types', () => {
+    const data = normalizeStaticData({
+      fields: [
+        { name: 'date', type: 'time' },
+        { name: 'label', type: 'string' },
+        { name: 'n', type: 'number' },
+      ],
+      rows: [[1790899200000, 42, 'x']],
+    });
+    expect(data?.rows).toEqual([[1790899200000, '42', null]]);
   });
 });

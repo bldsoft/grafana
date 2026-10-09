@@ -19,6 +19,7 @@ var (
 	ErrOrgNotFound                             = errutil.NotFound("org.notFound", errutil.WithPublicMessage("organization not found"))
 	ErrInvalidProviderIDs                      = errors.New("provider ids must be \"*\" or a comma-separated list of alphanumeric ids")
 	ErrInvalidExternalServicesTeamID           = errors.New("external services team id must be a single team UID or numeric id")
+	ErrInvalidGA4PropertyIDs                   = errors.New("ga4 property ids must be a comma-separated list of numeric GA4 property ids")
 	ErrCannotChangeRoleForExternallySyncedUser = errutil.Forbidden("org.externallySynced", errutil.WithPublicMessage("cannot change role for externally synced user"))
 )
 
@@ -39,6 +40,9 @@ type Org struct {
 	// UID (or numeric id) of the team whose members may use external services
 	// such as AI Insider; empty = the services are off for this organization
 	ExternalServicesTeamID string `xorm:"external_services_team_id"`
+	// Comma-separated Google Analytics 4 property ids whose app behavior data
+	// this organization may query in AI Insider; empty = the domain is off
+	GA4PropertyIDs string `xorm:"ga4_property_ids"`
 
 	Created time.Time
 	Updated time.Time
@@ -68,6 +72,8 @@ type CreateOrgCommand struct {
 	ProviderIDs string `json:"providerIds" xorm:"provider_ids"`
 	// UID (or numeric id) of the team whose members may use external services
 	ExternalServicesTeamID string `json:"externalServicesTeamId" xorm:"external_services_team_id"`
+	// Comma-separated GA4 property ids whose app behavior data may be queried
+	GA4PropertyIDs string `json:"ga4PropertyIds" xorm:"ga4_property_ids"`
 
 	// initial admin user for account
 	UserID int64 `json:"-" xorm:"user_id"`
@@ -98,6 +104,8 @@ type UpdateOrgCommand struct {
 	ProviderIDs *string
 	// nil = keep the stored value, non-nil (including "") = overwrite
 	ExternalServicesTeamID *string
+	// nil = keep the stored value, non-nil (including "") = overwrite
+	GA4PropertyIDs *string
 }
 
 type SearchOrgsQuery struct {
@@ -226,6 +234,47 @@ type OrgDetailsDTO struct {
 	Address                Address `json:"address"`
 	ProviderIDs            string  `json:"providerIds"`
 	ExternalServicesTeamID string  `json:"externalServicesTeamId"`
+	GA4PropertyIDs         string  `json:"ga4PropertyIds"`
+}
+
+// maxGA4PropertyIDsLen matches the length of the ga4_property_ids column.
+const maxGA4PropertyIDsLen = 1024
+
+// NormalizeGA4PropertyIDs canonicalizes the GA4 property id list: a
+// comma-separated list of numeric property ids, each optionally written in
+// the "properties/<id>" resource form (the prefix is stripped), with
+// whitespace, empty items and duplicates dropped. Returns the
+// "123456789,987654321" form. An EMPTY result means no properties: the app
+// behavior data domain is off for the organization (fail closed).
+func NormalizeGA4PropertyIDs(raw string) (string, error) {
+	parts := strings.Split(raw, ",")
+	seen := make(map[string]struct{}, len(parts))
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		part = strings.TrimPrefix(part, "properties/")
+		if len(part) == 0 || len(part) > 20 {
+			return "", ErrInvalidGA4PropertyIDs
+		}
+		for _, r := range part {
+			if r < '0' || r > '9' {
+				return "", ErrInvalidGA4PropertyIDs
+			}
+		}
+		if _, ok := seen[part]; ok {
+			continue
+		}
+		seen[part] = struct{}{}
+		out = append(out, part)
+	}
+	joined := strings.Join(out, ",")
+	if len(joined) > maxGA4PropertyIDsLen {
+		return "", ErrInvalidGA4PropertyIDs
+	}
+	return joined, nil
 }
 
 // NormalizeExternalServicesTeamID canonicalizes the external services team
