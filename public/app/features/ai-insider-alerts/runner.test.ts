@@ -6,6 +6,8 @@ const runRawQuery = jest.fn();
 
 jest.mock('app/features/dashboard-scene/ai-panel/datasourceQuery', () => ({
   runRawQuery: (...args: unknown[]) => runRawQuery(...args),
+  // Alerts read rows only; a frame read here would be a regression.
+  runRawFrame: () => Promise.reject(new Error('runRawFrame is not used by Alerts')),
 }));
 
 const H0 = Date.UTC(2026, 8, 29, 17) / 1000;

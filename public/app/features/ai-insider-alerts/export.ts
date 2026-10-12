@@ -22,7 +22,8 @@ import {
 } from './sql';
 import type { AlertRules } from './types';
 
-export const EXPORT_FORMAT_VERSION = 1;
+/** 2: paywall refusals are no longer errors (IS_ERR / IS_SRV_ERR in sql.ts). */
+export const EXPORT_FORMAT_VERSION = 2;
 
 const MAX_ROWS = 200000;
 const CHANNELS_BATCH = 50;

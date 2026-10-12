@@ -53,8 +53,14 @@ export function formatCount(n: number): string {
   return Math.round(n).toLocaleString('en-US');
 }
 
-function csvCell(value: string): string {
-  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
+/**
+ * One CSV cell. A cell starting with `= + - @`, a tab or a carriage return is
+ * a formula to a spreadsheet (titles and ids come from the event stream, so
+ * anyone can plant one): it gets a leading `'` and is read as text.
+ */
+export function csvCell(value: string): string {
+  const text = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
 /** The decision log as CSV (UTC ISO times). */

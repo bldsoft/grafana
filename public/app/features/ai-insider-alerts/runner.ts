@@ -5,10 +5,10 @@
 // user's own Grafana ClickHouse datasource, like the AI Insider chat.
 
 import { DataSourceRef } from '@grafana/data';
-import { runRawQuery } from 'app/features/dashboard-scene/ai-panel/datasourceQuery';
 
+import { num, str } from './coerce';
 import { AlertEngine } from './engine';
-import { withRetry } from './retry';
+import { queryRows, TruncatedResultError } from './query';
 import {
   ACTIVITY_BUCKET_SEC,
   activitySql,
@@ -48,12 +48,6 @@ export const LIVE_WARMUP_SEC = 3600;
 const LIVE_CUSTOMER_WINDOW_SEC = 15 * 60;
 
 type Row = Record<string, unknown>;
-
-const num = (v: unknown): number => {
-  const n = Number(v);
-  return Number.isFinite(n) ? n : 0;
-};
-const str = (v: unknown): string => (v == null ? '' : String(v));
 
 export function toBadMinute(r: Row): BadMinuteRow {
   return {
@@ -181,16 +175,20 @@ export function chunks(from: number, to: number, step: number): Array<[number, n
 export const ALERTS_MAX_RESULT_CHARS = 64_000_000;
 
 async function query(opts: RunOptions, sql: string): Promise<Row[]> {
-  const result = await withRetry(
-    () => runRawQuery(opts.datasource, sql, MAX_ROWS, opts.signal, { maxResultChars: ALERTS_MAX_RESULT_CHARS }),
-    opts.signal
-  );
-  if (result.truncated) {
-    throw new Error(
-      `A query returned more than ${MAX_ROWS} rows and was cut. Narrow the providers or use the 15 min step.`
-    );
+  try {
+    return await queryRows(opts.datasource, sql, {
+      signal: opts.signal,
+      maxRows: MAX_ROWS,
+      maxResultChars: ALERTS_MAX_RESULT_CHARS,
+    });
+  } catch (e) {
+    if (e instanceof TruncatedResultError) {
+      throw new Error(
+        `A query returned more than ${MAX_ROWS} rows and was cut. Narrow the providers or use the 15 min step.`
+      );
+    }
+    throw e;
   }
-  return result.data;
 }
 
 /** Complete buckets of a window plus the same buckets of previous days not read yet. */

@@ -344,7 +344,18 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
   );
 }
 
-function Tile({ label, value, detail, accent }: { label: string; value: string; detail: string; accent?: boolean }) {
+/** A summary figure above the tabs (also used by the "Keep the customer" section). */
+export function Tile({
+  label,
+  value,
+  detail,
+  accent,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+  accent?: boolean;
+}) {
   const styles = useStyles2(getStyles);
   return (
     <div className={cx(styles.tile, accent && styles.tileAccent)}>
@@ -1453,7 +1464,8 @@ function DeadTab({ rows }: { rows: DeadChannel[] }) {
   );
 }
 
-const getStyles = (theme: GrafanaTheme2) => ({
+/** Table, tile and detail styles, shared with the "Keep the customer" results. */
+export const getStyles = (theme: GrafanaTheme2) => ({
   results: css({
     display: 'grid',
     gap: theme.spacing(2),

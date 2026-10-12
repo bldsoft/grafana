@@ -2,7 +2,10 @@
 // send step. Detects operator-side channel outages in the Analytix event
 // stream, decides per viewer who would be told what and when (or deliberately
 // not told), and replays past days as if they were live so the rules can be
-// checked against real incidents before any message is ever sent.
+// checked against real incidents before any message is ever sent. A second
+// section, "Keep the customer" (keep/), finds subscribers drifting away and
+// prepares the hand-off for marketing; both share the datasource and the
+// provider scope.
 
 import { css } from '@emotion/css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -10,8 +13,21 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DataSourceInstanceSettings, DataSourceRef, GrafanaTheme2, NavModelItem, store } from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
 import { DataSourcePicker, getDataSourceSrv, reportInteraction } from '@grafana/runtime';
-import { Alert, Button, Collapse, Field, Input, RadioButtonGroup, Spinner, useStyles2 } from '@grafana/ui';
+import {
+  Alert,
+  Badge,
+  Button,
+  Collapse,
+  Field,
+  Input,
+  RadioButtonGroup,
+  Spinner,
+  Tab,
+  TabsBar,
+  useStyles2,
+} from '@grafana/ui';
 import { Page } from 'app/core/components/Page/Page';
+import { useQueryParams } from 'app/core/hooks/useQueryParams';
 import { useAiInsiderAccessState } from 'app/features/dashboard-scene/ai-panel/useAiInsiderAccess';
 import { analytix } from 'app/features/home/analytixTokens';
 
@@ -19,25 +35,36 @@ import { AlertsResults, AlertsSnapshot } from './AlertsResults';
 import { AlertEngine } from './engine';
 import { ExportMeta, downloadBlob, exportFileName, exportRun, runDatasetExport } from './export';
 import { formatCount, formatUtc, fromUtcInput, toUtcInput } from './format';
+import { KeepWorkbench, datasourceName, runScopeText, scopePids } from './keep/KeepWorkbench';
 import { runLive, runReplay } from './runner';
 import { ProviderScope, effectiveScope, parseProviderScope } from './scope';
 import { AlertRules, DEFAULT_RULES } from './types';
 
 const SETTINGS_KEY = 'analytix.aiAlerts.settings.v1';
+/** Datasource and provider filter, shared by both sections. */
+const COMMON_KEY = 'analytix.aiAlerts.common.v1';
 const MAX_REPLAY_SEC = 7 * 86400;
 const LIVE_POLL_MS = 60000;
 
 type Mode = 'replay' | 'live';
+type Section = 'tell' | 'keep';
 
 interface Settings {
-  datasourceUid?: string;
   mode: Mode;
   from: string;
   to: string;
   step: number;
-  providers: string;
   rules: AlertRules;
 }
+
+/** What both sections read: which ClickHouse datasource and which of the organisation's providers. */
+interface CommonSettings {
+  datasourceUid?: string;
+  providers: string;
+}
+
+/** Settings of the "Tell the customer" section before the scope moved to COMMON_KEY. */
+type LegacySettings = Partial<Settings & CommonSettings>;
 
 /** One run's fixed inputs; a stopped replay keeps them, with its engine, to continue. */
 interface RunState {
@@ -57,15 +84,26 @@ function defaultSettings(): Settings {
     from: toUtcInput(today - 86400),
     to: toUtcInput(today),
     step: 3600,
-    providers: '',
     rules: DEFAULT_RULES,
   };
 }
 
 function loadSettings(): Settings {
-  const saved = store.getObject<Partial<Settings>>(SETTINGS_KEY, {});
+  const saved: LegacySettings = { ...store.getObject<LegacySettings>(SETTINGS_KEY, {}) };
+  // The scope lives in COMMON_KEY now (migrated once by loadCommon).
+  delete saved.datasourceUid;
+  delete saved.providers;
   const base = defaultSettings();
   return { ...base, ...saved, rules: { ...DEFAULT_RULES, ...(saved.rules ?? {}) } };
+}
+
+function loadCommon(): CommonSettings {
+  if (store.exists(COMMON_KEY)) {
+    return { providers: '', ...store.getObject<Partial<CommonSettings>>(COMMON_KEY, {}) };
+  }
+  // First visit since the sections split: keep the scope the alerts page had.
+  const legacy = store.getObject<LegacySettings>(SETTINGS_KEY, {});
+  return { datasourceUid: legacy.datasourceUid, providers: legacy.providers ?? '' };
 }
 
 interface RuleField {
@@ -318,7 +356,7 @@ export function AlertsPage() {
             <Spinner />
           </div>
         ) : access.allowed ? (
-          <AlertsWorkbench orgScope={parseProviderScope(access.providerIds)} />
+          <AlertsSections orgScope={parseProviderScope(access.providerIds)} />
         ) : (
           <Alert severity="info" title={t('ai-insider-alerts.no-access-title', 'AI Insider is not enabled for you')}>
             <Trans i18nKey="ai-insider-alerts.no-access-body">
@@ -332,6 +370,126 @@ export function AlertsPage() {
 }
 
 export default AlertsPage;
+
+function RunningBadge({ className }: { className?: string }) {
+  return <Badge className={className} text={t('ai-insider-alerts.section-running', 'running')} color="green" />;
+}
+
+/**
+ * The two sections and the scope they share. Both stay mounted, the inactive
+ * one hidden, so switching never stops a live run, a replay or a scan.
+ */
+function AlertsSections({ orgScope }: { orgScope: ProviderScope }) {
+  const styles = useStyles2(getStyles);
+  const [query, updateQuery] = useQueryParams();
+  const section: Section = query.section === 'keep' ? 'keep' : 'tell';
+  const [common, setCommon] = useState<CommonSettings>(loadCommon);
+  const [tellRunning, setTellRunning] = useState(false);
+  const [keepRunning, setKeepRunning] = useState(false);
+
+  useEffect(() => {
+    store.setObject(COMMON_KEY, common);
+  }, [common]);
+
+  const clickhouse = useMemo(
+    () =>
+      getDataSourceSrv()
+        .getList({ all: true })
+        .filter((ds) => ds.type.includes('clickhouse')),
+    []
+  );
+  const datasource: DataSourceRef | undefined = useMemo(() => {
+    const ds = clickhouse.find((d) => d.uid === common.datasourceUid) ?? clickhouse[0];
+    return ds ? { uid: ds.uid, type: ds.type } : undefined;
+  }, [clickhouse, common.datasourceUid]);
+
+  const scope = effectiveScope(orgScope, common.providers);
+  const scopeEmpty = Array.isArray(scope) && scope.length === 0;
+  // A run keeps the scope it started with; the bar is locked only for the section on screen,
+  // and each section names the scope of its own run under its progress.
+  const locked = section === 'tell' ? tellRunning : keepRunning;
+  const scopeText =
+    orgScope === null
+      ? t('ai-insider-alerts.scope-all', 'Organisation scope: all providers')
+      : orgScope.length
+        ? t('ai-insider-alerts.scope-list', 'Organisation scope: {{pids}}', { pids: orgScope.join(', ') })
+        : t('ai-insider-alerts.scope-none', 'Organisation scope: no providers assigned');
+
+  const show = (next: Section) => updateQuery({ section: next === 'keep' ? 'keep' : null }, true);
+
+  return (
+    <div className={styles.page}>
+      <TabsBar>
+        <Tab
+          label={t('ai-insider-alerts.section-tell', 'Tell the customer')}
+          active={section === 'tell'}
+          onChangeTab={() => show('tell')}
+          suffix={tellRunning ? RunningBadge : undefined}
+        />
+        <Tab
+          label={t('ai-insider-alerts.section-keep', 'Keep the customer')}
+          active={section === 'keep'}
+          onChangeTab={() => show('keep')}
+          suffix={keepRunning ? RunningBadge : undefined}
+        />
+      </TabsBar>
+
+      <section className={styles.card}>
+        <div className={styles.controls}>
+          <Field label={t('ai-insider-alerts.datasource', 'ClickHouse datasource')} className={styles.field} noMargin>
+            <DataSourcePicker
+              current={datasource?.uid ?? null}
+              filter={(ds: DataSourceInstanceSettings) => ds.type.includes('clickhouse')}
+              onChange={(ds: DataSourceInstanceSettings) => setCommon((c) => ({ ...c, datasourceUid: ds.uid }))}
+              noDefault
+              disabled={locked}
+            />
+          </Field>
+          <Field
+            label={t('ai-insider-alerts.providers', 'Providers')}
+            description={scopeText}
+            className={styles.field}
+            noMargin
+          >
+            <Input
+              placeholder={t('ai-insider-alerts.providers-placeholder', 'Empty = all in scope, or ids: 111, 222')}
+              value={common.providers}
+              onChange={(e) => {
+                const providers = e.currentTarget.value;
+                setCommon((c) => ({ ...c, providers }));
+              }}
+              disabled={locked}
+            />
+          </Field>
+        </div>
+        {!datasource && (
+          <Alert severity="warning" title={t('ai-insider-alerts.no-ds', 'No ClickHouse datasource')}>
+            <Trans i18nKey="ai-insider-alerts.no-ds-body">Add a ClickHouse datasource to read the event stream.</Trans>
+          </Alert>
+        )}
+        {scopeEmpty && (
+          <div className={styles.error}>
+            <Trans i18nKey="ai-insider-alerts.scope-empty">
+              No providers to read: the organisation has none assigned, or the filter is outside its scope.
+            </Trans>
+          </div>
+        )}
+      </section>
+
+      <div hidden={section !== 'tell'}>
+        <AlertsWorkbench datasource={datasource} scope={scope} onRunningChange={setTellRunning} />
+      </div>
+      <div hidden={section !== 'keep'}>
+        <KeepWorkbench
+          datasource={datasource}
+          scope={scope}
+          active={section === 'keep'}
+          onRunningChange={setKeepRunning}
+        />
+      </div>
+    </div>
+  );
+}
 
 function snapshotOf(engine: AlertEngine, from: number, to: number): AlertsSnapshot {
   return {
@@ -353,7 +511,15 @@ function snapshotOf(engine: AlertEngine, from: number, to: number): AlertsSnapsh
   };
 }
 
-function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
+function AlertsWorkbench({
+  datasource,
+  scope,
+  onRunningChange,
+}: {
+  datasource?: DataSourceRef;
+  scope: ProviderScope;
+  onRunningChange: (running: boolean) => void;
+}) {
   const styles = useStyles2(getStyles);
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -374,24 +540,22 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
   const [resumable, setResumable] = useState<RunState>();
   /** Live keeps running through a failed step; this says which minutes are being retried. */
   const [liveIssue, setLiveIssue] = useState<string>();
+  /**
+   * Datasource and providers of the run or export in progress: fixed at its
+   * start, whatever the shared scope bar shows meanwhile (the other section
+   * may change it).
+   */
+  const [runScope, setRunScope] = useState<Pick<RunState, 'datasource' | 'pids'>>();
   /** Range, scope and rules of the run on screen, for "Export run". */
   const runMetaRef = useRef<ExportMeta>();
-
-  const clickhouse = useMemo(
-    () =>
-      getDataSourceSrv()
-        .getList({ all: true })
-        .filter((ds) => ds.type.includes('clickhouse')),
-    []
-  );
-  const datasource: DataSourceRef | undefined = useMemo(() => {
-    const ds = clickhouse.find((d) => d.uid === settings.datasourceUid) ?? clickhouse[0];
-    return ds ? { uid: ds.uid, type: ds.type } : undefined;
-  }, [clickhouse, settings.datasourceUid]);
 
   useEffect(() => {
     store.setObject(SETTINGS_KEY, settings);
   }, [settings]);
+
+  useEffect(() => {
+    onRunningChange(running);
+  }, [running, onRunningChange]);
 
   // Stop polling / replaying when the page is left.
   useEffect(
@@ -406,7 +570,6 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
   const updateRule = (key: keyof AlertRules, value: number) =>
     setSettings((s) => ({ ...s, rules: { ...s.rules, [key]: value } }));
 
-  const scope = effectiveScope(orgScope, settings.providers);
   const from = fromUtcInput(settings.from);
   const to = fromUtcInput(settings.to);
   const rangeError =
@@ -463,6 +626,7 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
     setWarning(undefined);
     setLiveIssue(undefined);
     setRunning(true);
+    setRunScope({ datasource: run.datasource, pids: run.pids });
     setSnapshot(snapshotOf(engine, windowFrom, engine.processedTo ?? windowFrom));
     setProgress({
       kind: run.mode,
@@ -535,6 +699,7 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
     abortRef.current = controller;
     setError(undefined);
     setRunning(true);
+    setRunScope({ datasource, pids: scope });
     setProgress({ kind: 'export', clock: from, from, to, rows: 0 });
     reportInteraction('analytix_ai_alerts_export_dataset', { hours: Math.round((to - from) / 3600) });
     try {
@@ -590,12 +755,6 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
     { label: t('ai-insider-alerts.step-15m', '15 min'), value: 900 },
     { label: t('ai-insider-alerts.step-1h', '1 h'), value: 3600 },
   ];
-  const scopeText =
-    orgScope === null
-      ? t('ai-insider-alerts.scope-all', 'Organisation scope: all providers')
-      : orgScope.length
-        ? t('ai-insider-alerts.scope-list', 'Organisation scope: {{pids}}', { pids: orgScope.join(', ') })
-        : t('ai-insider-alerts.scope-none', 'Organisation scope: no providers assigned');
 
   const pct =
     progress?.to !== undefined && progress.to > progress.from
@@ -614,15 +773,6 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
 
       <section className={styles.card}>
         <div className={styles.controls}>
-          <Field label={t('ai-insider-alerts.datasource', 'ClickHouse datasource')} className={styles.field} noMargin>
-            <DataSourcePicker
-              current={datasource?.uid ?? null}
-              filter={(ds: DataSourceInstanceSettings) => ds.type.includes('clickhouse')}
-              onChange={(ds: DataSourceInstanceSettings) => update({ datasourceUid: ds.uid })}
-              noDefault
-              disabled={running}
-            />
-          </Field>
           <Field label={t('ai-insider-alerts.mode', 'Mode')} className={styles.field} noMargin>
             <RadioButtonGroup
               options={modeOptions}
@@ -664,19 +814,6 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
               </Field>
             </>
           )}
-          <Field
-            label={t('ai-insider-alerts.providers', 'Providers')}
-            description={scopeText}
-            className={styles.field}
-            noMargin
-          >
-            <Input
-              placeholder={t('ai-insider-alerts.providers-placeholder', 'Empty = all in scope, or ids: 111, 222')}
-              value={settings.providers}
-              onChange={(e) => update({ providers: e.currentTarget.value })}
-              disabled={running}
-            />
-          </Field>
           <div className={styles.actions}>
             {running ? (
               <Button variant="destructive" icon="square-shape" onClick={stop}>
@@ -696,10 +833,13 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
                 onClick={resume}
                 tooltip={t(
                   'ai-insider-alerts.continue-replay-tip',
-                  'Continues the stopped replay from {{at}} UTC to {{to}} UTC with its original providers and rules',
+                  'Continues the stopped replay on {{datasource}} from {{at}} UTC to {{to}} UTC with its original providers ({{pids}}) and rules',
                   {
+                    datasource: datasourceName(resumable.datasource),
+                    pids: scopePids(resumable.pids),
                     at: formatUtc(resumable.engine.processedTo ?? resumable.from),
                     to: formatUtc(resumable.to),
+                    interpolation: { escapeValue: false },
                   }
                 )}
               >
@@ -786,19 +926,8 @@ function AlertsWorkbench({ orgScope }: { orgScope: ProviderScope }) {
             )}
           </div>
         )}
-        {!datasource && (
-          <Alert severity="warning" title={t('ai-insider-alerts.no-ds', 'No ClickHouse datasource')}>
-            <Trans i18nKey="ai-insider-alerts.no-ds-body">Add a ClickHouse datasource to read the event stream.</Trans>
-          </Alert>
-        )}
+        {running && runScope && <div className={styles.scope}>{runScopeText(runScope.datasource, runScope.pids)}</div>}
         {rangeError && <div className={styles.error}>{rangeError}</div>}
-        {scopeEmpty && (
-          <div className={styles.error}>
-            <Trans i18nKey="ai-insider-alerts.scope-empty">
-              No providers to read: the organisation has none assigned, or the filter is outside its scope.
-            </Trans>
-          </div>
-        )}
         {error && (
           <Alert severity="error" title={t('ai-insider-alerts.error-title', 'Query failed')}>
             {error}
@@ -889,6 +1018,10 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   warning: css({
     color: theme.colors.warning.text,
+    fontSize: theme.typography.bodySmall.fontSize,
+  }),
+  scope: css({
+    color: analytix.textMuted,
     fontSize: theme.typography.bodySmall.fontSize,
   }),
 });

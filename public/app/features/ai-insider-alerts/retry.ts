@@ -33,17 +33,21 @@ function sleep(ms: number, signal: AbortSignal): Promise<void> {
   });
 }
 
-/** Runs `fn`, retrying transient failures after each delay in turn; other errors fail at once. */
+/**
+ * Runs `fn`, retrying failures that `isRetryable` accepts (transient ones by
+ * default) after each delay in turn; other errors fail at once.
+ */
 export async function withRetry<T>(
   fn: () => Promise<T>,
   signal: AbortSignal,
-  delaysMs: number[] = RETRY_DELAYS_MS
+  delaysMs: number[] = RETRY_DELAYS_MS,
+  isRetryable: (e: unknown) => boolean = isTransientError
 ): Promise<T> {
   for (let attempt = 0; ; attempt++) {
     try {
       return await fn();
     } catch (e) {
-      if (signal.aborted || !isTransientError(e) || attempt >= delaysMs.length) {
+      if (signal.aborted || !isRetryable(e) || attempt >= delaysMs.length) {
         throw e;
       }
       await sleep(delaysMs[attempt], signal);

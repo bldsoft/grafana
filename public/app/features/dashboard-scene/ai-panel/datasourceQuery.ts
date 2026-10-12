@@ -69,6 +69,22 @@ export interface RawQueryOptions {
    * AI Insider Alerts, may raise it — and must check `truncated`.
    */
   maxResultChars?: number;
+  /** Client-side wait for the datasource (default {@link QUERY_TIMEOUT_MS}). */
+  timeoutMs?: number;
+}
+
+/**
+ * The first frame of a result as the datasource returned it: one array per
+ * column, no row objects. Time columns stay epoch milliseconds.
+ */
+export interface RawFrame {
+  length: number;
+  fields: Array<{ name: string; type: string; values: ArrayLike<unknown> }>;
+}
+
+export interface RawFrameOptions {
+  /** Client-side wait for the datasource (default {@link QUERY_TIMEOUT_MS}). */
+  timeoutMs?: number;
 }
 
 // Client-side mirror of the backend's SQL gate (services/clickhouse.js).
@@ -152,6 +168,43 @@ export async function runRawQuery(
   signal?: AbortSignal,
   options: RawQueryOptions = {}
 ): Promise<RawQueryResult> {
+  const frame = await queryFirstFrame(datasource, sql, signal, options.timeoutMs);
+  if (!frame) {
+    return { data: [], rows: 0, meta: [], truncated: false };
+  }
+  return frameToRows(frame, maxRows, options.maxResultChars ?? MAX_RESULT_CHARS);
+}
+
+/**
+ * Same gate, request, abort and timeout as {@link runRawQuery}, but the first
+ * frame comes back in its own columnar form: no object per row and no client
+ * row or size cap. For results of hundreds of thousands of rows that stay in
+ * the browser (AI Insider Alerts, "Keep the customer"); bound them on the
+ * server instead (`max_result_rows`).
+ */
+export async function runRawFrame(
+  datasource: DataSourceRef,
+  sql: string,
+  signal?: AbortSignal,
+  options: RawFrameOptions = {}
+): Promise<RawFrame> {
+  const frame = await queryFirstFrame(datasource, sql, signal, options.timeoutMs);
+  if (!frame) {
+    return { length: 0, fields: [] };
+  }
+  return {
+    length: frame.length,
+    fields: frame.fields.map((f) => ({ name: f.name, type: f.type, values: f.values })),
+  };
+}
+
+/** Runs one gated statement and returns its first frame (undefined when there is none). */
+async function queryFirstFrame(
+  datasource: DataSourceRef,
+  sql: string,
+  signal: AbortSignal | undefined,
+  timeoutMs: number | undefined
+): Promise<DataFrame | undefined> {
   if (!isSafeBridgeSql(sql)) {
     throw new Error('Rejected by the client-side gate: only single-statement read-only queries are allowed.');
   }
@@ -183,17 +236,18 @@ export async function runRawQuery(
   // tears the timer down when the source settles, so nothing leaks (the old
   // Promise.race + bare setTimeout leaked one timer per query and never
   // cancelled the request on timeout).
+  const waitMs = timeoutMs !== undefined && Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : QUERY_TIMEOUT_MS;
   let timedOut = false;
   const stop$ = merge(
     ...(signal ? [abortSignal$(signal)] : []),
-    timer(QUERY_TIMEOUT_MS).pipe(
+    timer(waitMs).pipe(
       map(() => {
         timedOut = true;
         return true;
       })
     )
   );
-  const timeoutError = () => new Error(`The datasource did not answer within ${QUERY_TIMEOUT_MS / 1000}s.`);
+  const timeoutError = () => new Error(`The datasource did not answer within ${waitMs / 1000}s.`);
 
   let result;
   try {
@@ -227,11 +281,7 @@ export async function runRawQuery(
     throw new Error(errorText);
   }
 
-  const frame: DataFrame | undefined = result.data?.[0];
-  if (!frame) {
-    return { data: [], rows: 0, meta: [], truncated: false };
-  }
-  return frameToRows(frame, maxRows, options.maxResultChars ?? MAX_RESULT_CHARS);
+  return result.data?.[0];
 }
 
 function frameToRows(frame: DataFrame, maxRows: number, maxChars: number): RawQueryResult {

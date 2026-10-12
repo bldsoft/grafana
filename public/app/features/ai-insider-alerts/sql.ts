@@ -12,24 +12,40 @@
 
 import type { AlertRules } from './types';
 
-const TABLE = 'stat.info_v1_7_dst';
+export const TABLE = 'stat.info_v1_7_dst';
 
-const VERSION_GATE =
+/** The dashboards' version gate: builds that report the analytics contract (watch time, codes, subscription). */
+export const VERSION_GATE =
   "analytics_version != '' AND (device_type != 'SmartTV' OR tuple(toUInt32OrZero(splitByChar('.', app_releaseVersion)[1]), toUInt32OrZero(splitByChar('.', app_releaseVersion)[2]), toUInt32OrZero(splitByChar('.', app_releaseVersion)[3])) >= (3, 34, 2))";
 
 const USER_ID =
   "multiIf(content_user_account_number != '' AND content_user_account_number NOT LIKE '%-GUEST', content_user_account_number, device_type != 'web', device_serial_number, network_ip)";
 
-// Error on a playback event: a technical stop or a real HTTP / player code.
-const IS_ERR =
-  "(event_type = 'play_stop' AND event_parameter8 = 'streamError') OR (event_type IN ('play_start', 'play_stop') AND (event_parameter10 NOT IN ('', 'true', 'continueWatching', 'subsctiprionInActive') OR event_parameter11 NOT IN ('', 'true', 'null', 'unknown', 'continueWatching', 'subsctiprionInActive')))";
+/**
+ * A playback refused by the paywall, not a failure: the subscription is not
+ * active (`subsctiprionInActive`, sic, in slot 10 or 11) or the content needs
+ * another package (402 on iOS / tvOS, AE402 on web / Smart TV, -103 on
+ * Android). Counting these as errors made viewers without a subscription look
+ * like an outage. AE403 (DRM) stays an error.
+ */
+export const IS_PAYWALL =
+  "event_type IN ('play_start', 'play_stop') AND (event_parameter10 IN ('subsctiprionInActive', '402') OR event_parameter11 IN ('subsctiprionInActive', 'AE402', '-103'))";
+
+/**
+ * Error on a playback event: a technical stop or a real HTTP / player code,
+ * paywall refusals excluded. Top-level OR / AND inside: wrap it in parentheses
+ * when combining it with other conditions.
+ */
+export const IS_ERR = `((event_type = 'play_stop' AND event_parameter8 = 'streamError') OR (event_type IN ('play_start', 'play_stop') AND (event_parameter10 NOT IN ('', 'true', 'continueWatching', 'subsctiprionInActive') OR event_parameter11 NOT IN ('', 'true', 'null', 'unknown', 'continueWatching', 'subsctiprionInActive')))) AND NOT (${IS_PAYWALL})`;
 
 // Server-side error: the origin / CDN answered 4xx/5xx, or the player reported
-// "stream not found" (-1100 iOS, 2004 Android bad HTTP status).
-const IS_SRV_ERR =
-  "event_type IN ('play_start', 'play_stop') AND (match(event_parameter10, '^[45][0-9][0-9]$') OR event_parameter11 IN ('-1100', '2004'))";
+// "stream not found" (-1100 iOS, 2004 Android bad HTTP status). A paywall
+// refusal is not the origin failing, whatever code rides along in the other
+// slot (403 + AE402, 401 + -103): every server error is also an IS_ERR error.
+const IS_SRV_ERR = `event_type IN ('play_start', 'play_stop') AND (match(event_parameter10, '^[45][0-9][0-9]$') OR event_parameter11 IN ('-1100', '2004')) AND NOT (${IS_PAYWALL})`;
 
-const CODE =
+/** The error code of a playback event as `<slot 10>/<slot 11>` ('-' for an empty slot). */
+export const CODE =
   "concat(if(event_parameter10 = '', '-', event_parameter10), '/', if(event_parameter11 = '', '-', event_parameter11))";
 
 // Stream path without scheme, host, playlist file and query string, so the same
@@ -40,11 +56,44 @@ const CODE =
 const STREAM_PATH =
   "trim(BOTH '/' FROM replaceRegexpAll(replaceRegexpOne(replaceRegexpOne(replaceRegexpOne(event_parameter3, '[?#].*$', ''), '^[a-zA-Z]+[:-]//[^/]+/?', ''), '(^|/)[^/]*[.][a-zA-Z0-9]+$', ''), '(^|/)[^/]*(=|[0-9a-fA-F]{32,})[^/]*', ''))";
 
-const SETTINGS = `SETTINGS max_execution_time = 60,
-         max_memory_usage = 12000000000,
-         max_bytes_to_read = 100000000000,
-         read_overflow_mode = 'throw',
-         log_comment = 'ai-insider:alerts'`;
+export interface SettingsOptions {
+  /** max_execution_time in seconds (default 60); also makes running out of time an error. */
+  maxExecutionSec?: number;
+  /** max_bytes_to_read (default 1e11). */
+  maxBytesToRead?: number;
+  /** max_result_rows: a larger result is an error on the server instead of a cut on the client. */
+  maxResultRows?: number;
+}
+
+const LOG_COMMENT_RE = /^[a-z0-9:_-]{1,64}$/;
+
+/**
+ * The runtime-limit SETTINGS footer every statement carries, tagged with
+ * `logComment` in the query log. Without options it is the Alerts footer.
+ */
+export function settingsClause(logComment: string, opts?: SettingsOptions): string {
+  if (!LOG_COMMENT_RE.test(logComment)) {
+    throw new Error('Invalid log comment');
+  }
+  const whole = (v: number | undefined, fallback: number) =>
+    v !== undefined && Number.isFinite(v) && v > 0 ? Math.floor(v) : fallback;
+  const lines = [
+    `max_execution_time = ${whole(opts?.maxExecutionSec, 60)}`,
+    'max_memory_usage = 12000000000',
+    `max_bytes_to_read = ${whole(opts?.maxBytesToRead, 100000000000)}`,
+    "read_overflow_mode = 'throw'",
+  ];
+  if (opts?.maxExecutionSec !== undefined) {
+    lines.push("timeout_overflow_mode = 'throw'");
+  }
+  if (opts?.maxResultRows !== undefined) {
+    lines.push(`max_result_rows = ${whole(opts.maxResultRows, 1)}`, "result_overflow_mode = 'throw'");
+  }
+  lines.push(`log_comment = '${logComment}'`);
+  return `SETTINGS ${lines.join(',\n         ')}`;
+}
+
+const SETTINGS = settingsClause('ai-insider:alerts');
 
 const PID_RE = /^[A-Za-z0-9_-]{1,32}$/;
 
@@ -53,7 +102,11 @@ export function sanitizePids(pids: string[]): string[] {
   return Array.from(new Set(pids.map((p) => p.trim()).filter((p) => PID_RE.test(p))));
 }
 
-function pidClause(pids: string[] | null): string {
+/**
+ * `\n      AND content_provider_id IN (...)` for a list, nothing for `null` (all
+ * providers), `AND 0` for an empty list (fail closed).
+ */
+export function pidClause(pids: string[] | null): string {
   if (pids === null) {
     return '';
   }
@@ -63,7 +116,8 @@ function pidClause(pids: string[] | null): string {
   return `\n      AND ${clause}`;
 }
 
-function epoch(sec: number): string {
+/** `toDateTime(<epoch>)`: a time-zone independent bound on event_timestamp. */
+export function epoch(sec: number): string {
   if (!Number.isFinite(sec)) {
     throw new Error('Invalid time bound');
   }

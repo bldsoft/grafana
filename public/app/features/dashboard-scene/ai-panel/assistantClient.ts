@@ -4,6 +4,7 @@
 
 import { DataSourceRef, store } from '@grafana/data';
 import { config } from '@grafana/runtime';
+import type { BehaviorResult, BehaviorRow, BehaviorStatusCode } from 'app/features/ai-insider-alerts/keep/types';
 
 import { isSafeBridgeSql, runRawQuery } from './datasourceQuery';
 import { GeneratedPanelSpec, StaticFieldType, StaticPanelData, SUPPORTED_PANEL_TYPES } from './types';
@@ -168,6 +169,289 @@ export async function fetchCapabilities(): Promise<DataDomain[] | null> {
   } catch {
     return null;
   }
+}
+
+/** Request of POST /api/keep/behavior: GA4 evidence of these accounts for the recent window. */
+export interface KeepBehaviorRequest {
+  /** As-of day, YYYY-MM-DD. */
+  asOf: string;
+  recentDays: number;
+  /** Normalized account keys (upper case, no '-') per provider id. */
+  accountsByPid: Record<string, string[]>;
+}
+
+// The backend may have to read missing GA4 days before it answers; a slower
+// answer is abandoned here while the backend keeps filling its own cache.
+const KEEP_BEHAVIOR_TIMEOUT_MS = 150000;
+// Accounts per request (the backend accepts at most 5000).
+const KEEP_BEHAVIOR_BATCH = 2000;
+const KEEP_ACCOUNT_RE = /^[A-Z0-9]{4,24}$/;
+const KEEP_PID_RE = /^[A-Za-z0-9_-]{1,32}$/;
+const KEEP_DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const BEHAVIOR_STATUSES: BehaviorStatusCode[] = ['on', 'partial', 'pending', 'off', 'budget', 'error', 'unavailable'];
+const BEHAVIOR_PLATFORMS = ['android', 'android_tv', 'ios', 'tvos', 'smarttv', 'other'];
+const MALFORMED_BEHAVIOR = 'Malformed GA4 evidence response.';
+// The backend answers with fixed reason codes; only these become text, so a
+// version-skewed (or hostile) backend cannot put its own words on the page.
+const BEHAVIOR_REASONS: Record<string, string> = {
+  rate_limit: 'Too many GA4 requests; try again in a minute.',
+  daily_budget: 'The daily GA4 query budget is used up.',
+  too_large: 'A GA4 day is too large to read.',
+  timeout: 'GA4 did not answer in time.',
+  quota: 'The GA4 query quota is exhausted for now.',
+  bigquery: 'GA4 could not be read.',
+  in_progress: 'GA4 days are still being read; run again in a few minutes.',
+  export_pending: 'The GA4 export has no complete day yet.',
+  no_complete_days: 'No complete GA4 day in this window yet.',
+  missing_days: 'Some GA4 days of the window are missing.',
+  no_binding: 'GA4 is not linked to these providers.',
+  no_export: 'The GA4 export is not available.',
+  no_access: 'The GA4 export is not readable.',
+  behavior_off: 'GA4 is not connected for this organization.',
+};
+
+const normalizeAccountKey = (account: string) => account.trim().toUpperCase().replace(/_.*$/, '').replace(/-/g, '');
+
+/** A non-negative whole number from a backend value (strings included), 0 otherwise. */
+function countOf(value: unknown, max = 1e9): number {
+  const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+  return Number.isFinite(n) && n > 0 ? Math.min(max, Math.floor(n)) : 0;
+}
+
+/** countOf for a field the backend may leave out: undefined when it is not a number. */
+function optionalCount(value: unknown, max = 1e9): number | undefined {
+  const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+  return Number.isFinite(n) ? countOf(n, max) : undefined;
+}
+
+function behaviorRow(value: unknown): BehaviorRow | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+  const { pid, account } = value;
+  if (
+    typeof pid !== 'string' ||
+    !KEEP_PID_RE.test(pid) ||
+    typeof account !== 'string' ||
+    !KEEP_ACCOUNT_RE.test(account)
+  ) {
+    return null;
+  }
+  const minutes = Number(value.engagementMin);
+  const days = countOf(value.days, 28);
+  const platforms: unknown[] = Array.isArray(value.platforms) ? value.platforms : [];
+  return {
+    pid,
+    account,
+    days,
+    sessions: countOf(value.sessions),
+    engagementMin: Number.isFinite(minutes) && minutes > 0 ? Math.min(1e9, Math.round(minutes * 10) / 10) : 0,
+    searchSessions: countOf(value.searchSessions),
+    searchNoPlaySessions: countOf(value.searchNoPlaySessions),
+    browseNoPlaySessions: countOf(value.browseNoPlaySessions),
+    crashes: countOf(value.crashes),
+    crashDays: Math.min(days, countOf(value.crashDays, 28)),
+    errorScreenSessions: countOf(value.errorScreenSessions),
+    noInternetSessions: countOf(value.noInternetSessions),
+    accountVisits: countOf(value.accountVisits),
+    logoutClicks: countOf(value.logoutClicks),
+    myListAdds: countOf(value.myListAdds),
+    myListRemoves: countOf(value.myListRemoves),
+    platforms: BEHAVIOR_PLATFORMS.filter((platform) => platforms.includes(platform)),
+  };
+}
+
+/**
+ * A POST /api/keep/behavior answer as the Keep engine may use it: the status
+ * from the fixed set (anything else is 'error'), a well-formed window, rows
+ * only for data statuses and only for accounts that were asked about
+ * (`sent`, pid -> accounts), numbers coerced and clamped. The counts are the
+ * backend's (`requested` = accounts of providers with GA4 bound, `notLinked` =
+ * accounts of providers without), capped by what was sent; an answer without
+ * them counts every sent account as requested. Exported for tests.
+ */
+export function normalizeBehaviorResult(payload: unknown, sent?: Map<string, Set<string>>): BehaviorResult {
+  if (!isRecord(payload)) {
+    return { status: 'error', rows: [], message: MALFORMED_BEHAVIOR };
+  }
+  const status = BEHAVIOR_STATUSES.find((candidate) => candidate === payload.status) ?? 'error';
+  const rows: BehaviorRow[] = [];
+  if ((status === 'on' || status === 'partial') && Array.isArray(payload.rows)) {
+    const seen = new Set<string>();
+    for (const item of payload.rows) {
+      const row = behaviorRow(item);
+      const key = row ? `${row.pid}|${row.account}` : '';
+      if (row && !seen.has(key) && (!sent || sent.get(row.pid)?.has(row.account))) {
+        seen.add(key);
+        rows.push(row);
+      }
+    }
+  }
+  const window = isRecord(payload.window) ? payload.window : null;
+  const sentCount = sent ? [...sent.values()].reduce((n, accounts) => n + accounts.size, 0) : undefined;
+  const message = typeof payload.reason === 'string' ? BEHAVIOR_REASONS[payload.reason] : undefined;
+  const backendRequested = optionalCount(payload.requested, sentCount);
+  const requested = backendRequested ?? sentCount ?? 0;
+  const notLinked = optionalCount(payload.notLinked, sentCount === undefined ? undefined : sentCount - requested);
+  const backendMatched = optionalCount(payload.matched);
+  return {
+    status,
+    ...(window &&
+    typeof window.from === 'string' &&
+    KEEP_DAY_RE.test(window.from) &&
+    typeof window.to === 'string' &&
+    KEEP_DAY_RE.test(window.to)
+      ? { window: { from: window.from, to: window.to, days: countOf(window.days, 28) } }
+      : {}),
+    // Only rows that survived the checks above count as matched.
+    matched: Math.min(rows.length, backendMatched ?? rows.length),
+    requested,
+    ...(notLinked !== undefined ? { notLinked } : {}),
+    ...(message ? { message } : {}),
+    rows,
+  };
+}
+
+/** The caller's signal plus our own timeout; `timedOut` tells the two apart. */
+function withTimeout(signal: AbortSignal | undefined, ms: number) {
+  const controller = new AbortController();
+  let timedOut = false;
+  const timer = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, ms);
+  const onAbort = () => controller.abort();
+  if (signal?.aborted) {
+    controller.abort();
+  } else {
+    signal?.addEventListener('abort', onAbort, { once: true });
+  }
+  return {
+    signal: controller.signal,
+    timedOut: () => timedOut,
+    cleanup: () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+    },
+  };
+}
+
+async function postKeepBehavior(
+  request: KeepBehaviorRequest,
+  sent: Map<string, Set<string>>,
+  signal?: AbortSignal
+): Promise<BehaviorResult> {
+  const requested = [...sent.values()].reduce((n, accounts) => n + accounts.size, 0);
+  const failed = (status: BehaviorStatusCode, message?: string): BehaviorResult => ({
+    status,
+    rows: [],
+    matched: 0,
+    requested,
+    ...(message ? { message } : {}),
+  });
+  const timeout = withTimeout(signal, KEEP_BEHAVIOR_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${getAssistantBaseUrl()}/api/keep/behavior`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...authHeaders() },
+      body: JSON.stringify(request),
+      signal: timeout.signal,
+    });
+    // Not allowed for this user or org, or a backend older than the route.
+    if (res.status === 401 || res.status === 403 || res.status === 404) {
+      return failed('unavailable');
+    }
+    let payload: unknown = null;
+    try {
+      payload = await res.json();
+    } catch {
+      if (signal?.aborted || timeout.timedOut()) {
+        throw new Error('aborted');
+      }
+    }
+    if (!res.ok) {
+      const reason =
+        isRecord(payload) && typeof payload.reason === 'string' ? BEHAVIOR_REASONS[payload.reason] : undefined;
+      return failed('error', reason ?? `GA4 evidence request failed (HTTP ${res.status}).`);
+    }
+    return normalizeBehaviorResult(payload, sent);
+  } catch (e) {
+    if (signal?.aborted) {
+      throw e;
+    }
+    return failed(
+      'error',
+      timeout.timedOut() ? 'GA4 evidence did not arrive in time.' : 'The AI Insider service is unreachable.'
+    );
+  } finally {
+    timeout.cleanup();
+  }
+}
+
+/**
+ * GA4 evidence of these accounts for the recent window (POST
+ * /api/keep/behavior, same base URL and auth as the chat). Accounts are
+ * normalized and checked here, sent in batches of 2000, and the answers merged:
+ * rows joined, the backend's counts (`requested`, `matched`, `notLinked`)
+ * summed; a batch that fails makes the whole result that failure. Never
+ * throws, except when the caller's signal aborts.
+ */
+export async function fetchKeepBehavior(request: KeepBehaviorRequest, signal?: AbortSignal): Promise<BehaviorResult> {
+  const accounts: Array<[string, string]> = [];
+  for (const [pid, list] of Object.entries(request.accountsByPid ?? {})) {
+    if (!KEEP_PID_RE.test(pid) || !Array.isArray(list)) {
+      continue;
+    }
+    const keys = new Set(
+      list
+        .filter((a): a is string => typeof a === 'string')
+        .map(normalizeAccountKey)
+        .filter((a) => KEEP_ACCOUNT_RE.test(a))
+    );
+    keys.forEach((account) => accounts.push([pid, account]));
+  }
+  const parts: BehaviorResult[] = [];
+  // Accounts of providers without GA4 bound, as the backend counted them (undefined: it did not say).
+  let notLinked: number | undefined;
+  // One request even without accounts: the status still tells the page whether GA4 evidence exists.
+  for (let start = 0; start === 0 || start < accounts.length; start += KEEP_BEHAVIOR_BATCH) {
+    const sent = new Map<string, Set<string>>();
+    for (const [pid, account] of accounts.slice(start, start + KEEP_BEHAVIOR_BATCH)) {
+      sent.set(pid, (sent.get(pid) ?? new Set<string>()).add(account));
+    }
+    const accountsByPid = Object.fromEntries([...sent].map(([pid, set]) => [pid, [...set]]));
+    const part = await postKeepBehavior(
+      { asOf: request.asOf, recentDays: request.recentDays, accountsByPid },
+      sent,
+      signal
+    );
+    if (part.notLinked !== undefined) {
+      notLinked = (notLinked ?? 0) + part.notLinked;
+    }
+    if (part.status !== 'on' && part.status !== 'partial') {
+      // The batches not sent are unknown: they count as requested.
+      return {
+        ...part,
+        rows: [],
+        matched: 0,
+        requested: accounts.length - (notLinked ?? 0),
+        ...(notLinked !== undefined ? { notLinked } : {}),
+      };
+    }
+    parts.push(part);
+  }
+  const rows = parts.flatMap((part) => part.rows);
+  const window = parts.find((part) => part.window)?.window;
+  const message = parts.find((part) => part.message)?.message;
+  return {
+    status: parts.some((part) => part.status === 'partial') ? 'partial' : 'on',
+    ...(window ? { window } : {}),
+    ...(message ? { message } : {}),
+    matched: parts.reduce((n, part) => n + (part.matched ?? part.rows.length), 0),
+    requested: parts.reduce((n, part) => n + (part.requested ?? 0), 0),
+    ...(notLinked !== undefined ? { notLinked } : {}),
+    rows,
+  };
 }
 
 /** Suggestion chip for the chat empty state: a past prompt plus what it produced. */
