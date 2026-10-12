@@ -421,13 +421,13 @@ function AlertsSections({ orgScope }: { orgScope: ProviderScope }) {
     <div className={styles.page}>
       <TabsBar>
         <Tab
-          label={t('ai-insider-alerts.section-tell', 'Tell the customer')}
+          label={t('ai-insider-alerts.section-tell', 'Notify customers about technical issues')}
           active={section === 'tell'}
           onChangeTab={() => show('tell')}
           suffix={tellRunning ? RunningBadge : undefined}
         />
         <Tab
-          label={t('ai-insider-alerts.section-keep', 'Keep the customer')}
+          label={t('ai-insider-alerts.section-keep', 'Keep users in the app')}
           active={section === 'keep'}
           onChangeTab={() => show('keep')}
           suffix={keepRunning ? RunningBadge : undefined}

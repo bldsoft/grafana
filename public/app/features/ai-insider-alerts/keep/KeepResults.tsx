@@ -1376,8 +1376,8 @@ function AccountsTab({
         ) : (
           <Trans i18nKey="ai-insider-alerts.keep.support-legend">
             Customers with repeated failed playbacks or buffering (more than usual for them, on several days), and
-            subscriptions that were deactivated (void, refund or admin). A hand-off to support and Tell the customer:
-            marketing promotions to them are held back.
+            subscriptions that were deactivated (void, refund or admin). A hand-off to support and to Notify customers
+            about technical issues: marketing promotions to them are held back.
           </Trans>
         )}
       </div>
