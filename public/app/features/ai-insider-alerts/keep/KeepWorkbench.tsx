@@ -30,7 +30,7 @@ import { formatCount } from '../format';
 import { ProviderScope } from '../scope';
 
 import { KeepResults } from './KeepResults';
-import { KeepEngine, graceDays, parseDeliveryByPid, ruleDays } from './engine';
+import { KeepEngine, graceDays, parseDeliveryByPid, ruleDays, unreadDeliveryParts } from './engine';
 import { engineKey, estimateScan, lastCompleteDay, planScan, runKeepScan } from './runner';
 import { RAW, isoDay, parseIsoDay } from './text';
 import {
@@ -597,6 +597,8 @@ export function KeepWorkbench({ datasource, scope, active, onRunningChange }: Ke
   }, [active, running, estimateKey]);
 
   const behaviorOn = ga4 === 'on';
+  // A bare id here is most likely a provider meant for the scope: say so instead of ignoring it.
+  const unreadDelivery = useMemo(() => unreadDeliveryParts(settings.deliveryByPid), [settings.deliveryByPid]);
   const canRun = Boolean(datasource && plan) && !scopeEmpty && !tooLarge && !running;
 
   const engineOptions = useMemo((): { options?: KeepEngineOptions; error?: string } => {
@@ -866,6 +868,16 @@ export function KeepWorkbench({ datasource, scope, active, onRunningChange }: Ke
               'push, crm or none per provider id; others: not set'
             )}
             className={styles.wideField}
+            invalid={unreadDelivery.length > 0}
+            error={
+              unreadDelivery.length > 0
+                ? t(
+                    'ai-insider-alerts.keep.delivery-unread',
+                    'Not read: {{parts}}. Write id=push, crm or none; the providers to scan are set in Providers above.',
+                    { parts: unreadDelivery.join(', ') }
+                  )
+                : undefined
+            }
             noMargin
           >
             <Input
@@ -1017,12 +1029,30 @@ export function KeepWorkbench({ datasource, scope, active, onRunningChange }: Ke
   );
 }
 
+/** Providers named in the refusal: enough to see where the size comes from. */
+const TOO_LARGE_TOP_PIDS = 5;
+
 function tooLargeText(size: ScanEstimate): string {
-  return t(
+  const days = Math.max(1, size.planDays);
+  const largest = size.perPid
+    .slice(0, TOO_LARGE_TOP_PIDS)
+    .map((r) => `${r.pid} ≈${formatCount(r.accounts)}`)
+    .join(', ');
+  const text = t(
     'ai-insider-alerts.keep.too-large',
-    'Too large: ≈{{accountDays}} account-days, the limit is {{limit}}. Narrow the providers, the windows or the backtest.',
-    { accountDays: formatCount(size.accountDays), limit: formatCount(KEEP_MAX_ACCOUNT_DAYS) }
+    'Too large: ≈{{accountDays}} account-days (≈{{accounts}} accounts/day × {{days}} days), the limit is {{limit}}, about {{fit}} accounts/day for this run. Narrow the providers, the windows or the backtest.',
+    {
+      accountDays: formatCount(size.accountDays),
+      accounts: formatCount(size.accountsPerDay),
+      days,
+      limit: formatCount(KEEP_MAX_ACCOUNT_DAYS),
+      fit: formatCount(Math.floor(KEEP_MAX_ACCOUNT_DAYS / days)),
+    }
   );
+  if (!largest) {
+    return text;
+  }
+  return `${text} ${t('ai-insider-alerts.keep.too-large-largest', 'Largest providers, accounts/day: {{largest}}.', { largest })}`;
 }
 
 function estimateLine(plan: ScanPlan, estimate: EstimateState | undefined, heldDays: number, reread: boolean): string {

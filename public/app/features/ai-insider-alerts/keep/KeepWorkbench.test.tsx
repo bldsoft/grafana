@@ -99,7 +99,13 @@ describe('AlertsPage with Keep the customer', () => {
       'analytix.aiAlerts.settings.v1',
       JSON.stringify({ datasourceUid: 'ch', providers: '111', mode: 'replay', step: 900 })
     );
-    estimateScan.mockResolvedValue({ perPid: [], accountsPerDay: 1000, accountDays: 40000, tooLarge: false });
+    estimateScan.mockResolvedValue({
+      perPid: [],
+      accountsPerDay: 1000,
+      planDays: 40,
+      accountDays: 40000,
+      tooLarge: false,
+    });
     runKeepScan.mockImplementation(async (opts) => {
       opts.onProgress({ phase: 'days', done: 1, total: 40, day: opts.asOf });
       return emptySnapshot(opts.asOf, opts.pids);
@@ -166,9 +172,29 @@ describe('AlertsPage with Keep the customer', () => {
     // Too large: refused before reading.
     await user.clear(screen.getByDisplayValue('111'));
     await user.type(screen.getByPlaceholderText('Empty = all in scope, or ids: 111, 222'), '222');
-    estimateScan.mockResolvedValue({ perPid: [], accountsPerDay: 200000, accountDays: 8000000, tooLarge: true });
-    await screen.findByText(/Too large: ≈8,000,000 account-days/, undefined, { timeout: 3000 });
+    estimateScan.mockResolvedValue({
+      perPid: [
+        { pid: '222', accounts: 150000 },
+        { pid: '111', accounts: 50000 },
+      ],
+      accountsPerDay: 200000,
+      planDays: 40,
+      accountDays: 8000000,
+      tooLarge: true,
+    });
+    await screen.findByText(/Too large: ≈8,000,000 account-days \(≈200,000 accounts\/day × 40 days\)/, undefined, {
+      timeout: 3000,
+    });
+    expect(screen.getByText(/about 150,000 accounts\/day for this run/)).toHaveTextContent(
+      'Largest providers, accounts/day: 222 ≈150,000, 111 ≈50,000.'
+    );
     expect(screen.getByText('Run scan').closest('button')).toBeDisabled();
+
+    // A bare provider id typed into the delivery field is not silently dropped.
+    await user.type(screen.getByPlaceholderText('111=crm, 222=push'), '111');
+    expect(
+      screen.getByText('Not read: 111. Write id=push, crm or none; the providers to scan are set in Providers above.')
+    ).toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: 'Tell the customer' }));
     expect(locationService.getSearchObject().section).toBeUndefined();
@@ -180,7 +206,13 @@ describe('AlertsPage with Keep the customer', () => {
       JSON.stringify({ datasourceUid: 'ch', providers: '111' })
     );
     window.localStorage.setItem('analytix.aiAlerts.settings.v1', JSON.stringify({ mode: 'replay', step: 900 }));
-    estimateScan.mockResolvedValue({ perPid: [], accountsPerDay: 1000, accountDays: 40000, tooLarge: false });
+    estimateScan.mockResolvedValue({
+      perPid: [],
+      accountsPerDay: 1000,
+      planDays: 40,
+      accountDays: 40000,
+      tooLarge: false,
+    });
     runReplay.mockImplementation(untilStopped);
     runKeepScan.mockImplementation((opts) => {
       opts.onProgress({ phase: 'evaluate', done: 2, total: 4 });
@@ -239,7 +271,13 @@ describe('AlertsPage with Keep the customer', () => {
       'analytix.aiAlerts.keep.v1',
       JSON.stringify({ mode: 'backtest', rules: { ...DEFAULT_KEEP_RULES, outcomeDays: 0.5, labelGraceDays: 2.7 } })
     );
-    estimateScan.mockResolvedValue({ perPid: [], accountsPerDay: 1000, accountDays: 40000, tooLarge: false });
+    estimateScan.mockResolvedValue({
+      perPid: [],
+      accountsPerDay: 1000,
+      planDays: 40,
+      accountDays: 40000,
+      tooLarge: false,
+    });
     const { user } = render(<AlertsPage />, { renderWithRouter: true });
     await user.click(screen.getByRole('tab', { name: /^Keep the customer/ }));
 

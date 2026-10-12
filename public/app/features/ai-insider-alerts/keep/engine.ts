@@ -131,20 +131,41 @@ function slotAtOrAfter(floor: number, localHour: number, tz: number): number {
 
 const PID_RE = /^[A-Za-z0-9_-]{1,32}$/;
 
+const DELIVERY_PART_RE = /^\s*([^=:\s]+)\s*[=:]\s*([A-Za-z]+)\s*$/;
+
+/** One `pid=channel` part, or null when it is not one. */
+function deliveryPart(part: string): [string, Delivery] | null {
+  const m = DELIVERY_PART_RE.exec(part);
+  if (!m || !PID_RE.test(m[1])) {
+    return null;
+  }
+  const word = m[2].toLowerCase();
+  return word === 'push' || word === 'crm' || word === 'none' ? [m[1], word] : null;
+}
+
+function deliveryParts(text: string): string[] {
+  return String(text ?? '')
+    .split(/[,;\n]+/)
+    .filter((part) => part.trim() !== '');
+}
+
 /** `111=crm, 222=push` → { '111': 'crm', '222': 'push' } (unknown words are ignored). */
 export function parseDeliveryByPid(text: string): Record<string, Delivery> {
   const out: Record<string, Delivery> = {};
-  for (const part of String(text ?? '').split(/[,;\n]+/)) {
-    const m = /^\s*([^=:\s]+)\s*[=:]\s*([A-Za-z]+)\s*$/.exec(part);
-    if (!m || !PID_RE.test(m[1])) {
-      continue;
-    }
-    const word = m[2].toLowerCase();
-    if (word === 'push' || word === 'crm' || word === 'none') {
-      out[m[1]] = word;
+  for (const part of deliveryParts(text)) {
+    const parsed = deliveryPart(part);
+    if (parsed) {
+      out[parsed[0]] = parsed[1];
     }
   }
   return out;
+}
+
+/** The parts parseDeliveryByPid ignores, trimmed (a bare `111` among them). */
+export function unreadDeliveryParts(text: string): string[] {
+  return deliveryParts(text)
+    .filter((part) => !deliveryPart(part))
+    .map((part) => part.trim());
 }
 
 /** Upper case without '-' (and without a `_profileId` suffix): the key shared with GA4. */

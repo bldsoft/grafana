@@ -966,6 +966,7 @@ describe('estimateScan', () => {
         { pid: '222', accounts: 60000 },
       ],
       accountsPerDay: 160000,
+      planDays: 40,
       accountDays: 160000 * 40,
       tooLarge: true,
     });
@@ -985,6 +986,7 @@ describe('estimateScan', () => {
     expect(await estimateScan(DS, [], plan, signal)).toEqual({
       perPid: [],
       accountsPerDay: 0,
+      planDays: 40,
       accountDays: 0,
       tooLarge: false,
     });

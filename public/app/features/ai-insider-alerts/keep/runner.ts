@@ -236,7 +236,7 @@ export async function estimateScan(
 ): Promise<ScanEstimate | null> {
   const planDays = plan.full.length + plan.light.length;
   if (pids !== null && pids.length === 0) {
-    return { perPid: [], accountsPerDay: 0, accountDays: 0, tooLarge: false };
+    return { perPid: [], accountsPerDay: 0, planDays, accountDays: 0, tooLarge: false };
   }
   // The latest day of the plan: complete (the plan checked it) and as large
   // as any other day of the run.
@@ -257,7 +257,7 @@ export async function estimateScan(
     }
     const accountsPerDay = perPid.reduce((sum, r) => sum + r.accounts, 0);
     const accountDays = accountsPerDay * planDays;
-    return { perPid, accountsPerDay, accountDays, tooLarge: accountDays > KEEP_MAX_ACCOUNT_DAYS };
+    return { perPid, accountsPerDay, planDays, accountDays, tooLarge: accountDays > KEEP_MAX_ACCOUNT_DAYS };
   } catch {
     // Best effort: without an estimate the scan is still allowed.
     return null;

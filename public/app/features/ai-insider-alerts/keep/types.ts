@@ -575,8 +575,11 @@ export interface KeepProgress {
 
 /** Size of a scan before it runs (from the daily aggregates). */
 export interface ScanEstimate {
+  /** Accounts per day by provider, largest first. */
   perPid: Array<{ pid: string; accounts: number }>;
   accountsPerDay: number;
+  /** Days the run reads (full + light). */
+  planDays: number;
   accountDays: number;
   tooLarge: boolean;
 }

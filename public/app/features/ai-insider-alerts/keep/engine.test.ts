@@ -6,6 +6,7 @@ import {
   graceDays,
   hash64Hex,
   parseDeliveryByPid,
+  unreadDeliveryParts,
   planClassOf,
   ruleDays,
 } from './engine';
@@ -159,6 +160,12 @@ describe('helpers', () => {
       '555': 'push',
     });
     expect(parseDeliveryByPid('')).toEqual({});
+    expect(unreadDeliveryParts('111=crm, 222=push; 333: none\n444=sms, bad pid=push, 555=PUSH')).toEqual([
+      '444=sms',
+      'bad pid=push',
+    ]);
+    expect(unreadDeliveryParts(' 111 , ')).toEqual(['111']);
+    expect(unreadDeliveryParts('')).toEqual([]);
   });
 
   it('normalizes the account key shared with GA4', () => {
