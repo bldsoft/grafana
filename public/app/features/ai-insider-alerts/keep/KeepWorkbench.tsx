@@ -456,9 +456,11 @@ export interface KeepWorkbenchProps {
   /** True while the section is on screen: only then does it query anything on its own. */
   active: boolean;
   onRunningChange?: (running: boolean) => void;
+  /** Sets the shared Providers filter (a size refusal offers providers that fit); absent while it is locked. */
+  onProvidersChange?: (providers: string) => void;
 }
 
-export function KeepWorkbench({ datasource, scope, active, onRunningChange }: KeepWorkbenchProps) {
+export function KeepWorkbench({ datasource, scope, active, onRunningChange, onProvidersChange }: KeepWorkbenchProps) {
   const styles = useStyles2(getStyles);
   const [settings, setSettings] = useState<KeepSettings>(loadSettings);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -565,6 +567,15 @@ export function KeepWorkbench({ datasource, scope, active, onRunningChange }: Ke
     datasource && plan && !scopeEmpty ? JSON.stringify([datasource.uid, scope, plan.full, plan.light]) : '';
   const currentEstimate = estimate?.key === estimateKey ? estimate : undefined;
   const tooLarge = Boolean(currentEstimate?.value?.tooLarge);
+  // Providers that fit alone, offered as one click instead of a hint to type ids.
+  const fittingPids = useMemo(() => {
+    const size = currentEstimate?.value;
+    if (!size?.tooLarge || !onProvidersChange) {
+      return [];
+    }
+    const days = Math.max(1, size.planDays);
+    return size.perPid.filter((r) => r.accounts * days <= KEEP_MAX_ACCOUNT_DAYS).slice(0, TOO_LARGE_TOP_PIDS);
+  }, [currentEstimate, onProvidersChange]);
 
   // The size estimate (daily aggregates, cheap) for the inputs on screen,
   // once they settle. Only while the section is shown and idle.
@@ -986,7 +997,22 @@ export function KeepWorkbench({ datasource, scope, active, onRunningChange }: Ke
 
         {plan && !running && !scopeEmpty && datasource && (
           <div className={tooLarge ? styles.error : styles.status}>
-            {estimateLine(plan, currentEstimate, heldDays, reread)}
+            {estimateLine(plan, currentEstimate, heldDays, reread, fittingPids.length === 0)}
+          </div>
+        )}
+        {plan && !running && fittingPids.length > 0 && onProvidersChange && (
+          <div className={styles.status}>
+            <span>
+              <Trans i18nKey="ai-insider-alerts.keep.too-large-pick">Scan one provider:</Trans>
+            </span>
+            {fittingPids.map((r) => (
+              <Button key={r.pid} size="sm" variant="secondary" onClick={() => onProvidersChange(r.pid)}>
+                {t('ai-insider-alerts.keep.too-large-pick-pid', '{{pid}} · ≈{{accounts}}/day', {
+                  pid: r.pid,
+                  accounts: formatCount(r.accounts),
+                })}
+              </Button>
+            ))}
           </div>
         )}
         {(running || progress) && (
@@ -1032,7 +1058,8 @@ export function KeepWorkbench({ datasource, scope, active, onRunningChange }: Ke
 /** Providers named in the refusal: enough to see where the size comes from. */
 const TOO_LARGE_TOP_PIDS = 5;
 
-function tooLargeText(size: ScanEstimate): string {
+/** The refusal; `named` adds the largest providers when no button offers them. */
+function tooLargeText(size: ScanEstimate, named = true): string {
   const days = Math.max(1, size.planDays);
   const largest = size.perPid
     .slice(0, TOO_LARGE_TOP_PIDS)
@@ -1040,7 +1067,7 @@ function tooLargeText(size: ScanEstimate): string {
     .join(', ');
   const text = t(
     'ai-insider-alerts.keep.too-large',
-    'Too large: ≈{{accountDays}} account-days (≈{{accounts}} accounts/day × {{days}} days), the limit is {{limit}}, about {{fit}} accounts/day for this run. Narrow the providers, the windows or the backtest.',
+    'Too large for one run: ≈{{accountDays}} account-days (≈{{accounts}} accounts/day × {{days}} days), the limit is {{limit}} (about {{fit}} accounts/day). Choose fewer providers in Providers at the top of the page, or shorten the windows or the backtest.',
     {
       accountDays: formatCount(size.accountDays),
       accounts: formatCount(size.accountsPerDay),
@@ -1049,13 +1076,19 @@ function tooLargeText(size: ScanEstimate): string {
       fit: formatCount(Math.floor(KEEP_MAX_ACCOUNT_DAYS / days)),
     }
   );
-  if (!largest) {
+  if (!named || !largest) {
     return text;
   }
   return `${text} ${t('ai-insider-alerts.keep.too-large-largest', 'Largest providers, accounts/day: {{largest}}.', { largest })}`;
 }
 
-function estimateLine(plan: ScanPlan, estimate: EstimateState | undefined, heldDays: number, reread: boolean): string {
+function estimateLine(
+  plan: ScanPlan,
+  estimate: EstimateState | undefined,
+  heldDays: number,
+  reread: boolean,
+  namePids: boolean
+): string {
   const days = [
     t('ai-insider-alerts.keep.estimate-days', '{{full}} full + {{light}} light days', {
       full: plan.full.length,
@@ -1073,7 +1106,7 @@ function estimateLine(plan: ScanPlan, estimate: EstimateState | undefined, heldD
     return `${days} · ${t('ai-insider-alerts.keep.estimate-unavailable', 'size estimate unavailable; the scan can still run')}`;
   }
   if (estimate.value.tooLarge) {
-    return tooLargeText(estimate.value);
+    return tooLargeText(estimate.value, namePids);
   }
   return `${days} · ${t(
     'ai-insider-alerts.keep.estimate',

@@ -182,12 +182,43 @@ describe('AlertsPage with Keep the customer', () => {
       accountDays: 8000000,
       tooLarge: true,
     });
-    await screen.findByText(/Too large: ≈8,000,000 account-days \(≈200,000 accounts\/day × 40 days\)/, undefined, {
-      timeout: 3000,
-    });
-    expect(screen.getByText(/about 150,000 accounts\/day for this run/)).toHaveTextContent(
-      'Largest providers, accounts/day: 222 ≈150,000, 111 ≈50,000.'
+    await screen.findByText(
+      /Too large for one run: ≈8,000,000 account-days \(≈200,000 accounts\/day × 40 days\)/,
+      undefined,
+      {
+        timeout: 3000,
+      }
     );
+    expect(screen.getByText(/the limit is 6,000,000 \(about 150,000 accounts\/day\)/)).not.toHaveTextContent(
+      'Largest providers'
+    );
+    expect(screen.getByText('Run scan').closest('button')).toBeDisabled();
+    // Both fit alone (150,000 × 40 = the limit): one click sets the shared Providers filter.
+    estimateScan.mockResolvedValue({
+      perPid: [{ pid: '111', accounts: 50000 }],
+      accountsPerDay: 50000,
+      planDays: 40,
+      accountDays: 2000000,
+      tooLarge: false,
+    });
+    await user.click(screen.getByRole('button', { name: '111 · ≈50,000/day' }));
+    expect(screen.getByDisplayValue('111')).toBeInTheDocument();
+    await screen.findByText(/≈50,000 accounts\/day/, undefined, { timeout: 3000 });
+    expect(screen.queryByText(/Too large/)).not.toBeInTheDocument();
+
+    // Too large again.
+    await user.clear(screen.getByDisplayValue('111'));
+    await user.type(screen.getByPlaceholderText('Empty = all in scope, or ids: 111, 222'), '222');
+    estimateScan.mockResolvedValue({
+      perPid: [{ pid: '222', accounts: 200000 }],
+      accountsPerDay: 200000,
+      planDays: 40,
+      accountDays: 8000000,
+      tooLarge: true,
+    });
+    // Nothing fits alone: no buttons, the providers are named in the text.
+    await screen.findByText(/Largest providers, accounts\/day: 222 ≈200,000\./, undefined, { timeout: 3000 });
+    expect(screen.queryByText('Scan one provider:')).not.toBeInTheDocument();
     expect(screen.getByText('Run scan').closest('button')).toBeDisabled();
 
     // A bare provider id typed into the delivery field is not silently dropped.

@@ -448,7 +448,7 @@ function AlertsSections({ orgScope }: { orgScope: ProviderScope }) {
           <Field
             label={t('ai-insider-alerts.providers', 'Providers')}
             description={scopeText}
-            className={styles.field}
+            className={styles.providersField}
             noMargin
           >
             <Input
@@ -485,6 +485,7 @@ function AlertsSections({ orgScope }: { orgScope: ProviderScope }) {
           scope={scope}
           active={section === 'keep'}
           onRunningChange={setKeepRunning}
+          onProvidersChange={locked ? undefined : (providers) => setCommon((c) => ({ ...c, providers }))}
         />
       </div>
     </div>
@@ -983,6 +984,10 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   field: css({
     minWidth: 180,
+  }),
+  providersField: css({
+    // Wide enough for the whole placeholder: the hint says what to type.
+    minWidth: 300,
   }),
   actions: css({
     display: 'flex',
