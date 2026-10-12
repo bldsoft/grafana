@@ -60,6 +60,13 @@ export function CapabilityGuide({ onTry, canRun }: Props) {
             'search, feature adoption, subscriptions — sliced by provider, app, platform, country or time'
           ),
         },
+        {
+          label: t('dashboard.ai-panel.guide-data-behavior', 'App behavior'),
+          detail: t(
+            'dashboard.ai-panel.guide-data-behavior-detail',
+            'screens, buttons, funnels, installs and removals, crashes — when your organization has GA4 connected (see the Data menu)'
+          ),
+        },
       ],
     },
     {

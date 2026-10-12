@@ -6578,6 +6578,8 @@
       "guide-button": "Quick guide",
       "guide-data-audience": "Audience",
       "guide-data-audience-detail": "active users (DAU/MAU), viewers, new vs returning, devices, platforms, app versions, countries",
+      "guide-data-behavior": "App behavior",
+      "guide-data-behavior-detail": "screens, buttons, funnels, installs and removals, crashes — when your organization has GA4 connected (see the Data menu)",
       "guide-data-product": "Product",
       "guide-data-product-detail": "search, feature adoption, subscriptions — sliced by provider, app, platform, country or time",
       "guide-data-quality": "Quality",
