@@ -454,6 +454,81 @@ export async function fetchKeepBehavior(request: KeepBehaviorRequest, signal?: A
   };
 }
 
+/** One test push: an FCM registration token of an account and the text it gets. */
+export interface TestPushMessage {
+  pid: string;
+  account: string;
+  token: string;
+  title: string;
+  text: string;
+  /** true = show the service-status warning with the text; false = clear it. */
+  enabled: boolean;
+  kind?: string;
+}
+
+export interface TestPushResult {
+  /** on = sent (or checked); off = the service has no push key; error = refused or unreachable. */
+  status: 'on' | 'off' | 'error';
+  message?: string;
+  /** Per message, in request order (status on only). */
+  results: Array<{ ok: boolean; error?: string }>;
+}
+
+const TEST_PUSH_BATCH = 200;
+const TEST_PUSH_TIMEOUT_MS = 60_000;
+const TEST_PUSH_REASONS: Record<string, string> = {
+  no_providers: 'Your organization has no providers assigned.',
+  no_scope: 'The service has no data scope for this request (no organization).',
+  provider_out_of_scope: 'A message targets a provider outside your organization.',
+  rate_limited: 'Hourly limit of test pushes reached.',
+  bad_message: 'A message has an invalid token, account or text.',
+  too_many_messages: 'Too many messages in one request.',
+  // Client-side outcomes, not backend reasons.
+  old_service: 'The AI Insider service is older than test pushes.',
+  unreachable: 'The AI Insider service is unreachable.',
+};
+
+/**
+ * Send test pushes through the AI Insider service (POST /api/notify/push),
+ * which holds the Firebase key. validateOnly asks FCM to check the tokens
+ * without delivering anything.
+ */
+export async function sendTestPush(messages: TestPushMessage[], validateOnly: boolean): Promise<TestPushResult> {
+  const results: TestPushResult['results'] = [];
+  for (let start = 0; start < messages.length; start += TEST_PUSH_BATCH) {
+    const batch = messages.slice(start, start + TEST_PUSH_BATCH);
+    try {
+      const res = await fetch(`${getAssistantBaseUrl()}/api/notify/push`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...authHeaders() },
+        body: JSON.stringify({ messages: batch, validateOnly }),
+        signal: AbortSignal.timeout(TEST_PUSH_TIMEOUT_MS),
+      });
+      const payload: unknown = await res.json().catch(() => null);
+      if (res.status === 404) {
+        return { status: 'error', message: TEST_PUSH_REASONS.old_service, results };
+      }
+      if (isRecord(payload) && payload.status === 'off') {
+        return { status: 'off', results };
+      }
+      if (!res.ok || !isRecord(payload) || !Array.isArray(payload.results)) {
+        const reason =
+          isRecord(payload) && typeof payload.reason === 'string' ? TEST_PUSH_REASONS[payload.reason] : undefined;
+        return { status: 'error', message: reason ?? `Push request failed (HTTP ${res.status}).`, results };
+      }
+      for (let i = 0; i < batch.length; i++) {
+        const r: unknown = payload.results[i];
+        const ok = isRecord(r) && r.ok === true;
+        const error = isRecord(r) && typeof r.error === 'string' ? r.error.slice(0, 40) : 'error';
+        results.push(ok ? { ok } : { ok, error });
+      }
+    } catch {
+      return { status: 'error', message: TEST_PUSH_REASONS.unreachable, results };
+    }
+  }
+  return { status: 'on', results };
+}
+
 /** Suggestion chip for the chat empty state: a past prompt plus what it produced. */
 export interface SuggestedPrompt {
   prompt: string;

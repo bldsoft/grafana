@@ -150,4 +150,67 @@ describe('AlertsResults', () => {
     expect(rows).toHaveLength(2);
     expect(within(rows[1]).getByText(/Watched 20 min/)).toBeInTheDocument();
   });
+
+  describe('test pushes', () => {
+    const TOKEN = 'fA1b2c3d4e5f:APA91b' + 'a'.repeat(120);
+    const originalFetch = global.fetch;
+    const originalTimeout = AbortSignal.timeout;
+
+    beforeEach(() => {
+      window.localStorage.clear();
+      // jsdom lacks AbortSignal.timeout (browsers have it).
+      AbortSignal.timeout = () => new AbortController().signal;
+    });
+    afterEach(() => {
+      global.fetch = originalFetch;
+      AbortSignal.timeout = originalTimeout;
+    });
+
+    it('sends an edited push to the token pasted for a viewer', async () => {
+      const fetchMock = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ status: 'on', ok: 1, failed: 0, results: [{ ok: true }] }),
+      });
+      global.fetch = fetchMock;
+      render(<AlertsResults snapshot={snapshot()} />);
+
+      await userEvent.click(screen.getByRole('tab', { name: /Messages/ }));
+      await userEvent.click(screen.getByRole('radio', { name: 'Channel down' }));
+      const row = screen.getAllByRole('row')[1];
+      expect(within(row).getByRole('button', { name: /No push token/ })).toBeDisabled();
+
+      await userEvent.click(screen.getByPlaceholderText(/fcm-token-iphone/));
+      await userEvent.paste(`aa-549-001 ${TOKEN}`);
+      expect(screen.getByText('1 accounts · 1 tokens')).toBeInTheDocument();
+      expect(window.localStorage.getItem('analytix.aiAlerts.pushTokens.v1')).toContain(TOKEN);
+
+      await userEvent.click(within(row).getByRole('button', { name: 'Test push to this viewer' }));
+      const dialog = screen.getByRole('dialog');
+      expect(within(dialog).getByText('Sport 1 is unavailable')).toBeInTheDocument();
+      const text = within(dialog).getByRole('textbox', { name: /Text/ });
+      await userEvent.clear(text);
+      await userEvent.type(text, 'Down on {{channel}');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Send to 1 devices' }));
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(url).toMatch(/\/api\/notify\/push$/);
+      expect(JSON.parse(init.body)).toEqual({
+        validateOnly: false,
+        messages: [
+          {
+            pid: '222',
+            account: 'AA-549-001',
+            token: TOKEN,
+            title: 'Sport 1 is unavailable',
+            text: 'Down on Sport 1',
+            enabled: true,
+            kind: 'down',
+          },
+        ],
+      });
+      expect(await within(dialog).findByText('1 sent, 0 failed')).toBeInTheDocument();
+    });
+  });
 });

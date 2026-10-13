@@ -8,6 +8,7 @@ import {
   BadgeColor,
   Button,
   Icon,
+  IconButton,
   Input,
   RadioButtonGroup,
   Tab,
@@ -20,6 +21,9 @@ import { analytix } from 'app/features/home/analytixTokens';
 import { IncidentTimeline, classColor } from './IncidentTimeline';
 import { topKey } from './engine';
 import { decisionsToCsv, formatCount, formatMinutes, formatUtc, formatUtcTime } from './format';
+import { PushDialog } from './push/PushDialog';
+import { PushTokensPanel, usePushTokens } from './push/PushTokensPanel';
+import { accountKey } from './push/pushPlan';
 import type {
   ActivityIncident,
   ActivityKind,
@@ -676,6 +680,9 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
   const styles = useStyles2(getStyles);
   const [kind, setKind] = useState<KindFilter>('all');
   const [search, setSearch] = useState('');
+  const pushTokens = usePushTokens();
+  // Test pushes: the decisions to send and the dialog heading; undefined = closed.
+  const [push, setPush] = useState<{ decisions: Decision[]; heading: string } | undefined>();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -685,6 +692,11 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
         (!q || `${d.userId} ${d.title} ${d.provider} ${d.pid}`.toLowerCase().includes(q))
     );
   }, [decisions, kind, search]);
+  // Distinct viewers of the filter that have a token in the list.
+  const pushable = useMemo(() => {
+    const keys = filtered.map((d) => accountKey(d.userId)).filter((key) => pushTokens.parsed.byAccount.has(key));
+    return new Set(keys).size;
+  }, [filtered, pushTokens.parsed]);
 
   const options: Array<{ label: string; value: KindFilter }> = [
     { label: t('ai-insider-alerts.filter-all', 'All'), value: 'all' },
@@ -711,6 +723,29 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
         <Button size="sm" variant="secondary" icon="download-alt" onClick={() => downloadCsv(filtered)}>
           <Trans i18nKey="ai-insider-alerts.export-csv">Export CSV</Trans>
         </Button>
+        <Button
+          size="sm"
+          variant="secondary"
+          icon="message"
+          disabled={!filtered.length}
+          tooltip={t(
+            'ai-insider-alerts.push.send-all-tip',
+            'Test push to every viewer listed with this filter who has a token below, as if we told them anyway'
+          )}
+          onClick={() =>
+            setPush({
+              decisions: filtered,
+              heading:
+                kind === 'all'
+                  ? t('ai-insider-alerts.push.heading-all', 'Test push: all messages')
+                  : t('ai-insider-alerts.push.heading-kind', 'Test push: {{kind}}', { kind: kindBadge(kind).text }),
+            })
+          }
+        >
+          {t('ai-insider-alerts.push.send-all', 'Push to all ({{count}})', {
+            count: formatCount(pushable),
+          })}
+        </Button>
       </div>
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -731,11 +766,13 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
               <th>
                 <Trans i18nKey="ai-insider-alerts.col-why">Why</Trans>
               </th>
+              <th aria-label={t('ai-insider-alerts.push.col', 'Test push')} />
             </tr>
           </thead>
           <tbody>
             {filtered.slice(0, LOG_LIMIT).map((d, i) => {
               const badge = kindBadge(d.kind);
+              const hasToken = pushTokens.parsed.byAccount.has(accountKey(d.userId));
               return (
                 <tr key={`${d.kind}-${d.userId}-${d.incidentId ?? ''}-${i}`}>
                   <td>{formatUtc(d.at)}</td>
@@ -757,6 +794,26 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
                     <span className={styles.sub}>{d.provider ? `${d.pid} ${d.provider}` : d.pid}</span>
                   </td>
                   <td className={styles.why}>{d.reason}</td>
+                  <td>
+                    <IconButton
+                      name="message"
+                      disabled={!hasToken}
+                      tooltip={
+                        hasToken
+                          ? t('ai-insider-alerts.push.send-one', 'Test push to this viewer')
+                          : t('ai-insider-alerts.push.no-token', 'No push token for this account: add it below')
+                      }
+                      onClick={() =>
+                        setPush({
+                          decisions: [d],
+                          heading: t('ai-insider-alerts.push.heading-one', 'Test push: {{kind}} → {{account}}', {
+                            kind: badge.text,
+                            account: d.userId,
+                          }),
+                        })
+                      }
+                    />
+                  </td>
                 </tr>
               );
             })}
@@ -770,6 +827,15 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
             total: formatCount(filtered.length),
           })}
         </div>
+      )}
+      <PushTokensPanel text={pushTokens.text} parsed={pushTokens.parsed} onChange={pushTokens.setText} />
+      {push && (
+        <PushDialog
+          decisions={push.decisions}
+          tokens={pushTokens.parsed.byAccount}
+          heading={push.heading}
+          onDismiss={() => setPush(undefined)}
+        />
       )}
     </>
   );
