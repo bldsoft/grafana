@@ -4,7 +4,7 @@
 // Nothing is sent from here; the Jobs tab exports the hand-off.
 
 import { css, cx } from '@emotion/css';
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { Fragment, ReactNode, useEffect, useMemo, useState } from 'react';
 
 import { GrafanaTheme2 } from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
@@ -259,6 +259,17 @@ function AccountSearch({ value, onChange }: { value: string; onChange: (value: s
       value={value}
       onChange={(e) => onChange(e.currentTarget.value)}
     />
+  );
+}
+
+/** A labelled filter of the toolbar, set apart from its neighbours so two filters never read as one. */
+function FilterGroup({ label, children }: { label: string; children: ReactNode }) {
+  const own = useStyles2(getKeepStyles);
+  return (
+    <div className={own.filterGroup} role="group" aria-label={label}>
+      <span className={own.filterLabel}>{label}</span>
+      {children}
+    </div>
   );
 }
 
@@ -623,8 +634,12 @@ function JobsTab({
   return (
     <>
       <div className={styles.toolbar}>
-        <RadioButtonGroup size="sm" options={actionOptions} value={action} onChange={setAction} />
-        <RadioButtonGroup size="sm" options={deliveryOptions} value={delivery} onChange={setDelivery} />
+        <FilterGroup label={t('ai-insider-alerts.keep.filter-action', 'Action')}>
+          <RadioButtonGroup size="sm" options={actionOptions} value={action} onChange={setAction} />
+        </FilterGroup>
+        <FilterGroup label={t('ai-insider-alerts.keep.filter-channel', 'Channel')}>
+          <RadioButtonGroup size="sm" options={deliveryOptions} value={delivery} onChange={setDelivery} />
+        </FilterGroup>
         <AccountSearch value={search} onChange={setSearch} />
       </div>
       <div className={styles.toolbar}>
@@ -1934,6 +1949,20 @@ function BacktestTab({ report }: { report: BacktestReport }) {
 }
 
 const getKeepStyles = (theme: GrafanaTheme2) => ({
+  filterGroup: css({
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    padding: theme.spacing(0.5, 1),
+    border: `1px solid ${analytix.border}`,
+    borderRadius: analytix.radiusControl,
+  }),
+  filterLabel: css({
+    color: analytix.textMuted,
+    fontSize: theme.typography.bodySmall.fontSize,
+    fontWeight: theme.typography.fontWeightMedium,
+  }),
   toggle: css({
     marginRight: theme.spacing(0.5),
     verticalAlign: 'middle',
