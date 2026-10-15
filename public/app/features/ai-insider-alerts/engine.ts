@@ -888,13 +888,13 @@ export class AlertEngine {
         const at = Math.max(u.firstErr, inc.detectedAt!);
         const key = `${inc.pid}|${u.userId}`;
         const seen: Decision = {
-          kind: 'down',
+          kind: 'service',
           at,
           userId: u.userId,
           pid: inc.pid,
           provider,
           cid: '',
-          // Provider-wide: no single channel (the UI labels it "All channels").
+          // Provider-wide: no single channel (the UI labels it "Whole service").
           title: '',
           incidentId: inc.id,
           platform: u.platform,
@@ -1146,6 +1146,7 @@ export class AlertEngine {
       chronicIncidents: classes.filter((c) => c === 'chronic').length,
       openIncidents: incidents.filter((i) => i.closedAt === undefined).length,
       down: count('down'),
+      service: count('service'),
       unstable: count('unstable'),
       back: count('back'),
       apology: count('apology'),

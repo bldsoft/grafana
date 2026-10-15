@@ -60,7 +60,7 @@ describe('AlertEngine provider level', () => {
     expect(incident).toMatchObject({ pid: '390', detectedAt: T0 + 2 * B, closedAt: T0 + 3 * B, recovered: true });
     expect(incident.peakRatio).toBe(7);
     expect(engine.getDecisions().map((d) => `${d.kind}:${d.userId}`)).toEqual([
-      'down:AA-1',
+      'service:AA-1',
       'in_app:BB-2',
       'back:AA-1',
     ]);

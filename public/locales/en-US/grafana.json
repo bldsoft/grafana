@@ -375,7 +375,6 @@
     "activity-signal-outage_one": "Up to {{count}} providers at once · playback {{plays}}% · errors {{errors}}× usual",
     "activity-signal-outage_other": "Up to {{count}} providers at once · playback {{plays}}% · errors {{errors}}× usual",
     "activity-signal-service": "App starts {{sessions}}× usual · playback {{plays}}% of usual",
-    "all-channels": "All channels",
     "class-chronic": "Chronic",
     "class-chronic-tip": "Channel has had no clean viewing for hours: a status, not an incident",
     "class-in-app": "In player",
@@ -825,6 +824,7 @@
     "kind-diagnosis": "Connection",
     "kind-down": "Channel down",
     "kind-in-app": "In player",
+    "kind-service": "Service problems",
     "kind-suppressed": "Not pushed",
     "kind-unstable": "Unstable",
     "live-retrying": "The step after {{at}} UTC failed ({{error}}). Live keeps running and tries the same minutes again every minute.",
@@ -1006,7 +1006,7 @@
     "tile-naive": "Versus one message per error",
     "tile-naive-detail": "{{errors}} errors → {{sent}} messages · detection lag {{lag}} min",
     "tile-providers": "Provider-wide problems",
-    "tile-providers-detail": "{{infra}} hit several providers at once",
+    "tile-providers-detail": "{{pushes}} \"service problems\" pushes · {{infra}} hit several providers at once",
     "tile-service": "Service & data",
     "tile-service-detail": "{{service}} service down · {{outages}} outages · {{noData}} no data",
     "timeline-aria": "Incident timeline",
@@ -1015,7 +1015,8 @@
     "unit-days": "days",
     "unit-errors": "errors",
     "unit-providers": "providers",
-    "unit-viewers": "viewers"
+    "unit-viewers": "viewers",
+    "whole-service": "Whole service"
   },
   "alerting": {
     "active-timing-fields": {

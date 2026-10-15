@@ -93,6 +93,8 @@ export function templateFor(d: Decision): PushTemplateId {
       return 'apology';
     case 'diagnosis':
       return 'diagnosis';
+    case 'service':
+      return 'service_down';
     default:
       return isServiceWide(d) ? 'service_down' : 'channel_down';
   }

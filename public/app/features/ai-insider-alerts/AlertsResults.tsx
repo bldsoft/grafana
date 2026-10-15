@@ -163,6 +163,8 @@ function kindBadge(kind: DecisionKind): { text: string; color: BadgeColor } {
   switch (kind) {
     case 'down':
       return { text: t('ai-insider-alerts.kind-down', 'Channel down'), color: 'red' };
+    case 'service':
+      return { text: t('ai-insider-alerts.kind-service', 'Service problems'), color: 'red' };
     case 'unstable':
       return { text: t('ai-insider-alerts.kind-unstable', 'Unstable'), color: 'purple' };
     case 'back':
@@ -237,9 +239,11 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
         <Tile
           label={t('ai-insider-alerts.tile-providers', 'Provider-wide problems')}
           value={formatCount(summary.providerIncidents)}
-          detail={t('ai-insider-alerts.tile-providers-detail', '{{infra}} hit several providers at once', {
-            infra: summary.infraGroups,
-          })}
+          detail={t(
+            'ai-insider-alerts.tile-providers-detail',
+            '{{pushes}} "service problems" pushes · {{infra}} hit several providers at once',
+            { pushes: formatCount(summary.service), infra: summary.infraGroups }
+          )}
         />
         <Tile
           label={t('ai-insider-alerts.tile-service', 'Service & data')}
@@ -730,6 +734,7 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
   const options: Array<{ label: string; value: KindFilter }> = [
     { label: t('ai-insider-alerts.filter-all', 'All'), value: 'all' },
     { label: kindBadge('down').text, value: 'down' },
+    { label: kindBadge('service').text, value: 'service' },
     { label: kindBadge('unstable').text, value: 'unstable' },
     { label: kindBadge('back').text, value: 'back' },
     { label: kindBadge('apology').text, value: 'apology' },
@@ -815,7 +820,7 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
                   <td>
                     {d.incidentId ? (
                       <button type="button" className={styles.link} onClick={() => onSelect(d.incidentId!)}>
-                        {d.title || d.cid || t('ai-insider-alerts.all-channels', 'All channels')}
+                        {d.title || d.cid || t('ai-insider-alerts.whole-service', 'Whole service')}
                       </button>
                     ) : (
                       d.title
@@ -1029,7 +1034,7 @@ function ProvidersTab({
               const open = expanded === p.id;
               const viewers = snapshot.providerAffected(p.id);
               const decisions = snapshot.decisions.filter((d) => d.incidentId === p.id);
-              const pushed = new Set(decisions.filter((d) => d.kind === 'down').map((d) => d.userId));
+              const pushed = new Set(decisions.filter((d) => d.kind === 'service').map((d) => d.userId));
               const inApp = new Set(decisions.filter((d) => d.kind === 'in_app').map((d) => d.userId));
               return (
                 <Fragment key={p.id}>
@@ -1114,7 +1119,7 @@ function ProviderViewers({
 }) {
   const styles = useStyles2(getStyles);
   const decisionOf = (userId: string): DecisionKind =>
-    pushed.has(userId) ? 'down' : inApp.has(userId) ? 'in_app' : 'suppressed';
+    pushed.has(userId) ? 'service' : inApp.has(userId) ? 'in_app' : 'suppressed';
   const { rows, sort } = useTableSort(viewers, {
     viewer: (u) => u.userId,
     platform: (u) => `${u.platform} ${u.network}`,

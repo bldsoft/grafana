@@ -22,8 +22,11 @@ import {
 } from './sql';
 import type { AlertRules } from './types';
 
-/** 2: paywall refusals are no longer errors (IS_ERR / IS_SRV_ERR in sql.ts). */
-export const EXPORT_FORMAT_VERSION = 2;
+/**
+ * 2: paywall refusals are no longer errors (IS_ERR / IS_SRV_ERR in sql.ts).
+ * 3: provider-wide messages are kind "service" instead of "down".
+ */
+export const EXPORT_FORMAT_VERSION = 3;
 
 const MAX_ROWS = 200000;
 const CHANNELS_BATCH = 50;

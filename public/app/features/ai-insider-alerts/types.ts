@@ -325,7 +325,16 @@ export interface Incident {
   groupId?: string;
 }
 
-export type DecisionKind = 'down' | 'unstable' | 'back' | 'apology' | 'in_app' | 'suppressed' | 'diagnosis';
+/** `service`: a provider-wide problem (no single channel), see providerSurgeFactor. */
+export type DecisionKind =
+  | 'down'
+  | 'service'
+  | 'unstable'
+  | 'back'
+  | 'apology'
+  | 'in_app'
+  | 'suppressed'
+  | 'diagnosis';
 
 export interface Decision {
   kind: DecisionKind;
@@ -398,6 +407,7 @@ export interface AlertSummary {
   chronicIncidents: number;
   openIncidents: number;
   down: number;
+  service: number;
   unstable: number;
   back: number;
   apology: number;

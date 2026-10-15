@@ -46,6 +46,7 @@ describe('templateFor', () => {
   it('maps message types, channel vs provider-wide', () => {
     expect(templateFor(decision({}))).toBe('channel_down');
     expect(templateFor(decision({ kind: 'in_app' }))).toBe('channel_down');
+    expect(templateFor(decision({ kind: 'service', cid: '', incidentId: 'prov-1' }))).toBe('service_down');
     expect(templateFor(decision({ kind: 'suppressed', cid: '', incidentId: 'prov-1' }))).toBe('service_down');
     expect(templateFor(decision({ kind: 'back' }))).toBe('channel_back');
     expect(templateFor(decision({ kind: 'back', cid: '', incidentId: 'prov-1' }))).toBe('service_back');
