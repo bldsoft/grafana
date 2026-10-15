@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
-import { KeepResults, KeepResultsProps } from './KeepResults';
+import { KeepQualityRules, KeepResults, KeepResultsProps } from './KeepResults';
 import { AccountAssessment, DEFAULT_KEEP_RULES, KeepJob, KeepSnapshot, WindowStats } from './types';
 
 const downloadBlob = jest.fn();
@@ -251,8 +251,6 @@ function props(overrides: Partial<KeepResultsProps> = {}): KeepResultsProps {
     rules: DEFAULT_KEEP_RULES,
     includeTitles: false,
     onIncludeTitlesChange: jest.fn(),
-    planClassOverrides: {},
-    onPlanClassChange: jest.fn(),
     onExport: jest.fn(),
     ...overrides,
   };
@@ -279,7 +277,7 @@ describe('KeepResults', () => {
     expect(tileValue('Control group')).toBe('1');
     expect(screen.getByText('MDE ≈ 12.5 pp · 20% held out')).toBeInTheDocument();
     expect(screen.getByText('1 technical · 0 deactivated')).toBeInTheDocument();
-    expect(tileValue('GA4 evidence')).toBe('Off');
+    expect(screen.queryByText('GA4 evidence')).not.toBeInTheDocument();
   });
 
   it('lists the jobs by priority as sentences, the control group marked', () => {
@@ -313,12 +311,12 @@ describe('KeepResults', () => {
     expect(rows).toHaveLength(2);
     expect(within(rows[1]).getByText('CC-555-001')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('radio', { name: 'All' }));
+    await userEvent.click(within(screen.getByRole('group', { name: 'Action' })).getByRole('radio', { name: 'All' }));
     await userEvent.click(screen.getByRole('radio', { name: 'Push' }));
     rows = screen.getAllByRole('row');
     expect(rows.slice(1).map(accountOf)).toEqual(['EE-999-003', 'DD-777-002']);
 
-    await userEvent.click(screen.getByRole('radio', { name: 'Any channel' }));
+    await userEvent.click(within(screen.getByRole('group', { name: 'Channel' })).getByRole('radio', { name: 'All' }));
     // The account key without dashes finds it too.
     await userEvent.type(screen.getByPlaceholderText('Account'), 'aa123');
     rows = screen.getAllByRole('row');
@@ -391,9 +389,14 @@ describe('KeepResults', () => {
 
   it('lets a wrong plan class be overridden', async () => {
     const onPlanClassChange = jest.fn();
-    render(<KeepResults {...props({ onPlanClassChange, planClassOverrides: { '111|Premium Monthly': 'paid' } })} />);
+    render(
+      <KeepQualityRules
+        snapshot={snapshot()}
+        overrides={{ '111|Premium Monthly': 'paid' }}
+        onPlanClassChange={onPlanClassChange}
+      />
+    );
 
-    await userEvent.click(screen.getByRole('tab', { name: /Quality/ }));
     expect(screen.getByText('Customers seen').nextSibling?.textContent).toBe('1,200');
     const trial = screen.getByText('Free Trial').closest('tr')!;
     await userEvent.click(within(trial).getByRole('radio', { name: 'Paid' }));
@@ -643,9 +646,8 @@ describe('KeepResults', () => {
 
   it('names each plan override group', async () => {
     const onPlanClassChange = jest.fn();
-    render(<KeepResults {...props({ onPlanClassChange })} />);
+    render(<KeepQualityRules snapshot={snapshot()} overrides={{}} onPlanClassChange={onPlanClassChange} />);
 
-    await userEvent.click(screen.getByRole('tab', { name: /Quality/ }));
     const group = screen.getByRole('group', { name: 'Plan class of Free Trial (111)' });
     await userEvent.click(within(group).getByRole('radio', { name: 'Paid' }));
     expect(onPlanClassChange).toHaveBeenCalledWith('111', 'Free Trial', 'paid');
@@ -669,9 +671,14 @@ describe('KeepResults', () => {
       })),
     ];
     const base = snapshot();
-    render(<KeepResults {...props({ snapshot: snapshot({ quality: { ...base.quality, plans } }) })} />);
+    render(
+      <KeepQualityRules
+        snapshot={snapshot({ quality: { ...base.quality, plans } })}
+        overrides={{}}
+        onPlanClassChange={jest.fn()}
+      />
+    );
 
-    await userEvent.click(screen.getByRole('tab', { name: /Quality/ }));
     expect(screen.getByText('Showing 300 of 305 plans. Filter by provider for the others.')).toBeInTheDocument();
     expect(screen.queryByText('Plan B104')).not.toBeInTheDocument();
 
@@ -682,9 +689,8 @@ describe('KeepResults', () => {
   }, 30000);
 
   it('shows the refused playbacks per platform and code, with their kind', async () => {
-    render(<KeepResults {...props()} />);
+    render(<KeepQualityRules snapshot={snapshot()} overrides={{}} onPlanClassChange={jest.fn()} />);
 
-    await userEvent.click(screen.getByRole('tab', { name: /Quality/ }));
     const premium = screen.getByText('402/AE402').closest('tr')!;
     expect([...premium.querySelectorAll('td')].map((td) => td.textContent)).toEqual([
       'iOS',
@@ -701,15 +707,15 @@ describe('KeepResults', () => {
   it('tells customers of providers without GA4 apart from the unmatched', () => {
     const base = snapshot();
     render(
-      <KeepResults
-        {...props({
-          snapshot: snapshot({
-            quality: {
-              ...base.quality,
-              behavior: { status: 'on', matched: 700, requested: 1000, notLinked: 3000 },
-            },
-          }),
+      <KeepQualityRules
+        snapshot={snapshot({
+          quality: {
+            ...base.quality,
+            behavior: { status: 'on', matched: 700, requested: 1000, notLinked: 3000 },
+          },
         })}
+        overrides={{}}
+        onPlanClassChange={jest.fn()}
       />
     );
 

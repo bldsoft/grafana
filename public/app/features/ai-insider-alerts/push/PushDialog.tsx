@@ -49,9 +49,9 @@ function templateLabel(id: PushTemplateId): string {
     case 'service_back':
       return t('ai-insider-alerts.push.tpl-service-back', 'Service back');
     case 'apology':
-      return t('ai-insider-alerts.push.tpl-apology', 'Apology');
+      return t('ai-insider-alerts.push.tpl-apology', 'Outage');
     default:
-      return t('ai-insider-alerts.push.tpl-diagnosis', 'Your connection');
+      return t('ai-insider-alerts.push.tpl-diagnosis', 'Connection');
   }
 }
 

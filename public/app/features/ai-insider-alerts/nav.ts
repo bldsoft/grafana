@@ -34,12 +34,12 @@ export function buildAlertsNav(): NavModelItem {
     children: [
       {
         id: alertsSectionNavId('tell'),
-        text: t('ai-insider-alerts.section-tell', 'Notify customers about technical issues'),
+        text: t('ai-insider-alerts.section-tell', 'Quality'),
         url: alertsSectionUrl('tell'),
       },
       {
         id: alertsSectionNavId('keep'),
-        text: t('ai-insider-alerts.section-keep', 'Keep users in the app'),
+        text: t('ai-insider-alerts.section-keep', 'Retention'),
         url: alertsSectionUrl('keep'),
       },
     ],

@@ -166,15 +166,15 @@ function kindBadge(kind: DecisionKind): { text: string; color: BadgeColor } {
     case 'unstable':
       return { text: t('ai-insider-alerts.kind-unstable', 'Unstable'), color: 'purple' };
     case 'back':
-      return { text: t('ai-insider-alerts.kind-back', 'Back'), color: 'green' };
+      return { text: t('ai-insider-alerts.kind-back', 'Recovered'), color: 'green' };
     case 'apology':
-      return { text: t('ai-insider-alerts.kind-apology', 'Apology'), color: 'brand' };
+      return { text: t('ai-insider-alerts.kind-apology', 'Outage'), color: 'brand' };
     case 'in_app':
       return { text: t('ai-insider-alerts.kind-in-app', 'In player'), color: 'orange' };
     case 'suppressed':
-      return { text: t('ai-insider-alerts.kind-suppressed', 'Held back'), color: 'darkgrey' };
+      return { text: t('ai-insider-alerts.kind-suppressed', 'Not pushed'), color: 'darkgrey' };
     default:
-      return { text: t('ai-insider-alerts.kind-diagnosis', 'Your connection'), color: 'blue' };
+      return { text: t('ai-insider-alerts.kind-diagnosis', 'Connection'), color: 'blue' };
   }
 }
 
@@ -226,7 +226,7 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
           value={formatCount(summary.down + summary.unstable)}
           detail={t(
             'ai-insider-alerts.tile-down-detail',
-            '{{unstable}} "unstable" · {{back}} "back" · {{apology}} apologies',
+            '{{unstable}} "unstable" · {{back}} "recovered" · {{apology}} "outage"',
             {
               unstable: formatCount(summary.unstable),
               back: formatCount(summary.back),
@@ -256,7 +256,7 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
           detail={t('ai-insider-alerts.tile-in-app-detail', 'short blips and chronic channels, no push')}
         />
         <Tile
-          label={t('ai-insider-alerts.tile-held', 'Held back')}
+          label={t('ai-insider-alerts.tile-held', 'Not pushed')}
           value={formatCount(summary.suppressedRepeats + summary.suppressedCooldown)}
           detail={t('ai-insider-alerts.tile-held-detail', '{{repeats}} repeated errors · {{cooldown}} already told', {
             repeats: formatCount(summary.suppressedRepeats),
@@ -1631,11 +1631,19 @@ export const getStyles = (theme: GrafanaTheme2) => ({
   results: css({
     display: 'grid',
     gap: theme.spacing(2),
+    containerType: 'inline-size',
+    containerName: 'ai-alerts-results',
   }),
   tiles: css({
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))',
     gap: 12,
+    // A wide page shows every tile in one row, however many there are.
+    '@container ai-alerts-results (min-width: 1100px)': {
+      gridTemplateColumns: 'none',
+      gridAutoFlow: 'column',
+      gridAutoColumns: 'minmax(0, 1fr)',
+    },
   }),
   tile: css({
     background: analytix.surfaceRaised,
@@ -1662,20 +1670,23 @@ export const getStyles = (theme: GrafanaTheme2) => ({
     color: analytix.textFaint,
     fontSize: theme.typography.bodySmall.fontSize,
   }),
+  // The row carries the tab line, so the actions sit inside the bar instead of hanging over the tab body.
   tabsRow: css({
     display: 'flex',
     flexWrap: 'wrap',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: theme.spacing(1),
     marginTop: theme.spacing(1),
+    borderBottom: `1px solid ${theme.colors.border.weak}`,
   }),
   tabs: css({
     flex: '1 1 auto',
+    borderBottom: 0,
   }),
   tabsActions: css({
     display: 'flex',
     gap: theme.spacing(1),
-    paddingBottom: theme.spacing(0.5),
+    padding: theme.spacing(0.5, 0),
   }),
   tabBody: css({
     display: 'grid',
@@ -1746,9 +1757,11 @@ export const getStyles = (theme: GrafanaTheme2) => ({
     fontSize: 12,
     wordBreak: 'break-all',
   }),
+  // Badges stack: a cell with two of them must not widen its column and leave the other rows half empty.
   flags: css({
     display: 'flex',
-    flexWrap: 'wrap',
+    flexDirection: 'column',
+    alignItems: 'flex-start',
     gap: 4,
   }),
   evidence: css({

@@ -12,8 +12,15 @@ interface Props {
   domains: DataDomain[] | null;
 }
 
+/** Domains the service does not serve yet: listed locked so users know they are coming. */
+type PlannedDomainId = 'cdn_logs';
+
+type DomainState = Pick<DataDomain, 'status' | 'properties'>;
+
+const PLANNED: DomainState = { status: 'unavailable', properties: [] };
+
 interface DomainView {
-  id: DataDomain['id'];
+  id: DataDomain['id'] | PlannedDomainId;
   icon: IconName;
   title: string;
   detail: string;
@@ -27,12 +34,14 @@ const FALLBACK: DataDomain[] = [{ id: 'streaming', status: 'on', properties: [] 
  * The header "Data" menu: which data domains the user's organization can ask
  * about and what each of them covers. Availability
  * comes from the service (it reads the org's attributes), so the menu and the
- * agent always agree; finance is shown locked for everyone until it exists.
+ * agent always agree; finance and CDN logs are shown locked for everyone until
+ * they exist.
  */
 export function DataAccessMenu({ domains }: Props) {
   const styles = useStyles2(getStyles);
   const list = domains && domains.length > 0 ? domains : FALLBACK;
-  const statusOf = (id: DataDomain['id']) => list.find((d) => d.id === id);
+  const statusOf = (id: DomainView['id']): DomainState | undefined =>
+    id === 'cdn_logs' ? PLANNED : list.find((d) => d.id === id);
 
   const views: DomainView[] = [
     {
@@ -56,11 +65,17 @@ export function DataAccessMenu({ domains }: Props) {
       title: t('dashboard.ai-panel.data-finance-title', 'Finance'),
       detail: t('dashboard.ai-panel.data-finance-detail', 'revenue, payments, ARPU'),
     },
+    {
+      id: 'cdn_logs',
+      icon: 'file-alt',
+      title: t('dashboard.ai-panel.data-cdn-logs-title', 'CDN Logs'),
+      detail: t('dashboard.ai-panel.data-cdn-logs-detail', 'requests to the CDN: status codes, cache, traffic'),
+    },
   ];
 
   const enabledCount = views.filter((v) => statusOf(v.id)?.status === 'on').length;
 
-  const stateLine = (domain: DataDomain | undefined): string | null => {
+  const stateLine = (domain: DomainState | undefined): string | null => {
     switch (domain?.status) {
       case 'on':
         return null;

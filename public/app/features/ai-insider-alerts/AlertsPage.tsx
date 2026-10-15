@@ -436,13 +436,13 @@ function AlertsSections({
     <div className={styles.page}>
       <TabsBar>
         <Tab
-          label={t('ai-insider-alerts.section-tell', 'Notify customers about technical issues')}
+          label={t('ai-insider-alerts.section-tell', 'Quality')}
           active={section === 'tell'}
           onChangeTab={() => show('tell')}
           suffix={tellRunning ? RunningBadge : undefined}
         />
         <Tab
-          label={t('ai-insider-alerts.section-keep', 'Keep users in the app')}
+          label={t('ai-insider-alerts.section-keep', 'Retention')}
           active={section === 'keep'}
           onChangeTab={() => show('keep')}
           suffix={keepRunning ? RunningBadge : undefined}
@@ -781,9 +781,8 @@ function AlertsWorkbench({
     <div className={styles.page}>
       <p className={styles.intro}>
         <Trans i18nKey="ai-insider-alerts.intro">
-          Finds channels that go down on the operator side, decides which viewers would be told — and which would not,
-          because they were already told or the problem is on their side — and shows every message before anything is
-          sent. Replay past days to see whether an incident would have been caught.
+          Finds channels that go down on the operator side, decides who gets told and shows every message before it is
+          sent. Replay past days to check detection.
         </Trans>
       </p>
 
@@ -980,7 +979,6 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   intro: css({
     color: analytix.textMuted,
-    maxWidth: '80ch',
     margin: 0,
   }),
   card: css({

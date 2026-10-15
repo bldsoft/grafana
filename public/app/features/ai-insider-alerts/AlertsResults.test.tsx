@@ -144,7 +144,7 @@ describe('AlertsResults', () => {
     render(<AlertsResults snapshot={snapshot()} />);
 
     await userEvent.click(screen.getByRole('tab', { name: /Messages/ }));
-    await userEvent.click(screen.getByRole('radio', { name: 'Apology' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Outage' }));
     const rows = screen.getAllByRole('row');
     // Header + the one apology (Sport 1 viewer watched 20 min before).
     expect(rows).toHaveLength(2);

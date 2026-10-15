@@ -29,7 +29,7 @@ import { analytix } from 'app/features/home/analytixTokens';
 import { formatCount } from '../format';
 import { ProviderScope } from '../scope';
 
-import { KeepResults } from './KeepResults';
+import { KeepQualityRules, KeepResults } from './KeepResults';
 import { KeepEngine, graceDays, parseDeliveryByPid, ruleDays, unreadDeliveryParts } from './engine';
 import { engineKey, estimateScan, lastCompleteDay, planScan, runKeepScan } from './runner';
 import { RAW, isoDay, parseIsoDay } from './text';
@@ -464,6 +464,7 @@ export function KeepWorkbench({ datasource, scope, active, onRunningChange, onPr
   const styles = useStyles2(getStyles);
   const [settings, setSettings] = useState<KeepSettings>(loadSettings);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [qualityOpen, setQualityOpen] = useState(false);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string>();
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -806,9 +807,8 @@ export function KeepWorkbench({ datasource, scope, active, onRunningChange, onPr
     <div className={styles.page}>
       <p className={styles.intro}>
         <Trans i18nKey="ai-insider-alerts.keep.intro">
-          Finds subscribers who drift away (watching less, gone quiet, a subscription ending or ended, refused
-          playbacks) and turns each into a ready job: the reason, the action, when to send it and through which channel.
-          Nothing is sent: export the jobs for the team. Backtest past days to see whether the rules find real risk.
+          Finds subscribers who drift away and turns each into a ready job: reason, action, send time and channel.
+          Nothing is sent: export the jobs. Backtest past days to check the rules.
         </Trans>
       </p>
 
@@ -995,6 +995,27 @@ export function KeepWorkbench({ datasource, scope, active, onRunningChange, onPr
           </div>
         </Collapse>
 
+        <Collapse
+          label={t('ai-insider-alerts.keep.quality-rules', 'Quality rules')}
+          isOpen={qualityOpen}
+          onToggle={() => setQualityOpen((o) => !o)}
+          collapsible
+        >
+          {result ? (
+            <KeepQualityRules
+              snapshot={result.snapshot}
+              overrides={settings.planClassOverrides}
+              onPlanClassChange={onPlanClassChange}
+            />
+          ) : (
+            <div className={styles.status}>
+              <Trans i18nKey="ai-insider-alerts.keep.quality-rules-empty">
+                Run a scan to see the data quality and the plan classes to correct.
+              </Trans>
+            </div>
+          )}
+        </Collapse>
+
         {plan && !running && !scopeEmpty && datasource && (
           <div className={tooLarge ? styles.error : styles.status}>
             {estimateLine(plan, currentEstimate, heldDays, reread, fittingPids.length === 0)}
@@ -1046,8 +1067,6 @@ export function KeepWorkbench({ datasource, scope, active, onRunningChange, onPr
           rules={result.rules}
           includeTitles={settings.includeTitles}
           onIncludeTitlesChange={(includeTitles) => update({ includeTitles })}
-          planClassOverrides={settings.planClassOverrides}
-          onPlanClassChange={onPlanClassChange}
           onExport={(kind, rows) => reportInteraction('analytix_ai_keep_export', { kind, rows })}
         />
       )}
@@ -1164,7 +1183,6 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   intro: css({
     color: analytix.textMuted,
-    maxWidth: '80ch',
     margin: 0,
   }),
   card: css({

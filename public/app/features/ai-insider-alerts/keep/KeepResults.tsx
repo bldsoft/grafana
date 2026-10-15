@@ -73,7 +73,7 @@ import type {
   WindowStats,
 } from './types';
 
-type TabId = 'jobs' | 'renewals' | 'leads' | 'support' | 'quality' | 'backtest';
+type TabId = 'jobs' | 'renewals' | 'leads' | 'support' | 'backtest';
 type ExportKind = KeepFileKind;
 
 const LIST_LIMIT = 300;
@@ -89,9 +89,6 @@ export interface KeepResultsProps {
   rules: KeepRules;
   includeTitles: boolean;
   onIncludeTitlesChange: (include: boolean) => void;
-  /** Plan class overrides in the settings; may be newer than the snapshot (they apply on the next run). */
-  planClassOverrides: Record<string, PlanClass>;
-  onPlanClassChange: (pid: string, plan: string, cls: PlanClass | undefined) => void;
   /** Called after a file was saved (telemetry). */
   onExport?: (kind: ExportKind, rows: number) => void;
 }
@@ -249,10 +246,10 @@ function accountMatcher(search: string): ((account: string, accountKey?: string)
 }
 
 function AccountSearch({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const styles = useStyles2(getResultsStyles);
+  const own = useStyles2(getKeepStyles);
   return (
     <Input
-      className={styles.search}
+      className={own.accountSearch}
       prefix={<Icon name="search" />}
       placeholder={t('ai-insider-alerts.keep.search-placeholder', 'Account')}
       aria-label={t('ai-insider-alerts.keep.search-label', 'Search account')}
@@ -378,15 +375,7 @@ function summarize(snapshot: KeepSnapshot) {
   };
 }
 
-export function KeepResults({
-  snapshot,
-  rules,
-  includeTitles,
-  onIncludeTitlesChange,
-  planClassOverrides,
-  onPlanClassChange,
-  onExport,
-}: KeepResultsProps) {
+export function KeepResults({ snapshot, rules, includeTitles, onIncludeTitlesChange, onExport }: KeepResultsProps) {
   const styles = useStyles2(getResultsStyles);
   const [tab, setTab] = useState<TabId>(snapshot.backtest ? 'backtest' : 'jobs');
   const figures = useMemo(() => summarize(snapshot), [snapshot]);
@@ -481,11 +470,6 @@ export function KeepResults({
             share: pctText(rules.holdoutShare),
           })}
         />
-        <Tile
-          label={t('ai-insider-alerts.keep.tile-ga4', 'GA4 evidence')}
-          value={behaviorText(quality.behavior)}
-          detail={behaviorDetail(quality.behavior)}
-        />
       </div>
 
       <div className={styles.tabsRow}>
@@ -513,11 +497,6 @@ export function KeepResults({
             counter={snapshot.support.length}
             active={tab === 'support'}
             onChangeTab={() => setTab('support')}
-          />
-          <Tab
-            label={t('ai-insider-alerts.keep.tab-quality', 'Quality')}
-            active={tab === 'quality'}
-            onChangeTab={() => setTab('quality')}
           />
           {snapshot.backtest && (
             <Tab
@@ -554,9 +533,6 @@ export function KeepResults({
             includeTitles={includeTitles}
             onExport={onExport}
           />
-        )}
-        {tab === 'quality' && (
-          <QualityTab snapshot={snapshot} overrides={planClassOverrides} onPlanClassChange={onPlanClassChange} />
         )}
         {tab === 'backtest' && snapshot.backtest && <BacktestTab report={snapshot.backtest} />}
       </div>
@@ -613,7 +589,7 @@ function JobsTab({
     ...ACTIONS.map((a) => ({ label: actionText(a), value: a })),
   ];
   const deliveryOptions: Array<{ label: string; value: Delivery | 'all' }> = [
-    { label: t('ai-insider-alerts.keep.filter-any-channel', 'Any channel'), value: 'all' },
+    { label: t('ai-insider-alerts.keep.filter-any-channel', 'All'), value: 'all' },
     ...DELIVERIES.map((d) => ({ label: deliveryText(d), value: d })),
   ];
 
@@ -1425,8 +1401,8 @@ function AccountsTab({
         ) : (
           <Trans i18nKey="ai-insider-alerts.keep.support-legend">
             Customers with repeated failed playbacks or buffering (more than usual for them, on several days), and
-            subscriptions that were deactivated (void, refund or admin). A hand-off to support and to Notify customers
-            about technical issues: marketing promotions to them are held back.
+            subscriptions that were deactivated (void, refund or admin). A hand-off to support and to the Quality
+            section: marketing promotions to them are held back.
           </Trans>
         )}
       </div>
@@ -1565,15 +1541,15 @@ function AccountsTab({
   );
 }
 
-function QualityTab({
-  snapshot,
-  overrides,
-  onPlanClassChange,
-}: {
+export interface KeepQualityRulesProps {
   snapshot: KeepSnapshot;
+  /** Plan class overrides in the settings; may be newer than the snapshot (they apply on the next run). */
   overrides: Record<string, PlanClass>;
   onPlanClassChange: (pid: string, plan: string, cls: PlanClass | undefined) => void;
-}) {
+}
+
+/** Data quality of the last scan and the plan classes to correct, shown among the settings. */
+export function KeepQualityRules({ snapshot, overrides, onPlanClassChange }: KeepQualityRulesProps) {
   const styles = useStyles2(getResultsStyles);
   const { quality } = snapshot;
   const [pidFilter, setPidFilter] = useState('');
@@ -1618,7 +1594,7 @@ function QualityTab({
   );
 
   return (
-    <>
+    <div className={styles.tabBody}>
       <div className={styles.detailGrid}>
         {figure(
           t('ai-insider-alerts.keep.q-accounts', 'Customers seen'),
@@ -1847,7 +1823,7 @@ function QualityTab({
           <span className={styles.sub}>{behaviorDetail(quality.behavior)}</span>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -1949,6 +1925,15 @@ function BacktestTab({ report }: { report: BacktestReport }) {
 }
 
 const getKeepStyles = (theme: GrafanaTheme2) => ({
+  // Fills the rest of the toolbar row up to the right edge of the table, at the height of the filter groups.
+  accountSearch: css({
+    flex: '1 1 220px',
+    width: 'auto',
+    minWidth: 0,
+    height: 'auto',
+    minHeight: theme.spacing(4),
+    alignSelf: 'stretch',
+  }),
   filterGroup: css({
     display: 'flex',
     flexWrap: 'wrap',
@@ -1973,7 +1958,7 @@ const getKeepStyles = (theme: GrafanaTheme2) => ({
     maxWidth: 420,
   }),
   right: css({
-    justifyContent: 'flex-end',
+    alignItems: 'flex-end',
     marginTop: 2,
   }),
   barRecent: css({

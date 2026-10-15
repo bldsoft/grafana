@@ -93,7 +93,7 @@ beforeEach(() => {
   reportInteraction.mockReset();
 });
 
-describe('AlertsPage with Keep users in the app', () => {
+describe('AlertsPage with Retention', () => {
   it('switches sections and runs a scan', async () => {
     window.localStorage.setItem(
       'analytix.aiAlerts.settings.v1',
@@ -112,10 +112,7 @@ describe('AlertsPage with Keep users in the app', () => {
     });
     const { user } = render(<AlertsPage />, { renderWithRouter: true });
 
-    expect(screen.getByRole('tab', { name: 'Notify customers about technical issues' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+    expect(screen.getByRole('tab', { name: 'Quality' })).toHaveAttribute('aria-selected', 'true');
     // Migrated scope.
     expect(screen.getByDisplayValue('111')).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem('analytix.aiAlerts.common.v1')!)).toEqual({
@@ -125,7 +122,7 @@ describe('AlertsPage with Keep users in the app', () => {
     expect(JSON.parse(window.localStorage.getItem('analytix.aiAlerts.settings.v1')!).providers).toBeUndefined();
     expect(screen.getByText('Run replay')).toBeVisible();
 
-    await user.click(screen.getByRole('tab', { name: 'Keep users in the app' }));
+    await user.click(screen.getByRole('tab', { name: 'Retention' }));
     expect(locationService.getSearchObject().section).toBe('keep');
     expect(screen.getByText('Run scan')).toBeVisible();
     expect(screen.getByText('Run replay')).not.toBeVisible();
@@ -230,7 +227,7 @@ describe('AlertsPage with Keep users in the app', () => {
       screen.getByText('Not read: 111. Write id=push, crm or none; the providers to scan are set in Providers above.')
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: 'Notify customers about technical issues' }));
+    await user.click(screen.getByRole('tab', { name: 'Quality' }));
     expect(locationService.getSearchObject().section).toBeUndefined();
   });
 
@@ -261,7 +258,7 @@ describe('AlertsPage with Keep users in the app', () => {
     expect(shown('Running on CH · providers 111')).toHaveLength(1);
 
     // Keep is idle, so the bar unlocks there: the scope changes to 222.
-    await user.click(screen.getByRole('tab', { name: /^Keep users in the app/ }));
+    await user.click(screen.getByRole('tab', { name: /^Retention/ }));
     await user.clear(screen.getByDisplayValue('111'));
     await user.type(screen.getByPlaceholderText('Empty = all in scope, or ids: 111, 222'), '222');
     await user.click(screen.getByText('Run scan'));
@@ -272,7 +269,7 @@ describe('AlertsPage with Keep users in the app', () => {
     expect(shown('Applying the rules: 2 of 4 as-of dates done…')).toHaveLength(1);
 
     // Back on Tell: the locked bar shows 222, the replay still reads 111 and says so.
-    await user.click(screen.getByRole('tab', { name: /^Notify customers about technical issues/ }));
+    await user.click(screen.getByRole('tab', { name: /^Quality/ }));
     expect(screen.getByDisplayValue('222')).toBeDisabled();
     expect(shown('Running on CH · providers 111')).toHaveLength(1);
     expect(shown(/Running on CH · providers 222/)).toHaveLength(0);
@@ -285,7 +282,7 @@ describe('AlertsPage with Keep users in the app', () => {
     ).toBeInTheDocument();
     expect(shown(/Running on/)).toHaveLength(0);
 
-    await user.click(screen.getByRole('tab', { name: /^Keep users in the app/ }));
+    await user.click(screen.getByRole('tab', { name: /^Retention/ }));
     await user.click(screen.getByRole('button', { name: 'Stop' }));
     await user.hover(await screen.findByRole('button', { name: 'Continue' }));
     expect(
@@ -313,7 +310,7 @@ describe('AlertsPage with Keep users in the app', () => {
       tooLarge: false,
     });
     const { user } = render(<AlertsPage />, { renderWithRouter: true });
-    await user.click(screen.getByRole('tab', { name: /^Keep users in the app/ }));
+    await user.click(screen.getByRole('tab', { name: /^Retention/ }));
 
     // 1 outcome day (the engine's least) + 2 whole grace days.
     expect(screen.getByText('needs 3 days of outcome after it')).toBeInTheDocument();
