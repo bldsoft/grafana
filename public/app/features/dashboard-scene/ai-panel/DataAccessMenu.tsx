@@ -10,17 +10,13 @@ import { DataDomain } from './assistantClient';
 interface Props {
   /** Domains of the user's organization; null while loading or when the service predates them. */
   domains: DataDomain[] | null;
-  /** Puts an example question into the composer (does not send it). */
-  onPick: (prompt: string) => void;
 }
 
 interface DomainView {
   id: DataDomain['id'];
   icon: IconName;
   title: string;
-  source: string;
   detail: string;
-  examples: string[];
 }
 
 // Streaming is what the service always offered; an older service (no
@@ -29,11 +25,11 @@ const FALLBACK: DataDomain[] = [{ id: 'streaming', status: 'on', properties: [] 
 
 /**
  * The header "Data" menu: which data domains the user's organization can ask
- * about, with a few example questions per available domain. Availability
+ * about and what each of them covers. Availability
  * comes from the service (it reads the org's attributes), so the menu and the
  * agent always agree; finance is shown locked for everyone until it exists.
  */
-export function DataAccessMenu({ domains, onPick }: Props) {
+export function DataAccessMenu({ domains }: Props) {
   const styles = useStyles2(getStyles);
   const list = domains && domains.length > 0 ? domains : FALLBACK;
   const statusOf = (id: DataDomain['id']) => list.find((d) => d.id === id);
@@ -43,35 +39,22 @@ export function DataAccessMenu({ domains, onPick }: Props) {
       id: 'streaming',
       icon: 'play',
       title: t('dashboard.ai-panel.data-streaming-title', 'Streaming & quality'),
-      source: 'ClickHouse',
       detail: t(
         'dashboard.ai-panel.data-streaming-detail',
         'viewers, watch time, plays, channels and titles, errors, CDN'
       ),
-      examples: [t('dashboard.ai-panel.data-streaming-example', 'Active users by platform for the last 7 days')],
     },
     {
       id: 'behavior',
       icon: 'apps',
       title: t('dashboard.ai-panel.data-behavior-title', 'App behavior'),
-      source: 'GA4',
       detail: t('dashboard.ai-panel.data-behavior-detail', 'screens, modules, buttons, navigation, funnels, installs'),
-      examples: [
-        t(
-          'dashboard.ai-panel.data-behavior-example-module',
-          'How many times was My List opened in the last 28 days, by platform?'
-        ),
-        t('dashboard.ai-panel.data-behavior-example-buttons', 'Top buttons on the player screen this week'),
-        t('dashboard.ai-panel.data-behavior-example-funnel', 'Funnel: app open → My List → playback'),
-      ],
     },
     {
       id: 'finance',
       icon: 'dollar-alt',
       title: t('dashboard.ai-panel.data-finance-title', 'Finance'),
-      source: '',
       detail: t('dashboard.ai-panel.data-finance-detail', 'revenue, payments, ARPU'),
-      examples: [],
     },
   ];
 
@@ -110,18 +93,10 @@ export function DataAccessMenu({ domains, onPick }: Props) {
               <Icon name={on ? 'check-circle' : 'lock'} className={on ? styles.iconOn : styles.iconOff} />
               <Icon name={view.icon} className={styles.domainIcon} />
               <span className={styles.domainTitle}>{view.title}</span>
-              {view.source && <span className={styles.source}>{view.source}</span>}
             </div>
             <div className={styles.detail}>{view.detail}</div>
             {properties && <div className={styles.detail}>{properties}</div>}
             {state && <div className={styles.state}>{state}</div>}
-            {on &&
-              view.examples.map((example) => (
-                <button key={example} type="button" className={styles.example} onClick={() => onPick(example)}>
-                  <Icon name="angle-right" size="sm" />
-                  {example}
-                </button>
-              ))}
           </div>
         );
       })}
@@ -210,14 +185,6 @@ const getStyles = (theme: GrafanaTheme2) => ({
     color: analytix.text,
     fontWeight: theme.typography.fontWeightMedium,
   }),
-  source: css({
-    marginLeft: 'auto',
-    padding: theme.spacing(0, 1),
-    borderRadius: theme.shape.radius.pill,
-    border: `1px solid ${analytix.border}`,
-    color: analytix.textMuted,
-    fontSize: theme.typography.bodySmall.fontSize,
-  }),
   detail: css({
     paddingLeft: theme.spacing(5),
     color: analytix.textMuted,
@@ -228,26 +195,5 @@ const getStyles = (theme: GrafanaTheme2) => ({
     color: analytix.textDim,
     fontSize: theme.typography.bodySmall.fontSize,
     fontStyle: 'italic',
-  }),
-  example: css({
-    marginLeft: theme.spacing(4),
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: theme.spacing(0.5),
-    padding: theme.spacing(0.5, 1),
-    border: 'none',
-    borderRadius: analytix.radiusControl,
-    background: 'transparent',
-    color: analytix.text,
-    textAlign: 'left',
-    cursor: 'pointer',
-    '&:hover': {
-      background: analytix.control,
-      color: analytix.greenBright,
-    },
-    '&:focus-visible': {
-      outline: 'none',
-      boxShadow: analytix.focusRing,
-    },
   }),
 });

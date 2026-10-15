@@ -720,7 +720,7 @@ export function GenPanelChat({ onClose }: Props) {
         </div>
       </div>
       <div className={styles.headerActions}>
-        <DataAccessMenu domains={dataDomains ?? null} onPick={setInput} />
+        <DataAccessMenu domains={dataDomains ?? null} />
         <button type="button" className={styles.guideButton} onClick={onOpenGuide}>
           <Icon name="book-open" />
           <Trans i18nKey="dashboard.ai-panel.guide-button">Quick guide</Trans>
