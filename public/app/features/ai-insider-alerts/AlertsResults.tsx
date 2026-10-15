@@ -24,6 +24,7 @@ import { decisionsToCsv, formatCount, formatMinutes, formatUtc, formatUtcTime } 
 import { PushDialog } from './push/PushDialog';
 import { PushTokensPanel, usePushTokens } from './push/PushTokensPanel';
 import { accountKey } from './push/pushPlan';
+import { SortHeader, useTableSort } from './sortableTable';
 import type {
   ActivityIncident,
   ActivityKind,
@@ -383,6 +384,16 @@ function IncidentsTab({
 }) {
   const styles = useStyles2(getStyles);
   const groups = useMemo(() => new Map(snapshot.groups.map((g) => [g.id, g])), [snapshot.groups]);
+  const { rows: incidents, sort } = useTableSort(snapshot.incidents, {
+    started: (inc) => inc.start,
+    detected: (inc) => inc.detectedAt,
+    back: (inc) => inc.closedAt,
+    channel: (inc) => inc.title || inc.cid,
+    cls: (inc) => classBadge(snapshot.classOf(inc)).text,
+    peak: (inc) => inc.peakErrUsers,
+    viewers: (inc) => snapshot.affected(inc.id).length,
+    evidence: (inc) => topKey(inc.paths) || topKey(inc.hosts),
+  });
 
   if (!snapshot.incidents.length) {
     return (
@@ -413,34 +424,34 @@ function IncidentsTab({
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>
+              <SortHeader sort={sort} column="started">
                 <Trans i18nKey="ai-insider-alerts.col-started">Started (UTC)</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="detected">
                 <Trans i18nKey="ai-insider-alerts.col-detected">Detected</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="back">
                 <Trans i18nKey="ai-insider-alerts.col-back">Back</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="channel">
                 <Trans i18nKey="ai-insider-alerts.col-channel">Provider · channel</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="cls">
                 <Trans i18nKey="ai-insider-alerts.col-class">Class</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="peak" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-peak">Peak errors</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="viewers" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-viewers">Viewers hit</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="evidence">
                 <Trans i18nKey="ai-insider-alerts.col-evidence">Evidence</Trans>
-              </th>
+              </SortHeader>
             </tr>
           </thead>
           <tbody>
-            {snapshot.incidents.map((inc) => {
+            {incidents.map((inc) => {
               const cls = snapshot.classOf(inc);
               const badge = classBadge(cls);
               const open = expanded === inc.id;
@@ -536,6 +547,17 @@ function IncidentDetails({
     }
   }
   const counts = (kind: DecisionKind) => decisions.filter((d) => d.kind === kind).length;
+  const { rows: sortedUsers, sort } = useTableSort(users, {
+    viewer: (u) => u.userId,
+    platform: (u) => `${u.platform} ${u.network}`,
+    firstErr: (u) => u.firstErr,
+    errors: (u) => u.errEvents,
+    watched: (u) => u.watchedBeforeSec,
+    decision: (u) => {
+      const kind = byUser.get(u.userId);
+      return kind ? kindBadge(kind).text : undefined;
+    },
+  });
 
   // Sparkline over the incident's life: one bar per minute, height = share of
   // viewers with errors (bad minutes only; clean minutes stay empty).
@@ -617,28 +639,28 @@ function IncidentDetails({
       <table className={cx(styles.table, styles.innerTable)}>
         <thead>
           <tr>
-            <th>
+            <SortHeader sort={sort} column="viewer">
               <Trans i18nKey="ai-insider-alerts.col-viewer">Viewer</Trans>
-            </th>
-            <th>
+            </SortHeader>
+            <SortHeader sort={sort} column="platform">
               <Trans i18nKey="ai-insider-alerts.col-platform">Platform · network</Trans>
-            </th>
-            <th>
+            </SortHeader>
+            <SortHeader sort={sort} column="firstErr">
               <Trans i18nKey="ai-insider-alerts.col-first-error">First error</Trans>
-            </th>
-            <th className={styles.num}>
+            </SortHeader>
+            <SortHeader sort={sort} column="errors" className={styles.num}>
               <Trans i18nKey="ai-insider-alerts.col-errors">Errors</Trans>
-            </th>
-            <th className={styles.num}>
+            </SortHeader>
+            <SortHeader sort={sort} column="watched" className={styles.num}>
               <Trans i18nKey="ai-insider-alerts.col-watched">Watched before</Trans>
-            </th>
-            <th>
+            </SortHeader>
+            <SortHeader sort={sort} column="decision">
               <Trans i18nKey="ai-insider-alerts.col-decision">Decision</Trans>
-            </th>
+            </SortHeader>
           </tr>
         </thead>
         <tbody>
-          {users.slice(0, USERS_LIMIT).map((u) => {
+          {sortedUsers.slice(0, USERS_LIMIT).map((u) => {
             const kind = byUser.get(u.userId);
             const badge = kind ? kindBadge(kind) : undefined;
             return (
@@ -697,6 +719,13 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
     const keys = filtered.map((d) => accountKey(d.userId)).filter((key) => pushTokens.parsed.byAccount.has(key));
     return new Set(keys).size;
   }, [filtered, pushTokens.parsed]);
+  const { rows: sorted, sort } = useTableSort(filtered, {
+    time: (d) => d.at,
+    message: (d) => kindBadge(d.kind).text,
+    viewer: (d) => d.userId,
+    channel: (d) => d.title || d.cid,
+    why: (d) => d.reason,
+  });
 
   const options: Array<{ label: string; value: KindFilter }> = [
     { label: t('ai-insider-alerts.filter-all', 'All'), value: 'all' },
@@ -751,26 +780,26 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>
+              <SortHeader sort={sort} column="time">
                 <Trans i18nKey="ai-insider-alerts.col-time">Time (UTC)</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="message">
                 <Trans i18nKey="ai-insider-alerts.col-message">Message</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="viewer">
                 <Trans i18nKey="ai-insider-alerts.col-viewer">Viewer</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="channel">
                 <Trans i18nKey="ai-insider-alerts.col-channel">Provider · channel</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="why">
                 <Trans i18nKey="ai-insider-alerts.col-why">Why</Trans>
-              </th>
+              </SortHeader>
               <th aria-label={t('ai-insider-alerts.push.col', 'Test push')} />
             </tr>
           </thead>
           <tbody>
-            {filtered.slice(0, LOG_LIMIT).map((d, i) => {
+            {sorted.slice(0, LOG_LIMIT).map((d, i) => {
               const badge = kindBadge(d.kind);
               const hasToken = pushTokens.parsed.byAccount.has(accountKey(d.userId));
               return (
@@ -843,6 +872,16 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
 
 function CustomerTab({ rows }: { rows: CustomerSideRow[] }) {
   const styles = useStyles2(getStyles);
+  const { rows: sorted, sort } = useTableSort(rows, {
+    viewer: (r) => r.userId,
+    provider: (r) => (r.provider ? `${r.pid} ${r.provider}` : r.pid),
+    platform: (r) => `${r.platform} ${r.network}`,
+    channels: (r) => r.channels,
+    minutes: (r) => r.minutes,
+    errors: (r) => r.errEvents,
+    window: (r) => r.firstMinute,
+    code: (r) => r.topCode,
+  });
   if (!rows.length) {
     return (
       <p className={styles.empty}>
@@ -862,34 +901,34 @@ function CustomerTab({ rows }: { rows: CustomerSideRow[] }) {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>
+              <SortHeader sort={sort} column="viewer">
                 <Trans i18nKey="ai-insider-alerts.col-viewer">Viewer</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="provider">
                 <Trans i18nKey="ai-insider-alerts.col-provider">Provider</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="platform">
                 <Trans i18nKey="ai-insider-alerts.col-platform">Platform · network</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="channels" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-channels">Channels</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="minutes" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-minutes">Minutes</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="errors" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-errors">Errors</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="window">
                 <Trans i18nKey="ai-insider-alerts.col-window">Window (UTC)</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="code">
                 <Trans i18nKey="ai-insider-alerts.col-code">Top code</Trans>
-              </th>
+              </SortHeader>
             </tr>
           </thead>
           <tbody>
-            {rows.slice(0, LOG_LIMIT).map((r) => (
+            {sorted.slice(0, LOG_LIMIT).map((r) => (
               <tr key={`${r.pid}-${r.userId}-${r.lastMinute}`}>
                 <td className={styles.mono}>{r.userId}</td>
                 <td>{r.provider ? `${r.pid} ${r.provider}` : r.pid}</td>
@@ -928,6 +967,15 @@ function ProvidersTab({
     snapshot.providers.forEach((p) => p.groupId && sizes.set(p.groupId, (sizes.get(p.groupId) ?? 0) + 1));
     return sizes;
   }, [snapshot.providers]);
+  const { rows: providers, sort } = useTableSort(snapshot.providers, {
+    started: (p) => p.start,
+    detected: (p) => p.detectedAt,
+    back: (p) => p.closedAt,
+    provider: (p) => (p.provider ? `${p.pid} ${p.provider}` : p.pid),
+    ratio: (p) => p.peakRatio,
+    viewers: (p) => snapshot.providerAffected(p.id).length,
+    evidence: (p) => `${topKey(p.platforms)} ${topKey(p.codes)}`,
+  });
 
   if (!snapshot.providers.length) {
     return (
@@ -953,31 +1001,31 @@ function ProvidersTab({
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>
+              <SortHeader sort={sort} column="started">
                 <Trans i18nKey="ai-insider-alerts.col-started">Started (UTC)</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="detected">
                 <Trans i18nKey="ai-insider-alerts.col-detected">Detected</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="back">
                 <Trans i18nKey="ai-insider-alerts.col-back">Back</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="provider">
                 <Trans i18nKey="ai-insider-alerts.col-provider">Provider</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="ratio" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-vs-usual">Errors vs usual</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="viewers" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-viewers">Viewers hit</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="evidence">
                 <Trans i18nKey="ai-insider-alerts.col-evidence">Evidence</Trans>
-              </th>
+              </SortHeader>
             </tr>
           </thead>
           <tbody>
-            {snapshot.providers.map((p) => {
+            {providers.map((p) => {
               const open = expanded === p.id;
               const viewers = snapshot.providerAffected(p.id);
               const decisions = snapshot.decisions.filter((d) => d.incidentId === p.id);
@@ -1040,53 +1088,7 @@ function ProvidersTab({
                     <tr className={styles.detailRow}>
                       <td colSpan={7}>
                         <ProviderDetails incident={p} />
-                        <table className={cx(styles.table, styles.innerTable)}>
-                          <thead>
-                            <tr>
-                              <th>
-                                <Trans i18nKey="ai-insider-alerts.col-viewer">Viewer</Trans>
-                              </th>
-                              <th>
-                                <Trans i18nKey="ai-insider-alerts.col-platform">Platform · network</Trans>
-                              </th>
-                              <th>
-                                <Trans i18nKey="ai-insider-alerts.col-first-error">First error</Trans>
-                              </th>
-                              <th className={styles.num}>
-                                <Trans i18nKey="ai-insider-alerts.col-errors">Errors</Trans>
-                              </th>
-                              <th>
-                                <Trans i18nKey="ai-insider-alerts.col-decision">Decision</Trans>
-                              </th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {viewers.slice(0, USERS_LIMIT).map((u) => {
-                              const kind: DecisionKind = pushed.has(u.userId)
-                                ? 'down'
-                                : inApp.has(u.userId)
-                                  ? 'in_app'
-                                  : 'suppressed';
-                              const badge = kindBadge(kind);
-                              return (
-                                <tr key={u.userId}>
-                                  <td className={styles.mono}>{u.userId}</td>
-                                  <td>
-                                    {u.platform} · {u.network || '—'}
-                                    <span className={styles.sub}>
-                                      {[u.isp, u.city].filter(Boolean).join(' · ') || '—'}
-                                    </span>
-                                  </td>
-                                  <td>{formatUtcTime(u.firstErr)}</td>
-                                  <td className={styles.num}>{u.errEvents}</td>
-                                  <td>
-                                    <Badge text={badge.text} color={badge.color} />
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                        <ProviderViewers viewers={viewers} pushed={pushed} inApp={inApp} />
                       </td>
                     </tr>
                   )}
@@ -1100,6 +1102,70 @@ function ProvidersTab({
   );
 }
 
+/** Viewers of one provider incident and what each of them got. */
+function ProviderViewers({
+  viewers,
+  pushed,
+  inApp,
+}: {
+  viewers: AffectedUserRow[];
+  pushed: Set<string>;
+  inApp: Set<string>;
+}) {
+  const styles = useStyles2(getStyles);
+  const decisionOf = (userId: string): DecisionKind =>
+    pushed.has(userId) ? 'down' : inApp.has(userId) ? 'in_app' : 'suppressed';
+  const { rows, sort } = useTableSort(viewers, {
+    viewer: (u) => u.userId,
+    platform: (u) => `${u.platform} ${u.network}`,
+    firstErr: (u) => u.firstErr,
+    errors: (u) => u.errEvents,
+    decision: (u) => kindBadge(decisionOf(u.userId)).text,
+  });
+  return (
+    <table className={cx(styles.table, styles.innerTable)}>
+      <thead>
+        <tr>
+          <SortHeader sort={sort} column="viewer">
+            <Trans i18nKey="ai-insider-alerts.col-viewer">Viewer</Trans>
+          </SortHeader>
+          <SortHeader sort={sort} column="platform">
+            <Trans i18nKey="ai-insider-alerts.col-platform">Platform · network</Trans>
+          </SortHeader>
+          <SortHeader sort={sort} column="firstErr">
+            <Trans i18nKey="ai-insider-alerts.col-first-error">First error</Trans>
+          </SortHeader>
+          <SortHeader sort={sort} column="errors" className={styles.num}>
+            <Trans i18nKey="ai-insider-alerts.col-errors">Errors</Trans>
+          </SortHeader>
+          <SortHeader sort={sort} column="decision">
+            <Trans i18nKey="ai-insider-alerts.col-decision">Decision</Trans>
+          </SortHeader>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.slice(0, USERS_LIMIT).map((u) => {
+          const badge = kindBadge(decisionOf(u.userId));
+          return (
+            <tr key={u.userId}>
+              <td className={styles.mono}>{u.userId}</td>
+              <td>
+                {u.platform} · {u.network || '—'}
+                <span className={styles.sub}>{[u.isp, u.city].filter(Boolean).join(' · ') || '—'}</span>
+              </td>
+              <td>{formatUtcTime(u.firstErr)}</td>
+              <td className={styles.num}>{u.errEvents}</td>
+              <td>
+                <Badge text={badge.text} color={badge.color} />
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 function ServiceTab({
   incidents,
   expanded,
@@ -1110,6 +1176,19 @@ function ServiceTab({
   onToggle: (id?: string) => void;
 }) {
   const styles = useStyles2(getStyles);
+  const { rows: sorted, sort } = useTableSort(incidents, {
+    kind: (inc) => activityBadge(inc.kind).text,
+    started: (inc) => inc.start,
+    detected: (inc) => inc.detectedAt,
+    back: (inc) => inc.closedAt,
+    provider: (inc) =>
+      inc.kind === 'service_down'
+        ? inc.provider
+          ? `${inc.pid} ${inc.provider}`
+          : inc.pid
+        : Object.keys(inc.pids).length,
+    signal: (inc) => activityPeak(inc).providers,
+  });
   if (!incidents.length) {
     return (
       <p className={styles.empty}>
@@ -1134,28 +1213,28 @@ function ServiceTab({
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>
+              <SortHeader sort={sort} column="kind">
                 <Trans i18nKey="ai-insider-alerts.col-kind">Kind</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="started">
                 <Trans i18nKey="ai-insider-alerts.col-started">Started (UTC)</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="detected">
                 <Trans i18nKey="ai-insider-alerts.col-detected">Detected</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="back">
                 <Trans i18nKey="ai-insider-alerts.col-back">Back</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="provider">
                 <Trans i18nKey="ai-insider-alerts.col-provider">Provider</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="signal">
                 <Trans i18nKey="ai-insider-alerts.col-signal">Signal</Trans>
-              </th>
+              </SortHeader>
             </tr>
           </thead>
           <tbody>
-            {incidents.map((inc) => {
+            {sorted.map((inc) => {
               const open = expanded === inc.id;
               const badge = activityBadge(inc.kind);
               const peak = activityPeak(inc);
@@ -1376,6 +1455,17 @@ function ProviderDetails({ incident }: { incident: ProviderIncident }) {
 
 function OpsTab({ rows }: { rows: ChannelReportRow[] }) {
   const styles = useStyles2(getStyles);
+  const { rows: sorted, sort } = useTableSort(rows, {
+    channel: (r) => r.title || r.cid,
+    incidents: (r) => r.incidents,
+    days: (r) => r.days,
+    failing: (r) => r.failingMinutes,
+    viewers: (r) => r.viewersHit,
+    // Recurring, unstable, off-air and dead weigh in that order.
+    flags: (r) => (r.days >= 2 ? 8 : 0) + (r.unstableIncidents > 0 ? 4 : 0) + (r.offAir > 0 ? 2 : 0) + (r.dead ? 1 : 0),
+    evidence: (r) => r.topPath,
+    seen: (r) => r.firstStart,
+  });
   if (!rows.length) {
     return (
       <p className={styles.empty}>
@@ -1395,34 +1485,34 @@ function OpsTab({ rows }: { rows: ChannelReportRow[] }) {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>
+              <SortHeader sort={sort} column="channel">
                 <Trans i18nKey="ai-insider-alerts.col-channel">Provider · channel</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="incidents" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-incidents">Incidents</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="days" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-days">Days</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="failing" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-failing-minutes">Failing minutes</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="viewers" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-viewers">Viewers hit</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="flags">
                 <Trans i18nKey="ai-insider-alerts.col-flags">Flags</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="evidence">
                 <Trans i18nKey="ai-insider-alerts.col-evidence">Evidence</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="seen">
                 <Trans i18nKey="ai-insider-alerts.col-seen-range">First – last (UTC)</Trans>
-              </th>
+              </SortHeader>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {sorted.map((r) => (
               <tr key={`${r.pid}-${r.cid}`}>
                 <td>
                   <strong>{r.title || r.cid}</strong>
@@ -1476,6 +1566,12 @@ function OpsTab({ rows }: { rows: ChannelReportRow[] }) {
 
 function DeadTab({ rows }: { rows: DeadChannel[] }) {
   const styles = useStyles2(getStyles);
+  const { rows: sorted, sort } = useTableSort(rows, {
+    channel: (r) => r.title || r.cid,
+    srvErr: (r) => r.srvErrUsers,
+    tried: (r) => r.triedUsers,
+    seen: (r) => r.firstSeen,
+  });
   if (!rows.length) {
     return (
       <p className={styles.empty}>
@@ -1495,22 +1591,22 @@ function DeadTab({ rows }: { rows: DeadChannel[] }) {
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>
+              <SortHeader sort={sort} column="channel">
                 <Trans i18nKey="ai-insider-alerts.col-channel">Provider · channel</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="srvErr" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-srv-users">Viewers with server errors</Trans>
-              </th>
-              <th className={styles.num}>
+              </SortHeader>
+              <SortHeader sort={sort} column="tried" className={styles.num}>
                 <Trans i18nKey="ai-insider-alerts.col-tried">Tried to watch</Trans>
-              </th>
-              <th>
+              </SortHeader>
+              <SortHeader sort={sort} column="seen">
                 <Trans i18nKey="ai-insider-alerts.col-seen">Seen dead (UTC)</Trans>
-              </th>
+              </SortHeader>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
+            {sorted.map((r) => (
               <tr key={`${r.pid}-${r.cid}`}>
                 <td>
                   <strong>{r.title || r.cid}</strong>

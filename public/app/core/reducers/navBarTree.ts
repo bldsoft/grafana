@@ -91,8 +91,25 @@ const navTreeSlice = createSlice({
         state.splice(pluginItemIndex, 1);
       }
     },
+    // Analytix: the AI Insider Alerts section is gated by an org team the server nav tree does not know
+    // about, so the client adds it (right after Dashboards) once access is confirmed; undefined removes it.
+    setAiInsiderAlertsNav: (state, action: PayloadAction<NavModelItem | undefined>) => {
+      const id = AI_INSIDER_ALERTS_NAV_ID;
+      const existing = state.findIndex((navItem) => navItem.id === id);
+      if (existing > -1) {
+        state.splice(existing, 1);
+      }
+      if (action.payload) {
+        const dashboards = state.findIndex((navItem) => navItem.id === 'dashboards');
+        const home = state.findIndex((navItem) => navItem.id === 'home');
+        state.splice((dashboards > -1 ? dashboards : home) + 1, 0, { ...action.payload, id });
+      }
+    },
   },
 });
 
-export const { setStarred, removePluginFromNavTree, updateDashboardName, setBookmark } = navTreeSlice.actions;
+export const AI_INSIDER_ALERTS_NAV_ID = 'ai-insider-alerts';
+
+export const { setStarred, removePluginFromNavTree, updateDashboardName, setBookmark, setAiInsiderAlertsNav } =
+  navTreeSlice.actions;
 export const navTreeReducer = navTreeSlice.reducer;

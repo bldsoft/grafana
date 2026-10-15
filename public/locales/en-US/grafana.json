@@ -376,8 +376,6 @@
     "activity-signal-outage_other": "Up to {{count}} providers at once · playback {{plays}}% · errors {{errors}}× usual",
     "activity-signal-service": "App starts {{sessions}}× usual · playback {{plays}}% of usual",
     "all-channels": "All channels",
-    "button": "Alerts",
-    "button-aria": "AI Insider alerts",
     "class-chronic": "Chronic",
     "class-chronic-tip": "Channel has had no clean viewing for hours: a status, not an incident",
     "class-in-app": "In player",

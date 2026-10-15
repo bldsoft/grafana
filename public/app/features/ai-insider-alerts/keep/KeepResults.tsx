@@ -26,6 +26,7 @@ import { analytix } from 'app/features/home/analytixTokens';
 
 import { Tile, getStyles as getResultsStyles } from '../AlertsResults';
 import { formatCount, formatUtc } from '../format';
+import { SortHeader, useTableSort } from '../sortableTable';
 
 import { ruleDays } from './engine';
 import {
@@ -587,6 +588,14 @@ function JobsTab({
   }, [sorted, action, delivery, search]);
   const toExport = useMemo(() => marketingJobs(filtered), [filtered]);
   const controlCount = useMemo(() => snapshot.jobs.filter((j) => j.control).length, [snapshot.jobs]);
+  const { rows: shown, sort } = useTableSort(filtered, {
+    account: (j) => j.account,
+    why: (j) => reasonText(j.reason),
+    action: (j) => actionText(j.action),
+    send: (j) => j.sendAt,
+    delivery: (j) => deliveryText(j.delivery),
+    priority: (j) => j.priority,
+  });
 
   const actionOptions: Array<{ label: string; value: KeepAction | 'all' }> = [
     { label: t('ai-insider-alerts.keep.filter-all', 'All'), value: 'all' },
@@ -673,28 +682,28 @@ function JobsTab({
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>
+                <SortHeader sort={sort} column="account">
                   <Trans i18nKey="ai-insider-alerts.keep.col-account">Account</Trans>
-                </th>
-                <th>
+                </SortHeader>
+                <SortHeader sort={sort} column="why">
                   <Trans i18nKey="ai-insider-alerts.keep.col-why">Why</Trans>
-                </th>
-                <th>
+                </SortHeader>
+                <SortHeader sort={sort} column="action">
                   <Trans i18nKey="ai-insider-alerts.keep.col-action">Action</Trans>
-                </th>
-                <th>
+                </SortHeader>
+                <SortHeader sort={sort} column="send">
                   <Trans i18nKey="ai-insider-alerts.keep.col-send">Send (UTC)</Trans>
-                </th>
-                <th>
+                </SortHeader>
+                <SortHeader sort={sort} column="delivery">
                   <Trans i18nKey="ai-insider-alerts.keep.col-delivery">Delivery</Trans>
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={sort} column="priority" className={styles.num}>
                   <Trans i18nKey="ai-insider-alerts.keep.col-priority">Priority</Trans>
-                </th>
+                </SortHeader>
               </tr>
             </thead>
             <tbody>
-              {filtered.slice(0, LIST_LIMIT).map((job) => {
+              {shown.slice(0, LIST_LIMIT).map((job) => {
                 const open = expanded === job.id;
                 const toggle = () => setExpanded(open ? undefined : job.id);
                 const assessment = byKey.get(job.key);
@@ -1137,6 +1146,16 @@ function RenewalsTab({ renewals, controlKeys }: { renewals: RenewalItem[]; contr
       silent: silentItems.sort((a, b) => b.expiry - a.expiry),
     };
   }, [renewals]);
+  // One column per renewal style, keyed like STYLES.
+  const { rows: sortedDays, sort } = useTableSort(days, {
+    day: (row) => row.day,
+    atRisk: (row) => row.atRisk,
+    autopay: (row) => row.autopay,
+    repurchase: (row) => row.styles.repurchase,
+    early: (row) => row.styles.early,
+    at_term: (row) => row.styles.at_term,
+    unknown: (row) => row.styles.unknown,
+  });
   // A search lists the matching customers of every day and of "expired and silent" at once.
   const matches = useMemo(() => {
     const match = accountMatcher(search);
@@ -1177,24 +1196,24 @@ function RenewalsTab({ renewals, controlKeys }: { renewals: RenewalItem[]; contr
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>
+                <SortHeader sort={sort} column="day">
                   <Trans i18nKey="ai-insider-alerts.keep.col-ends">Ends (UTC)</Trans>
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={sort} column="atRisk" className={styles.num}>
                   <Trans i18nKey="ai-insider-alerts.keep.col-at-risk">At risk</Trans>
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={sort} column="autopay" className={styles.num}>
                   <Trans i18nKey="ai-insider-alerts.keep.col-check-autopay">Check autopay</Trans>
-                </th>
+                </SortHeader>
                 {STYLES.map((s) => (
-                  <th key={s} className={styles.num}>
+                  <SortHeader key={s} sort={sort} column={s} className={styles.num}>
                     {styleText(s)}
-                  </th>
+                  </SortHeader>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {days.map((row) => {
+              {sortedDays.map((row) => {
                 const open = expanded === row.day;
                 const toggle = () => setExpanded(open ? undefined : row.day);
                 return (
@@ -1250,30 +1269,37 @@ function RenewalsTab({ renewals, controlKeys }: { renewals: RenewalItem[]; contr
 
 function RenewalList({ items, controlKeys }: { items: RenewalItem[]; controlKeys: Set<string> }) {
   const styles = useStyles2(getResultsStyles);
+  const { rows, sort } = useTableSort(items, {
+    account: (r) => r.account,
+    plan: (r) => `${r.pid} ${r.plan}`,
+    ends: (r) => r.expiry,
+    style: (r) => styleText(r.renewalStyle),
+    kind: (r) => renewalKindBadge(r.kind).text,
+  });
   return (
     <>
       <table className={cx(styles.table, styles.innerTable)}>
         <thead>
           <tr>
-            <th>
+            <SortHeader sort={sort} column="account">
               <Trans i18nKey="ai-insider-alerts.keep.col-account">Account</Trans>
-            </th>
-            <th>
+            </SortHeader>
+            <SortHeader sort={sort} column="plan">
               <Trans i18nKey="ai-insider-alerts.keep.col-plan">Provider · plan</Trans>
-            </th>
-            <th>
+            </SortHeader>
+            <SortHeader sort={sort} column="ends">
               <Trans i18nKey="ai-insider-alerts.keep.col-ends">Ends (UTC)</Trans>
-            </th>
-            <th>
+            </SortHeader>
+            <SortHeader sort={sort} column="style">
               <Trans i18nKey="ai-insider-alerts.keep.col-style">Last renewal</Trans>
-            </th>
-            <th>
+            </SortHeader>
+            <SortHeader sort={sort} column="kind">
               <Trans i18nKey="ai-insider-alerts.keep.col-kind">Kind</Trans>
-            </th>
+            </SortHeader>
           </tr>
         </thead>
         <tbody>
-          {items.slice(0, LIST_LIMIT).map((r) => {
+          {rows.slice(0, LIST_LIMIT).map((r) => {
             const badge = renewalKindBadge(r.kind);
             return (
               <tr key={r.key}>
@@ -1338,6 +1364,14 @@ function AccountsTab({
     () => (kind === 'leads' ? salesLeads(filtered, controlKeys) : filtered),
     [kind, filtered, controlKeys]
   );
+  const { rows: shown, sort } = useTableSort(filtered, {
+    account: (a) => a.account,
+    why: (a) => evidenceSentence(a.evidence, 3, evidenceContext(a, rules)),
+    figure: (a) =>
+      kind === 'leads' ? a.recent.premiumAttempts - a.recent.premiumPaidContent : a.recent.failedPlaybacks,
+    watch: (a) => a.recent.watchAllMin,
+    platforms: (a) => a.platforms.join(', '),
+  });
 
   if (!rows.length) {
     return (
@@ -1421,29 +1455,29 @@ function AccountsTab({
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>
+                <SortHeader sort={sort} column="account">
                   <Trans i18nKey="ai-insider-alerts.keep.col-account">Account</Trans>
-                </th>
-                <th>
+                </SortHeader>
+                <SortHeader sort={sort} column="why">
                   <Trans i18nKey="ai-insider-alerts.keep.col-why">Why</Trans>
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={sort} column="figure" className={styles.num}>
                   {kind === 'leads' ? (
                     <Trans i18nKey="ai-insider-alerts.keep.col-refused">Refused (other package)</Trans>
                   ) : (
                     <Trans i18nKey="ai-insider-alerts.keep.col-failed">Failed / playbacks</Trans>
                   )}
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={sort} column="watch" className={styles.num}>
                   <Trans i18nKey="ai-insider-alerts.keep.col-watch">Watched min/day</Trans>
-                </th>
-                <th>
+                </SortHeader>
+                <SortHeader sort={sort} column="platforms">
                   <Trans i18nKey="ai-insider-alerts.keep.col-platforms">Platforms</Trans>
-                </th>
+                </SortHeader>
               </tr>
             </thead>
             <tbody>
-              {filtered.slice(0, LIST_LIMIT).map((a) => {
+              {shown.slice(0, LIST_LIMIT).map((a) => {
                 const open = expanded === a.key;
                 const toggle = () => setExpanded(open ? undefined : a.key);
                 return (
@@ -1542,6 +1576,18 @@ function QualityTab({
     const q = pidFilter.trim();
     return q ? plans.filter((p) => p.pid.startsWith(q)) : plans;
   }, [plans, pidFilter]);
+  const { rows: sortedPlans, sort: planSort } = useTableSort(shownPlans, {
+    pid: (p) => p.pid,
+    plan: (p) => p.plan,
+    customers: (p) => p.accounts,
+    cls: (p) => planClassText(p.planClass),
+  });
+  const { rows: paywall, sort: paywallSort } = useTableSort(quality.paywall, {
+    platform: (p) => p.platform,
+    code: (p) => p.code,
+    kind: (p) => paywallKindBadge(p.kind).text,
+    refused: (p) => p.count,
+  });
   const classOptions: Array<{ label: string; value: PlanClass | 'auto' }> = [
     { label: t('ai-insider-alerts.keep.plan-auto', 'By name'), value: 'auto' },
     { label: planClassText('paid'), value: 'paid' },
@@ -1635,25 +1681,25 @@ function QualityTab({
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>
+                <SortHeader sort={planSort} column="pid">
                   <Trans i18nKey="ai-insider-alerts.keep.col-provider">Provider</Trans>
-                </th>
-                <th>
+                </SortHeader>
+                <SortHeader sort={planSort} column="plan">
                   <Trans i18nKey="ai-insider-alerts.keep.col-plan-name">Plan</Trans>
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={planSort} column="customers" className={styles.num}>
                   <Trans i18nKey="ai-insider-alerts.keep.col-customers">Customers</Trans>
-                </th>
-                <th>
+                </SortHeader>
+                <SortHeader sort={planSort} column="cls">
                   <Trans i18nKey="ai-insider-alerts.keep.col-class">Class</Trans>
-                </th>
+                </SortHeader>
                 <th>
                   <Trans i18nKey="ai-insider-alerts.keep.col-override">Override</Trans>
                 </th>
               </tr>
             </thead>
             <tbody>
-              {shownPlans.slice(0, LIST_LIMIT).map((p) => {
+              {sortedPlans.slice(0, LIST_LIMIT).map((p) => {
                 const key = `${p.pid}|${p.plan}`;
                 const name = p.plan || t('ai-insider-alerts.keep.no-plan-name', '(no plan name)');
                 return (
@@ -1723,22 +1769,22 @@ function QualityTab({
             <table className={cx(styles.table, styles.innerTable)}>
               <thead>
                 <tr>
-                  <th>
+                  <SortHeader sort={paywallSort} column="platform">
                     <Trans i18nKey="ai-insider-alerts.keep.col-platform">Platform</Trans>
-                  </th>
-                  <th>
+                  </SortHeader>
+                  <SortHeader sort={paywallSort} column="code">
                     <Trans i18nKey="ai-insider-alerts.keep.col-code">Code</Trans>
-                  </th>
-                  <th>
+                  </SortHeader>
+                  <SortHeader sort={paywallSort} column="kind">
                     <Trans i18nKey="ai-insider-alerts.keep.col-kind">Kind</Trans>
-                  </th>
-                  <th className={styles.num}>
+                  </SortHeader>
+                  <SortHeader sort={paywallSort} column="refused" className={styles.num}>
                     <Trans i18nKey="ai-insider-alerts.keep.col-refused-count">Refused</Trans>
-                  </th>
+                  </SortHeader>
                 </tr>
               </thead>
               <tbody>
-                {quality.paywall.slice(0, LIST_LIMIT).map((p) => {
+                {paywall.slice(0, LIST_LIMIT).map((p) => {
                   const badge = paywallKindBadge(p.kind);
                   return (
                     <tr key={`${p.platform}|${p.code}|${p.kind}`}>
@@ -1792,6 +1838,16 @@ function QualityTab({
 
 function BacktestTab({ report }: { report: BacktestReport }) {
   const styles = useStyles2(getResultsStyles);
+  const { rows, sort } = useTableSort(report.rows, {
+    group: (r) => groupText(r.group),
+    flagged: (r) => r.flagged,
+    labeled: (r) => r.labeled,
+    censored: (r) => r.censored,
+    positive: (r) => r.positiveRate,
+    base: (r) => r.baseRate,
+    lift: (r) => r.lift,
+    recall: (r) => r.recall,
+  });
   return (
     <>
       <div className={styles.legend}>
@@ -1810,34 +1866,34 @@ function BacktestTab({ report }: { report: BacktestReport }) {
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>
+                <SortHeader sort={sort} column="group">
                   <Trans i18nKey="ai-insider-alerts.keep.col-group">Group (bad outcome)</Trans>
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={sort} column="flagged" className={styles.num}>
                   <Trans i18nKey="ai-insider-alerts.keep.col-flagged">Flagged</Trans>
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={sort} column="labeled" className={styles.num}>
                   <Trans i18nKey="ai-insider-alerts.keep.col-labeled">Known outcome</Trans>
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={sort} column="censored" className={styles.num}>
                   <Trans i18nKey="ai-insider-alerts.keep.col-censored">Censored</Trans>
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={sort} column="positive" className={styles.num}>
                   <Trans i18nKey="ai-insider-alerts.keep.col-positive">Bad, flagged</Trans>
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={sort} column="base" className={styles.num}>
                   <Trans i18nKey="ai-insider-alerts.keep.col-base">Bad, not flagged</Trans>
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={sort} column="lift" className={styles.num}>
                   <Trans i18nKey="ai-insider-alerts.keep.col-lift">Lift</Trans>
-                </th>
-                <th className={styles.num}>
+                </SortHeader>
+                <SortHeader sort={sort} column="recall" className={styles.num}>
                   <Trans i18nKey="ai-insider-alerts.keep.col-recall">Recall</Trans>
-                </th>
+                </SortHeader>
               </tr>
             </thead>
             <tbody>
-              {report.rows.map((r) => (
+              {rows.map((r) => (
                 <tr key={r.group}>
                   <td>{groupText(r.group)}</td>
                   <td className={styles.num}>{formatCount(r.flagged)}</td>

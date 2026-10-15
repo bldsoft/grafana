@@ -7,7 +7,6 @@ import { getBackendSrv, locationService, reportInteraction } from '@grafana/runt
 import { Spinner, useStyles2 } from '@grafana/ui';
 import { AppChromeUpdate } from 'app/core/components/AppChrome/AppChromeUpdate';
 import { Page } from 'app/core/components/Page/Page';
-import { AlertsButton } from 'app/features/ai-insider-alerts/AlertsButton';
 import { GenPanelButton } from 'app/features/dashboard-scene/ai-panel/GenPanelButton';
 import { useAiInsiderAccess } from 'app/features/dashboard-scene/ai-panel/useAiInsiderAccess';
 import { DashboardDTO, HomeDashboardRedirectDTO, isRedirectResponse } from 'app/types/dashboard';
@@ -70,16 +69,7 @@ export function AnalytixHomePage() {
       {/* Analytix: AI assistant button in the top-right header corner, same
           spot it used to occupy in the dashboard toolbar. `inlineActions`
           keeps it in the first header row at every screen width. */}
-      {aiInsiderAllowed && (
-        <AppChromeUpdate
-          inlineActions={
-            <>
-              <AlertsButton />
-              <GenPanelButton onClick={handleChatToggle} />
-            </>
-          }
-        />
-      )}
+      {aiInsiderAllowed && <AppChromeUpdate inlineActions={<GenPanelButton onClick={handleChatToggle} />} />}
       <Page.Contents>
         {loading ? (
           <div className={styles.loading}>

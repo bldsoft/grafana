@@ -10,7 +10,7 @@
 import { css } from '@emotion/css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { DataSourceInstanceSettings, DataSourceRef, GrafanaTheme2, NavModelItem, store } from '@grafana/data';
+import { DataSourceInstanceSettings, DataSourceRef, GrafanaTheme2, NavModel, store } from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
 import { DataSourcePicker, getDataSourceSrv, reportInteraction } from '@grafana/runtime';
 import {
@@ -28,14 +28,17 @@ import {
 } from '@grafana/ui';
 import { Page } from 'app/core/components/Page/Page';
 import { useQueryParams } from 'app/core/hooks/useQueryParams';
+import { HOME_NAV_ID } from 'app/core/reducers/navModel';
 import { useAiInsiderAccessState } from 'app/features/dashboard-scene/ai-panel/useAiInsiderAccess';
 import { analytix } from 'app/features/home/analytixTokens';
+import { useSelector } from 'app/types/store';
 
 import { AlertsResults, AlertsSnapshot } from './AlertsResults';
 import { AlertEngine } from './engine';
 import { ExportMeta, downloadBlob, exportFileName, exportRun, runDatasetExport } from './export';
 import { formatCount, formatUtc, fromUtcInput, toUtcInput } from './format';
 import { KeepWorkbench, datasourceName, runScopeText, scopePids } from './keep/KeepWorkbench';
+import { AlertsSection as Section, alertsSectionNavId, buildAlertsNav } from './nav';
 import { runLive, runReplay } from './runner';
 import { ProviderScope, effectiveScope, parseProviderScope } from './scope';
 import { AlertRules, DEFAULT_RULES } from './types';
@@ -47,7 +50,6 @@ const MAX_REPLAY_SEC = 7 * 86400;
 const LIVE_POLL_MS = 60000;
 
 type Mode = 'replay' | 'live';
-type Section = 'tell' | 'keep';
 
 interface Settings {
   mode: Mode;
@@ -342,21 +344,30 @@ function ruleFields(): RuleField[] {
 export function AlertsPage() {
   const access = useAiInsiderAccessState();
   const styles = useStyles2(getStyles);
-  const pageNav: NavModelItem = {
-    id: 'ai-insider-alerts',
-    text: t('ai-insider-alerts.page-title', 'AI Insider Alerts'),
-    icon: 'bell',
-  };
+  const [query, updateQuery] = useQueryParams();
+  const section: Section = query.section === 'keep' ? 'keep' : 'tell';
+  const home = useSelector((state) => state.navIndex[HOME_NAV_ID]);
+  // The side menu section and the open sub-item: highlights it in the menu and
+  // gives the breadcrumb Home › AI Insider Alerts › <section>.
+  const navModel = useMemo((): NavModel => {
+    const main = { ...buildAlertsNav(), parentItem: home };
+    const node = main.children?.find((item) => item.id === alertsSectionNavId(section)) ?? main;
+    return { main, node: { ...node, parentItem: main } };
+  }, [home, section]);
 
   return (
-    <Page navId="home" pageNav={pageNav}>
+    <Page navModel={navModel} renderTitle={() => <h1>{navModel.main.text}</h1>}>
       <Page.Contents>
         {access.loading ? (
           <div className={styles.center}>
             <Spinner />
           </div>
         ) : access.allowed ? (
-          <AlertsSections orgScope={parseProviderScope(access.providerIds)} />
+          <AlertsSections
+            orgScope={parseProviderScope(access.providerIds)}
+            section={section}
+            onShow={(next) => updateQuery({ section: next === 'keep' ? 'keep' : null }, true)}
+          />
         ) : (
           <Alert severity="info" title={t('ai-insider-alerts.no-access-title', 'AI Insider is not enabled for you')}>
             <Trans i18nKey="ai-insider-alerts.no-access-body">
@@ -379,10 +390,16 @@ function RunningBadge({ className }: { className?: string }) {
  * The two sections and the scope they share. Both stay mounted, the inactive
  * one hidden, so switching never stops a live run, a replay or a scan.
  */
-function AlertsSections({ orgScope }: { orgScope: ProviderScope }) {
+function AlertsSections({
+  orgScope,
+  section,
+  onShow: show,
+}: {
+  orgScope: ProviderScope;
+  section: Section;
+  onShow: (section: Section) => void;
+}) {
   const styles = useStyles2(getStyles);
-  const [query, updateQuery] = useQueryParams();
-  const section: Section = query.section === 'keep' ? 'keep' : 'tell';
   const [common, setCommon] = useState<CommonSettings>(loadCommon);
   const [tellRunning, setTellRunning] = useState(false);
   const [keepRunning, setKeepRunning] = useState(false);
@@ -414,8 +431,6 @@ function AlertsSections({ orgScope }: { orgScope: ProviderScope }) {
       : orgScope.length
         ? t('ai-insider-alerts.scope-list', 'Organisation scope: {{pids}}', { pids: orgScope.join(', ') })
         : t('ai-insider-alerts.scope-none', 'Organisation scope: no providers assigned');
-
-  const show = (next: Section) => updateQuery({ section: next === 'keep' ? 'keep' : null }, true);
 
   return (
     <div className={styles.page}>
