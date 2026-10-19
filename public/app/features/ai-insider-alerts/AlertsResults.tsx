@@ -359,15 +359,18 @@ export function Tile({
   value,
   detail,
   accent,
+  alert,
 }: {
   label: string;
   value: string;
   detail: string;
   accent?: boolean;
+  /** Something needs attention now (red border). */
+  alert?: boolean;
 }) {
   const styles = useStyles2(getStyles);
   return (
-    <div className={cx(styles.tile, accent && styles.tileAccent)}>
+    <div className={cx(styles.tile, accent && styles.tileAccent, alert && styles.tileAlert)}>
       <div className={styles.tileLabel}>{label}</div>
       <div className={styles.tileValue}>{value}</div>
       <div className={styles.tileDetail}>{detail}</div>
@@ -529,6 +532,47 @@ function IncidentsTab({
   );
 }
 
+/** Top entries of a breakdown with their counts: "a (12), b (3)". */
+export function breakdown(map: Record<string, number>, limit = 4) {
+  return Object.entries(map)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([k, v]) => `${k || '—'} (${v})`)
+    .join(', ');
+}
+
+/**
+ * The incident's life, one bar per minute, height = share of viewers with
+ * errors (bad minutes only; clean minutes stay empty).
+ */
+export function IncidentSparkline({ incident, cls, to }: { incident: Incident; cls: IncidentClass; to: number }) {
+  const styles = useStyles2(getStyles);
+  const theme = useTheme2();
+  const end = incident.closedAt ?? Math.max(incident.lastBad + 60, to);
+  const minutes = Math.max(1, Math.round((end - incident.start) / 60));
+  const w = 600;
+  const h = 48;
+  const bw = Math.max(1, w / minutes);
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className={styles.spark} preserveAspectRatio="none" aria-hidden>
+      {incident.series.map((p) => {
+        const share = p.users ? p.errUsers / p.users : 0;
+        const bh = Math.max(1, share * (h - 2));
+        return (
+          <rect
+            key={p.minute}
+            x={((p.minute - incident.start) / 60) * bw}
+            y={h - bh}
+            width={Math.max(1, bw - 0.5)}
+            height={bh}
+            fill={classColor(theme, cls)}
+          />
+        );
+      })}
+    </svg>
+  );
+}
+
 function IncidentDetails({
   incident,
   snapshot,
@@ -541,7 +585,6 @@ function IncidentDetails({
   groupLabel?: string;
 }) {
   const styles = useStyles2(getStyles);
-  const theme = useTheme2();
   const users = snapshot.affected(incident.id);
   const decisions = snapshot.decisions.filter((d) => d.incidentId === incident.id);
   const byUser = new Map<string, DecisionKind>();
@@ -563,39 +606,9 @@ function IncidentDetails({
     },
   });
 
-  // Sparkline over the incident's life: one bar per minute, height = share of
-  // viewers with errors (bad minutes only; clean minutes stay empty).
-  const end = incident.closedAt ?? Math.max(incident.lastBad + 60, snapshot.to);
-  const minutes = Math.max(1, Math.round((end - incident.start) / 60));
-  const w = 600;
-  const h = 48;
-  const bw = Math.max(1, w / minutes);
-
-  const breakdown = (map: Record<string, number>) =>
-    Object.entries(map)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 4)
-      .map(([k, v]) => `${k || '—'} (${v})`)
-      .join(', ');
-
   return (
     <div className={styles.details}>
-      <svg viewBox={`0 0 ${w} ${h}`} className={styles.spark} preserveAspectRatio="none" aria-hidden>
-        {incident.series.map((p) => {
-          const share = p.users ? p.errUsers / p.users : 0;
-          const bh = Math.max(1, share * (h - 2));
-          return (
-            <rect
-              key={p.minute}
-              x={((p.minute - incident.start) / 60) * bw}
-              y={h - bh}
-              width={Math.max(1, bw - 0.5)}
-              height={bh}
-              fill={classColor(theme, cls)}
-            />
-          );
-        })}
-      </svg>
+      <IncidentSparkline incident={incident} cls={cls} to={snapshot.to} />
       <div className={styles.detailGrid}>
         <div>
           <div className={styles.detailLabel}>
@@ -1362,7 +1375,7 @@ function ActivityChart({
   );
 }
 
-function ServiceDetails({ incident }: { incident: ActivityIncident }) {
+export function ServiceDetails({ incident }: { incident: ActivityIncident }) {
   const styles = useStyles2(getStyles);
   const theme = useTheme2();
   const { series } = incident;
@@ -1418,7 +1431,7 @@ function ServiceDetails({ incident }: { incident: ActivityIncident }) {
 }
 
 /** Errors per 15 minutes (bars) against the usual level of the same time (line). */
-function ProviderDetails({ incident }: { incident: ProviderIncident }) {
+export function ProviderDetails({ incident }: { incident: ProviderIncident }) {
   const styles = useStyles2(getStyles);
   const theme = useTheme2();
   const w = 600;
@@ -1458,7 +1471,7 @@ function ProviderDetails({ incident }: { incident: ProviderIncident }) {
   );
 }
 
-function OpsTab({ rows }: { rows: ChannelReportRow[] }) {
+export function OpsTab({ rows }: { rows: ChannelReportRow[] }) {
   const styles = useStyles2(getStyles);
   const { rows: sorted, sort } = useTableSort(rows, {
     channel: (r) => r.title || r.cid,
@@ -1569,7 +1582,7 @@ function OpsTab({ rows }: { rows: ChannelReportRow[] }) {
   );
 }
 
-function DeadTab({ rows }: { rows: DeadChannel[] }) {
+export function DeadTab({ rows }: { rows: DeadChannel[] }) {
   const styles = useStyles2(getStyles);
   const { rows: sorted, sort } = useTableSort(rows, {
     channel: (r) => r.title || r.cid,
@@ -1659,6 +1672,9 @@ export const getStyles = (theme: GrafanaTheme2) => ({
   }),
   tileAccent: css({
     borderColor: analytix.greenDark,
+  }),
+  tileAlert: css({
+    borderColor: theme.colors.error.border,
   }),
   tileLabel: css({
     color: analytix.textMuted,

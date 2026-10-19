@@ -120,7 +120,13 @@ describe('AlertsPage with Retention', () => {
       providers: '111',
     });
     expect(JSON.parse(window.localStorage.getItem('analytix.aiAlerts.settings.v1')!).providers).toBeUndefined();
+    // The support view by default: no rules, "Show period" for a replay.
+    expect(screen.getByText('Show period')).toBeVisible();
+    expect(screen.queryByText('Detection and messaging rules')).not.toBeInTheDocument();
+    await user.click(screen.getByLabelText('Advanced'));
     expect(screen.getByText('Run replay')).toBeVisible();
+    expect(screen.getByText('Detection and messaging rules')).toBeVisible();
+    expect(window.localStorage.getItem('analytix.aiAlerts.advanced.v1')).toBe('true');
 
     await user.click(screen.getByRole('tab', { name: 'Retention' }));
     expect(locationService.getSearchObject().section).toBe('keep');
@@ -252,7 +258,7 @@ describe('AlertsPage with Retention', () => {
     const { user } = render(<AlertsPage />, { renderWithRouter: true });
 
     // Tell: a replay on 111.
-    await user.click(screen.getByText('Run replay'));
+    await user.click(screen.getByText('Show period'));
     await waitFor(() => expect(runReplay).toHaveBeenCalled());
     expect(runReplay.mock.calls[0][0].pids).toEqual(['111']);
     expect(shown('Running on CH · providers 111')).toHaveLength(1);

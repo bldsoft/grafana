@@ -19,6 +19,7 @@ import {
   Button,
   Collapse,
   Field,
+  InlineSwitch,
   Input,
   RadioButtonGroup,
   Spinner,
@@ -34,6 +35,7 @@ import { analytix } from 'app/features/home/analytixTokens';
 import { useSelector } from 'app/types/store';
 
 import { AlertsResults, AlertsSnapshot } from './AlertsResults';
+import { SupportResults } from './SupportResults';
 import { AlertEngine } from './engine';
 import { ExportMeta, downloadBlob, exportFileName, exportRun, runDatasetExport } from './export';
 import { formatCount, formatUtc, fromUtcInput, toUtcInput } from './format';
@@ -46,6 +48,8 @@ import { AlertRules, DEFAULT_RULES } from './types';
 const SETTINGS_KEY = 'analytix.aiAlerts.settings.v1';
 /** Datasource and provider filter, shared by both sections. */
 const COMMON_KEY = 'analytix.aiAlerts.common.v1';
+/** true = the full view for tuning the rules; false = the support view. */
+const ADVANCED_KEY = 'analytix.aiAlerts.advanced.v1';
 const MAX_REPLAY_SEC = 7 * 86400;
 const LIVE_POLL_MS = 60000;
 
@@ -82,7 +86,7 @@ interface RunState {
 function defaultSettings(): Settings {
   const today = Math.floor(Date.now() / 86400000) * 86400;
   return {
-    mode: 'replay',
+    mode: 'live',
     from: toUtcInput(today - 86400),
     to: toUtcInput(today),
     step: 3600,
@@ -539,6 +543,7 @@ function AlertsWorkbench({
   const styles = useStyles2(getStyles);
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [advanced, setAdvanced] = useState<boolean>(() => store.getBool(ADVANCED_KEY, false));
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string>();
   const [warning, setWarning] = useState<string>();
@@ -568,6 +573,10 @@ function AlertsWorkbench({
   useEffect(() => {
     store.setObject(SETTINGS_KEY, settings);
   }, [settings]);
+
+  useEffect(() => {
+    store.set(ADVANCED_KEY, advanced);
+  }, [advanced]);
 
   useEffect(() => {
     onRunningChange(running);
@@ -763,10 +772,24 @@ function AlertsWorkbench({
     }
   };
 
-  const modeOptions = [
-    { label: t('ai-insider-alerts.mode-replay', 'Replay'), value: 'replay' as const },
-    { label: t('ai-insider-alerts.mode-live', 'Live'), value: 'live' as const },
-  ];
+  const modeOptions = advanced
+    ? [
+        { label: t('ai-insider-alerts.mode-replay', 'Replay'), value: 'replay' as const },
+        { label: t('ai-insider-alerts.mode-live', 'Live'), value: 'live' as const },
+      ]
+    : [
+        { label: t('ai-insider-alerts.mode-live', 'Live'), value: 'live' as const },
+        { label: t('ai-insider-alerts.mode-past', 'Past period'), value: 'replay' as const },
+      ];
+  const runLabel =
+    settings.mode === 'replay'
+      ? advanced
+        ? t('ai-insider-alerts.run-replay', 'Run replay')
+        : t('ai-insider-alerts.show-period', 'Show period')
+      : advanced
+        ? t('ai-insider-alerts.start-live', 'Start live')
+        : t('ai-insider-alerts.start-monitoring', 'Start monitoring');
+  const customRules = Object.entries(DEFAULT_RULES).some(([key, value]) => Reflect.get(settings.rules, key) !== value);
   const stepOptions = [
     { label: t('ai-insider-alerts.step-15m', '15 min'), value: 900 },
     { label: t('ai-insider-alerts.step-1h', '1 h'), value: 3600 },
@@ -779,12 +802,31 @@ function AlertsWorkbench({
 
   return (
     <div className={styles.page}>
-      <p className={styles.intro}>
-        <Trans i18nKey="ai-insider-alerts.intro">
-          Finds channels that go down on the operator side, decides who gets told and shows every message before it is
-          sent. Replay past days to check detection.
-        </Trans>
-      </p>
+      <div className={styles.introRow}>
+        <p className={styles.intro}>
+          {advanced ? (
+            <Trans i18nKey="ai-insider-alerts.intro">
+              Finds channels that go down on the operator side, decides who gets told and shows every message before it
+              is sent. Replay past days to check detection.
+            </Trans>
+          ) : (
+            <Trans i18nKey="ai-insider-alerts.intro-support">
+              Shows what is broken right now on our side (channels, providers, the service), which viewers it hits and
+              what they are told. Keep the page open: Live checks every minute.
+            </Trans>
+          )}
+        </p>
+        <InlineSwitch
+          showLabel
+          label={t('ai-insider-alerts.advanced', 'Advanced')}
+          value={advanced}
+          onChange={(e) => setAdvanced(e.currentTarget.checked)}
+          title={t(
+            'ai-insider-alerts.advanced-tip',
+            'Every tab, the detection rules, exports and test pushes: for tuning and checking the rules'
+          )}
+        />
+      </div>
 
       <section className={styles.card}>
         <div className={styles.controls}>
@@ -814,19 +856,21 @@ function AlertsWorkbench({
                   disabled={running}
                 />
               </Field>
-              <Field
-                label={t('ai-insider-alerts.step', 'Step')}
-                description={t('ai-insider-alerts.step-description', 'how far the clock moves per query round')}
-                className={styles.field}
-                noMargin
-              >
-                <RadioButtonGroup
-                  options={stepOptions}
-                  value={settings.step}
-                  onChange={(step) => update({ step })}
-                  disabled={running}
-                />
-              </Field>
+              {advanced && (
+                <Field
+                  label={t('ai-insider-alerts.step', 'Step')}
+                  description={t('ai-insider-alerts.step-description', 'how far the clock moves per query round')}
+                  className={styles.field}
+                  noMargin
+                >
+                  <RadioButtonGroup
+                    options={stepOptions}
+                    value={settings.step}
+                    onChange={(step) => update({ step })}
+                    disabled={running}
+                  />
+                </Field>
+              )}
             </>
           )}
           <div className={styles.actions}>
@@ -836,9 +880,7 @@ function AlertsWorkbench({
               </Button>
             ) : (
               <Button icon={settings.mode === 'replay' ? 'history' : 'play'} onClick={start} disabled={!canRun}>
-                {settings.mode === 'replay'
-                  ? t('ai-insider-alerts.run-replay', 'Run replay')
-                  : t('ai-insider-alerts.start-live', 'Start live')}
+                {runLabel}
               </Button>
             )}
             {!running && settings.mode === 'replay' && resumable && (
@@ -861,7 +903,7 @@ function AlertsWorkbench({
                 <Trans i18nKey="ai-insider-alerts.continue-replay">Continue replay</Trans>
               </Button>
             )}
-            {!running && settings.mode === 'replay' && (
+            {!running && advanced && settings.mode === 'replay' && (
               <Button
                 variant="secondary"
                 icon="download-alt"
@@ -878,43 +920,45 @@ function AlertsWorkbench({
           </div>
         </div>
 
-        <Collapse
-          label={t('ai-insider-alerts.rules', 'Detection and messaging rules')}
-          isOpen={rulesOpen}
-          onToggle={() => setRulesOpen((o) => !o)}
-          collapsible
-        >
-          <div className={styles.rules}>
-            {ruleFields().map((f) => (
-              <Field key={f.key} label={f.label} description={f.description} className={styles.field} noMargin>
-                <Input
-                  type="number"
-                  min={0}
-                  step={f.key === 'providerSurgeFactor' ? 0.1 : 1}
-                  suffix={f.unit || undefined}
-                  value={f.percent ? Math.round(settings.rules[f.key] * 100) : settings.rules[f.key]}
-                  onChange={(e) => {
-                    const n = Number(e.currentTarget.value);
-                    if (Number.isFinite(n) && n >= 0) {
-                      updateRule(f.key, f.percent ? Math.min(100, n) / 100 : n);
-                    }
-                  }}
+        {advanced && (
+          <Collapse
+            label={t('ai-insider-alerts.rules', 'Detection and messaging rules')}
+            isOpen={rulesOpen}
+            onToggle={() => setRulesOpen((o) => !o)}
+            collapsible
+          >
+            <div className={styles.rules}>
+              {ruleFields().map((f) => (
+                <Field key={f.key} label={f.label} description={f.description} className={styles.field} noMargin>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={f.key === 'providerSurgeFactor' ? 0.1 : 1}
+                    suffix={f.unit || undefined}
+                    value={f.percent ? Math.round(settings.rules[f.key] * 100) : settings.rules[f.key]}
+                    onChange={(e) => {
+                      const n = Number(e.currentTarget.value);
+                      if (Number.isFinite(n) && n >= 0) {
+                        updateRule(f.key, f.percent ? Math.min(100, n) / 100 : n);
+                      }
+                    }}
+                    disabled={running}
+                  />
+                </Field>
+              ))}
+              <div className={styles.actions}>
+                <Button
+                  variant="secondary"
+                  fill="text"
+                  onClick={() => update({ rules: DEFAULT_RULES })}
                   disabled={running}
-                />
-              </Field>
-            ))}
-            <div className={styles.actions}>
-              <Button
-                variant="secondary"
-                fill="text"
-                onClick={() => update({ rules: DEFAULT_RULES })}
-                disabled={running}
-              >
-                <Trans i18nKey="ai-insider-alerts.rules-reset">Reset to defaults</Trans>
-              </Button>
+                >
+                  <Trans i18nKey="ai-insider-alerts.rules-reset">Reset to defaults</Trans>
+                </Button>
+              </div>
             </div>
-          </div>
-        </Collapse>
+          </Collapse>
+        )}
 
         {(running || progress) && (
           <div className={styles.status}>
@@ -942,6 +986,13 @@ function AlertsWorkbench({
           </div>
         )}
         {running && runScope && <div className={styles.scope}>{runScopeText(runScope.datasource, runScope.pids)}</div>}
+        {!advanced && customRules && (
+          <div className={styles.warning}>
+            <Trans i18nKey="ai-insider-alerts.custom-rules">
+              Detection rules differ from the defaults (changed in Advanced): results may not match what others see.
+            </Trans>
+          </div>
+        )}
         {rangeError && <div className={styles.error}>{rangeError}</div>}
         {error && (
           <Alert severity="error" title={t('ai-insider-alerts.error-title', 'Query failed')}>
@@ -952,16 +1003,19 @@ function AlertsWorkbench({
         {warning && <div className={styles.warning}>{warning}</div>}
       </section>
 
-      {snapshot && (
-        <AlertsResults
-          snapshot={snapshot}
-          actions={
-            <Button size="sm" variant="secondary" icon="download-alt" onClick={exportCurrentRun}>
-              <Trans i18nKey="ai-insider-alerts.export-run">Export run</Trans>
-            </Button>
-          }
-        />
-      )}
+      {snapshot &&
+        (advanced ? (
+          <AlertsResults
+            snapshot={snapshot}
+            actions={
+              <Button size="sm" variant="secondary" icon="download-alt" onClick={exportCurrentRun}>
+                <Trans i18nKey="ai-insider-alerts.export-run">Export run</Trans>
+              </Button>
+            }
+          />
+        ) : (
+          <SupportResults snapshot={snapshot} />
+        ))}
     </div>
   );
 }
@@ -977,9 +1031,17 @@ const getStyles = (theme: GrafanaTheme2) => ({
     gap: theme.spacing(2),
     minWidth: 0,
   }),
+  introRow: css({
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.spacing(1, 2),
+  }),
   intro: css({
     color: analytix.textMuted,
     margin: 0,
+    flex: '1 1 400px',
   }),
   card: css({
     background: analytix.surfaceRaised,
