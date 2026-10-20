@@ -36,6 +36,7 @@ import { useSelector } from 'app/types/store';
 
 import { AlertsResults, AlertsSnapshot } from './AlertsResults';
 import { SupportResults } from './SupportResults';
+import { AskInsiderProvider } from './askInsider';
 import { AlertEngine } from './engine';
 import { ExportMeta, downloadBlob, exportFileName, exportRun, runDatasetExport } from './export';
 import { formatCount, formatUtc, fromUtcInput, toUtcInput } from './format';
@@ -496,7 +497,9 @@ function AlertsSections({
       </section>
 
       <div hidden={section !== 'tell'}>
-        <AlertsWorkbench datasource={datasource} scope={scope} onRunningChange={setTellRunning} />
+        <AskInsiderProvider datasource={datasource}>
+          <AlertsWorkbench datasource={datasource} scope={scope} onRunningChange={setTellRunning} />
+        </AskInsiderProvider>
       </div>
       <div hidden={section !== 'keep'}>
         <KeepWorkbench

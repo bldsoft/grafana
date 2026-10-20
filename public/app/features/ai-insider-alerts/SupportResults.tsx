@@ -18,11 +18,12 @@ import {
   ProviderDetails,
   ServiceDetails,
   Tile,
-  breakdown,
   getStyles as getResultStyles,
 } from './AlertsResults';
+import { AskInsiderButton } from './askInsider';
+import { activityPrompt, channelPrompt, providerPrompt } from './askPrompts';
 import { topKey } from './engine';
-import { formatCount, formatMinutes, formatUtc, formatUtcTime } from './format';
+import { breakdown, formatCount, formatMinutes, formatUtc, formatUtcTime } from './format';
 import { useTableSort, SortHeader } from './sortableTable';
 import {
   MAX_VIEWER_MATCHES,
@@ -562,10 +563,21 @@ function ProblemDetails({
 }) {
   const styles = useStyles2(getResultStyles);
 
-  if (problem.activity) {
+  const { activity, channel, providerIncident } = problem;
+  const ask = (
+    <AskInsiderButton
+      source={`support-${problem.source}`}
+      prompt={() =>
+        activity ? activityPrompt(activity) : channel ? channelPrompt(channel) : providerPrompt(providerIncident!)
+      }
+    />
+  );
+
+  if (activity) {
     return (
       <div className={styles.details}>
-        <ServiceDetails incident={problem.activity} />
+        {ask}
+        <ServiceDetails incident={activity} />
         <div className={styles.legend}>
           <Trans i18nKey="ai-insider-alerts.support.activity-note">
             A signal for the operations team. Viewers are not messaged about it one by one: channel and provider
@@ -580,6 +592,7 @@ function ProblemDetails({
   const messages = snapshot.decisions.filter((d) => d.incidentId === problem.id);
   return (
     <div className={styles.details}>
+      {ask}
       {problem.channel && (
         <IncidentSparkline incident={problem.channel} cls={snapshot.classOf(problem.channel)} to={snapshot.to} />
       )}

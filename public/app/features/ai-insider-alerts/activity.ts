@@ -325,3 +325,15 @@ export class ActivityDetector {
     );
   }
 }
+
+/** Peak deviation of an app-level incident, over its abnormal periods. */
+export function activityPeak(inc: ActivityIncident) {
+  const abnormal = inc.series.filter((p) => p.bucket <= inc.lastSeen);
+  const ratio = (a: number, b: number) => (b > 0 ? a / b : 0);
+  return {
+    sessions: Math.max(0, ...abnormal.map((p) => ratio(p.sessions, p.baseSessions))),
+    plays: Math.min(1, ...abnormal.map((p) => ratio(p.plays, p.basePlays))),
+    errors: Math.max(0, ...abnormal.map((p) => ratio(p.errEvents, Math.max(p.baseErrEvents, 1)))),
+    providers: Math.max(0, ...abnormal.map((p) => p.providers)),
+  };
+}

@@ -49,6 +49,15 @@ export function fromUtcInput(value: string): number {
   return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) / 1000;
 }
 
+/** Top entries of a breakdown with their counts: "a (12), b (3)". */
+export function breakdown(map: Record<string, number>, limit = 4) {
+  return Object.entries(map)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([k, v]) => `${k || '—'} (${v})`)
+    .join(', ');
+}
+
 export function formatCount(n: number): string {
   return Math.round(n).toLocaleString('en-US');
 }

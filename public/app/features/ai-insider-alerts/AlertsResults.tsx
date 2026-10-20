@@ -18,13 +18,18 @@ import {
 } from '@grafana/ui';
 import { analytix } from 'app/features/home/analytixTokens';
 
+import { BucketChart, bucketRange } from './BucketChart';
 import { IncidentTimeline, classColor } from './IncidentTimeline';
+import { activityPeak } from './activity';
+import { AskInsiderButton } from './askInsider';
+import { activityPrompt, channelPrompt, providerPrompt } from './askPrompts';
 import { topKey } from './engine';
-import { decisionsToCsv, formatCount, formatMinutes, formatUtc, formatUtcTime } from './format';
+import { breakdown, decisionsToCsv, formatCount, formatMinutes, formatUtc, formatUtcTime } from './format';
 import { PushDialog } from './push/PushDialog';
 import { PushTokensPanel, usePushTokens } from './push/PushTokensPanel';
 import { accountKey } from './push/pushPlan';
 import { SortHeader, useTableSort } from './sortableTable';
+import { ACTIVITY_BUCKET_SEC, PROVIDER_BUCKET_SEC } from './sql';
 import type {
   ActivityIncident,
   ActivityKind,
@@ -145,18 +150,6 @@ function activityBadge(kind: ActivityKind): { text: string; color: BadgeColor; t
         ),
       };
   }
-}
-
-/** Peak deviation of an app-level incident, over its abnormal periods. */
-function activityPeak(inc: ActivityIncident) {
-  const abnormal = inc.series.filter((p) => p.bucket <= inc.lastSeen);
-  const ratio = (a: number, b: number) => (b > 0 ? a / b : 0);
-  return {
-    sessions: Math.max(0, ...abnormal.map((p) => ratio(p.sessions, p.baseSessions))),
-    plays: Math.min(1, ...abnormal.map((p) => ratio(p.plays, p.basePlays))),
-    errors: Math.max(0, ...abnormal.map((p) => ratio(p.errEvents, Math.max(p.baseErrEvents, 1)))),
-    providers: Math.max(0, ...abnormal.map((p) => p.providers)),
-  };
 }
 
 function kindBadge(kind: DecisionKind): { text: string; color: BadgeColor } {
@@ -532,15 +525,6 @@ function IncidentsTab({
   );
 }
 
-/** Top entries of a breakdown with their counts: "a (12), b (3)". */
-export function breakdown(map: Record<string, number>, limit = 4) {
-  return Object.entries(map)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, limit)
-    .map(([k, v]) => `${k || '—'} (${v})`)
-    .join(', ');
-}
-
 /**
  * The incident's life, one bar per minute, height = share of viewers with
  * errors (bad minutes only; clean minutes stay empty).
@@ -549,27 +533,37 @@ export function IncidentSparkline({ incident, cls, to }: { incident: Incident; c
   const styles = useStyles2(getStyles);
   const theme = useTheme2();
   const end = incident.closedAt ?? Math.max(incident.lastBad + 60, to);
-  const minutes = Math.max(1, Math.round((end - incident.start) / 60));
-  const w = 600;
-  const h = 48;
-  const bw = Math.max(1, w / minutes);
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className={styles.spark} preserveAspectRatio="none" aria-hidden>
-      {incident.series.map((p) => {
-        const share = p.users ? p.errUsers / p.users : 0;
-        const bh = Math.max(1, share * (h - 2));
-        return (
-          <rect
-            key={p.minute}
-            x={((p.minute - incident.start) / 60) * bw}
-            y={h - bh}
-            width={Math.max(1, bw - 0.5)}
-            height={bh}
-            fill={classColor(theme, cls)}
-          />
-        );
-      })}
-    </svg>
+    <>
+      <BucketChart
+        bars={incident.series.map((p) => ({
+          start: p.minute,
+          value: p.users ? p.errUsers / p.users : 0,
+          tip: t(
+            'ai-insider-alerts.incident-chart-tip',
+            '{{time}} UTC · {{errors}} of {{viewers}} viewers with errors',
+            {
+              time: formatUtcTime(p.minute),
+              errors: p.errUsers,
+              viewers: p.users,
+            }
+          ),
+        }))}
+        step={60}
+        from={incident.start}
+        to={end}
+        color={classColor(theme, cls)}
+        unit="share"
+        label={t('ai-insider-alerts.incident-chart-label', 'Share of viewers with errors per minute')}
+      />
+      <div className={styles.legend}>
+        {t(
+          'ai-insider-alerts.incident-chart-legend',
+          'Bars: share of the channel viewers with errors, per failing minute ({{from}}–{{to}} UTC). Gaps: minutes without failures.',
+          { from: formatUtcTime(incident.start), to: formatUtcTime(end) }
+        )}
+      </div>
+    </>
   );
 }
 
@@ -608,6 +602,7 @@ function IncidentDetails({
 
   return (
     <div className={styles.details}>
+      <AskInsiderButton source="channel" prompt={() => channelPrompt(incident)} />
       <IncidentSparkline incident={incident} cls={cls} to={snapshot.to} />
       <div className={styles.detailGrid}>
         <div>
@@ -1105,6 +1100,7 @@ function ProvidersTab({
                   {open && (
                     <tr className={styles.detailRow}>
                       <td colSpan={7}>
+                        <AskInsiderButton source="provider" prompt={() => providerPrompt(p)} />
                         <ProviderDetails incident={p} />
                         <ProviderViewers viewers={viewers} pushed={pushed} inApp={inApp} />
                       </td>
@@ -1323,6 +1319,7 @@ function ServiceTab({
                   {open && (
                     <tr className={styles.detailRow}>
                       <td colSpan={6}>
+                        <AskInsiderButton source="activity" prompt={() => activityPrompt(inc)} />
                         <ServiceDetails incident={inc} />
                       </td>
                     </tr>
@@ -1343,35 +1340,32 @@ function ActivityChart({
   value,
   usual,
   color,
+  what,
 }: {
   series: ActivitySample[];
   value: (p: ActivitySample) => number;
   usual: (p: ActivitySample) => number;
   color: string;
+  /** What the bars count, e.g. "playback starts". */
+  what: string;
 }) {
-  const styles = useStyles2(getStyles);
-  const theme = useTheme2();
-  const w = 600;
-  const h = 64;
-  const bw = w / Math.max(1, series.length);
-  const max = Math.max(1, ...series.map((p) => Math.max(value(p), usual(p))));
-  const y = (v: number) => h - (v / max) * (h - 4);
-  const line = series.map((p, i) => `${i ? 'L' : 'M'} ${i * bw + bw / 2} ${y(usual(p))}`).join(' ');
   return (
-    <svg viewBox={`0 0 ${w} ${h}`} className={styles.spark} preserveAspectRatio="none" aria-hidden>
-      {series.map((p, i) => (
-        <rect
-          key={p.bucket}
-          x={i * bw + 1}
-          y={y(value(p))}
-          width={Math.max(1, bw - 2)}
-          height={h - y(value(p))}
-          fill={color}
-          opacity={0.8}
-        />
-      ))}
-      <path d={line} fill="none" stroke={theme.colors.text.primary} strokeWidth={1.5} strokeDasharray="4 3" />
-    </svg>
+    <BucketChart
+      bars={series.map((p) => ({
+        start: p.bucket,
+        value: value(p),
+        usual: usual(p),
+        tip: t('ai-insider-alerts.activity-chart-tip', '{{range}} UTC · {{value}} {{what}} · usual {{usual}}', {
+          range: bucketRange(p.bucket, ACTIVITY_BUCKET_SEC),
+          value: formatCount(value(p)),
+          what,
+          usual: formatCount(usual(p)),
+        }),
+      }))}
+      step={ACTIVITY_BUCKET_SEC}
+      color={color}
+      label={what}
+    />
   );
 }
 
@@ -1391,6 +1385,7 @@ export function ServiceDetails({ incident }: { incident: ActivityIncident }) {
           value={(p) => p.events}
           usual={(p) => p.baseEvents}
           color={theme.colors.text.secondary}
+          what={t('ai-insider-alerts.activity-what-events', 'events')}
         />
         <div className={styles.legend}>
           {t(
@@ -1409,6 +1404,7 @@ export function ServiceDetails({ incident }: { incident: ActivityIncident }) {
         value={(p) => p.plays}
         usual={(p) => p.basePlays}
         color={theme.colors.error.main}
+        what={t('ai-insider-alerts.activity-what-plays', 'playback starts')}
       />
       <div className={styles.legend}>
         {t(
@@ -1422,6 +1418,7 @@ export function ServiceDetails({ incident }: { incident: ActivityIncident }) {
         value={(p) => p.sessions}
         usual={(p) => p.baseSessions}
         color={theme.colors.warning.main}
+        what={t('ai-insider-alerts.activity-what-sessions', 'app starts')}
       />
       <div className={styles.legend}>
         {t('ai-insider-alerts.activity-chart-sessions', 'Bars: app starts per 5 min. Dashed: usual level.')}
@@ -1434,36 +1431,35 @@ export function ServiceDetails({ incident }: { incident: ActivityIncident }) {
 export function ProviderDetails({ incident }: { incident: ProviderIncident }) {
   const styles = useStyles2(getStyles);
   const theme = useTheme2();
-  const w = 600;
-  const h = 64;
-  const n = Math.max(1, incident.series.length);
-  const max = Math.max(1, ...incident.series.map((p) => Math.max(p.errUsers, p.baselineErr)));
-  const bw = w / n;
-  const y = (v: number) => h - (v / max) * (h - 4);
-  const line = incident.series.map((p, i) => `${i ? 'L' : 'M'} ${i * bw + bw / 2} ${y(p.baselineErr)}`).join(' ');
   return (
     <div className={styles.details}>
-      <svg viewBox={`0 0 ${w} ${h}`} className={styles.spark} preserveAspectRatio="none" aria-hidden>
-        {incident.series.map((p, i) => (
-          <rect
-            key={p.bucket}
-            x={i * bw + 1}
-            y={y(p.errUsers)}
-            width={Math.max(1, bw - 2)}
-            height={h - y(p.errUsers)}
-            fill={theme.colors.error.main}
-            opacity={0.8}
-          />
-        ))}
-        <path d={line} fill="none" stroke={theme.colors.text.primary} strokeWidth={1.5} strokeDasharray="4 3" />
-      </svg>
+      <BucketChart
+        bars={incident.series.map((p) => ({
+          start: p.bucket,
+          value: p.errUsers,
+          usual: p.baselineErr,
+          tip: t(
+            'ai-insider-alerts.provider-chart-tip',
+            '{{range}} UTC · {{errors}} of {{viewers}} viewers with errors · usual {{usual}}',
+            {
+              range: bucketRange(p.bucket, PROVIDER_BUCKET_SEC),
+              errors: formatCount(p.errUsers),
+              viewers: formatCount(p.users),
+              usual: formatCount(p.baselineErr),
+            }
+          ),
+        }))}
+        step={PROVIDER_BUCKET_SEC}
+        color={theme.colors.error.main}
+        label={t('ai-insider-alerts.provider-chart-label', 'Viewers with errors per 15 minutes')}
+      />
       <div className={styles.legend}>
         {t(
           'ai-insider-alerts.provider-chart-legend',
           'Bars: viewers with errors per 15 min ({{from}}–{{to}} UTC). Dashed: usual level at the same time on previous days.',
           {
             from: formatUtcTime(incident.series[0]?.bucket),
-            to: formatUtcTime((incident.series[incident.series.length - 1]?.bucket ?? 0) + 900),
+            to: formatUtcTime((incident.series[incident.series.length - 1]?.bucket ?? 0) + PROVIDER_BUCKET_SEC),
           }
         )}
       </div>

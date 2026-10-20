@@ -51,6 +51,13 @@ import { SpeechInputError, useSpeechInput } from './useSpeechInput';
 
 interface Props {
   onClose: () => void;
+  /**
+   * A question to start with, put in the composer but not sent (the AI Insider
+   * Alerts page opens the chat this way from a problem).
+   */
+  initialPrompt?: string;
+  /** The ClickHouse datasource to start on, when the opener already has one picked. */
+  initialDatasource?: DataSourceRef;
 }
 
 /** Send/stop circle; the clear-menu slot below it shares the width so the two align. */
@@ -292,7 +299,7 @@ const KIND_LABELS: Record<string, string> = {
   xychart: 'xy chart',
 };
 
-export function GenPanelChat({ onClose }: Props) {
+export function GenPanelChat({ onClose, initialPrompt, initialDatasource }: Props) {
   const styles = useStyles2(getStyles);
   const theme = useTheme2();
 
@@ -316,7 +323,7 @@ export function GenPanelChat({ onClose }: Props) {
   }, []);
 
   const [entries, setEntries] = useState<ChatEntry[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(initialPrompt ?? '');
   // The composer grows with its content (see COMPOSER_MAX_HEIGHT) so a
   // multi-line prompt stays readable without scrolling inside the box.
   // scrollHeight excludes the border; the offset/client difference adds it back.
@@ -348,9 +355,12 @@ export function GenPanelChat({ onClose }: Props) {
         .filter((ds) => ds.type.includes('clickhouse')),
     []
   );
-  const [datasource, setDatasource] = useState<DataSourceRef | undefined>(() =>
-    clickhouseDatasources.length > 0 ? getDataSourceRef(clickhouseDatasources[0]) : undefined
-  );
+  const [datasource, setDatasource] = useState<DataSourceRef | undefined>(() => {
+    const ds =
+      clickhouseDatasources.find((d) => initialDatasource && d.uid === initialDatasource.uid) ??
+      clickhouseDatasources[0];
+    return ds ? getDataSourceRef(ds) : undefined;
+  });
 
   const idRef = useRef(0);
   // Guards against a duplicate PNG download while the first export awaits the
@@ -361,6 +371,14 @@ export function GenPanelChat({ onClose }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // An opener's question is ready to edit or send: focus it, caret at the end.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (initialPrompt && el) {
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    }
+  }, [initialPrompt]);
   // Auto-scroll only follows the stream while the user is already at the bottom;
   // if they scroll up to read a previous chart, progress ticks stop yanking them
   // back down (~4/s during a multi-minute run).

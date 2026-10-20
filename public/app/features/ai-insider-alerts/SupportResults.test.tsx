@@ -2,9 +2,36 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { SupportResults } from './SupportResults';
+import { AskInsiderProvider } from './askInsider';
 import { snapshot } from './fixtures/snapshot';
 
+jest.mock('app/features/dashboard-scene/ai-panel/GenPanelChat', () => ({
+  GenPanelChat: ({ initialPrompt }: { initialPrompt?: string }) => <div role="dialog">{initialPrompt}</div>,
+}));
+
 describe('SupportResults', () => {
+  it('opens the AI Insider chat with a question about the problem', async () => {
+    render(
+      <AskInsiderProvider>
+        <SupportResults snapshot={snapshot()} />
+      </AskInsiderProvider>
+    );
+
+    await userEvent.click(screen.getByText('Sport 1'));
+    await userEvent.click(screen.getByRole('button', { name: /Ask AI Insider/ }));
+
+    expect(await screen.findByRole('dialog')).toHaveTextContent(
+      /^Channel Sport 1 \(id 20002549\) of provider 222 \(NimiTV\) failed on 2026-09-29 17:00–/
+    );
+  });
+
+  it('has no chat button without the chat on the page', async () => {
+    render(<SupportResults snapshot={snapshot()} />);
+
+    await userEvent.click(screen.getByText('Sport 1'));
+    expect(screen.queryByRole('button', { name: /Ask AI Insider/ })).not.toBeInTheDocument();
+  });
+
   it('shows three tiles and the problems in plain words', () => {
     render(<SupportResults snapshot={snapshot()} />);
 
