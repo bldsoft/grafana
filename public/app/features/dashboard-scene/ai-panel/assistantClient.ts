@@ -119,15 +119,15 @@ export async function checkAssistantHealth(): Promise<{ ok: boolean }> {
 
 /** One data domain of the user's organization, as the chat's "Data" menu shows it. */
 export interface DataDomain {
-  id: 'streaming' | 'behavior' | 'finance';
+  id: 'streaming' | 'behavior' | 'finance' | 'cdn_logs';
   /** on = can be asked about; off = not connected for the org; misconfigured =
    *  assigned but unreachable right now; unavailable = not offered to anyone yet. */
   status: 'on' | 'off' | 'misconfigured' | 'unavailable';
-  /** GA4 properties behind the behavior domain (display names). */
+  /** GA4 properties behind the behavior domain, providers behind cdn_logs (display names). */
   properties: Array<{ id: string; name: string }>;
 }
 
-const DOMAIN_IDS: Array<DataDomain['id']> = ['streaming', 'behavior', 'finance'];
+const DOMAIN_IDS: Array<DataDomain['id']> = ['streaming', 'behavior', 'finance', 'cdn_logs'];
 const DOMAIN_STATUSES: Array<DataDomain['status']> = ['on', 'off', 'misconfigured', 'unavailable'];
 
 /**
