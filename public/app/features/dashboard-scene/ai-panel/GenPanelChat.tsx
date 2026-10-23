@@ -796,7 +796,7 @@ export function GenPanelChat({ onClose, initialPrompt, initialDatasource }: Prop
 
         {entries.map((entry) =>
           entry.status === 'guide' ? (
-            <CapabilityGuide key={entry.id} onTry={runPrompt} canRun={canRun} />
+            <CapabilityGuide key={entry.id} onTry={runPrompt} canRun={canRun} domains={dataDomains ?? null} />
           ) : (
             <div key={entry.id} className={styles.exchange}>
               <div className={styles.userBubble} dir="auto">

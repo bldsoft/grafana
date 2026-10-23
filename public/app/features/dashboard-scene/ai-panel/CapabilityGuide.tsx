@@ -5,11 +5,16 @@ import { Trans, t } from '@grafana/i18n';
 import { Icon, IconName, useStyles2 } from '@grafana/ui';
 import { analytix } from 'app/features/home/analytixTokens';
 
+import { domainState } from './DataAccessMenu';
+import { DataDomain } from './assistantClient';
+
 interface Props {
   /** Runs an example request right away (same path as the composer send). */
   onTry: (prompt: string) => void;
   /** Examples are disabled while a generation runs or the service is down. */
   canRun: boolean;
+  /** Domains of the user's organization (same source as the Data menu); null while loading. */
+  domains: DataDomain[] | null;
 }
 
 interface GuideSection {
@@ -18,19 +23,29 @@ interface GuideSection {
   items: Array<{ label: string; detail: string }>;
 }
 
+interface DomainSection extends GuideSection {
+  id: DataDomain['id'];
+  /** GA4 properties or CDN-log providers behind the domain, when the service lists them. */
+  sourcesLabel?: string;
+  examples: string[];
+}
+
 /**
- * The capability mini-guide opened by the header "Guide" button. It is static
- * and rendered locally: it opens instantly, costs no model call and always says
- * the same thing, unlike asking the agent "what can you do". Keep it in sync
- * with the backend skill when new data domains or panel types land.
+ * The capability mini-guide opened by the header "Quick guide" button. It is
+ * rendered locally: it opens instantly, costs no model call and always says the
+ * same thing, unlike asking the agent "what can you do". What it lists follows
+ * the organization's data domains, so a user with GA4 or CDN logs sees what
+ * they can ask about each source. Keep it in sync with the backend skills when
+ * new data domains or panel types land.
  */
-export function CapabilityGuide({ onTry, canRun }: Props) {
+export function CapabilityGuide({ onTry, canRun, domains }: Props) {
   const styles = useStyles2(getStyles);
 
-  const sections: GuideSection[] = [
+  const domainSections: DomainSection[] = [
     {
-      icon: 'database',
-      title: t('dashboard.ai-panel.guide-data-title', 'Data I work with'),
+      id: 'streaming',
+      icon: 'play',
+      title: t('dashboard.ai-panel.guide-streaming-title', 'Streaming & quality'),
       items: [
         {
           label: t('dashboard.ai-panel.guide-data-audience', 'Audience'),
@@ -49,8 +64,8 @@ export function CapabilityGuide({ onTry, canRun }: Props) {
         {
           label: t('dashboard.ai-panel.guide-data-quality', 'Quality'),
           detail: t(
-            'dashboard.ai-panel.guide-data-quality-detail',
-            'playback errors and error rate, CDN quality, problems by device, platform or region'
+            'dashboard.ai-panel.guide-data-quality-detail-player',
+            'playback errors and error rate as the players report them, buffering, problems by device, platform or region'
           ),
         },
         {
@@ -60,15 +75,135 @@ export function CapabilityGuide({ onTry, canRun }: Props) {
             'search, feature adoption, subscriptions — sliced by provider, app, platform, country or time'
           ),
         },
+      ],
+      examples: [
+        t('dashboard.ai-panel.guide-example-dau', 'Daily active users last month'),
+        t('dashboard.ai-panel.guide-example-errors', 'Playback errors by platform this week'),
+        t('dashboard.ai-panel.guide-example-changes', 'What changed vs last week'),
+        t('dashboard.ai-panel.guide-example-health', 'Is everything OK with playback today?'),
+      ],
+    },
+    {
+      id: 'behavior',
+      icon: 'apps',
+      title: t('dashboard.ai-panel.guide-behavior-title', 'App behavior (GA4)'),
+      items: [
         {
-          label: t('dashboard.ai-panel.guide-data-behavior', 'App behavior'),
+          label: t('dashboard.ai-panel.guide-behavior-screens', 'Screens & buttons'),
           detail: t(
-            'dashboard.ai-panel.guide-data-behavior-detail',
-            'screens, buttons, funnels, installs and removals, crashes — when your organization has GA4 connected (see the Data menu)'
+            'dashboard.ai-panel.guide-behavior-screens-detail',
+            'which screens and modules are opened, what users tap, how they navigate the menu'
+          ),
+        },
+        {
+          label: t('dashboard.ai-panel.guide-behavior-funnels', 'Funnels & paths'),
+          detail: t(
+            'dashboard.ai-panel.guide-behavior-funnels-detail',
+            'how many get from one step to the next, what users do right before or after an action'
+          ),
+        },
+        {
+          label: t('dashboard.ai-panel.guide-behavior-health', 'Installs & app health'),
+          detail: t(
+            'dashboard.ai-panel.guide-behavior-health-detail',
+            'installs, removals, updates, crashes and crash-free users, app version adoption'
+          ),
+        },
+        {
+          label: t('dashboard.ai-panel.guide-behavior-retention', 'Coming back'),
+          detail: t(
+            'dashboard.ai-panel.guide-behavior-retention-detail',
+            'how many users return to the app after the first open, by week or platform'
           ),
         },
       ],
+      examples: [
+        t('dashboard.ai-panel.guide-example-screens', 'Most opened screens in the app last week'),
+        t('dashboard.ai-panel.guide-example-installs', 'App installs and removals by platform last month'),
+        t('dashboard.ai-panel.guide-example-crashes', 'Crash-free users by app version this week'),
+      ],
     },
+    {
+      id: 'cdn_logs',
+      icon: 'file-alt',
+      title: t('dashboard.ai-panel.guide-cdn-logs-title', 'CDN logs'),
+      items: [
+        {
+          label: t('dashboard.ai-panel.guide-cdn-logs-errors', 'Edge errors'),
+          detail: t(
+            'dashboard.ai-panel.guide-cdn-logs-errors-detail',
+            'HTTP status codes the CDN returned: token rejections (403), missing streams (404), CDN and origin failures (5xx)'
+          ),
+        },
+        {
+          label: t('dashboard.ai-panel.guide-cdn-logs-traffic', 'Cache & traffic'),
+          detail: t(
+            'dashboard.ai-panel.guide-cdn-logs-traffic-detail',
+            'cache hit rate, requests and bytes by CDN, host or edge location'
+          ),
+        },
+        {
+          label: t('dashboard.ai-panel.guide-cdn-logs-streams', 'Streams & accounts'),
+          detail: t(
+            'dashboard.ai-panel.guide-cdn-logs-streams-detail',
+            'which stream or account got errors from the CDN, and since when'
+          ),
+        },
+        {
+          label: t('dashboard.ai-panel.guide-cdn-logs-window', 'How far back'),
+          detail: t(
+            'dashboard.ai-panel.guide-cdn-logs-window-detail',
+            'per-request detail for the last 7 days (a few hours per question), daily totals for about a year'
+          ),
+        },
+      ],
+      examples: [
+        t('dashboard.ai-panel.guide-example-cdn-errors', 'CDN error rate by CDN for the last 3 hours'),
+        t('dashboard.ai-panel.guide-example-cdn-cache', 'Cache hit rate by CDN today'),
+        t('dashboard.ai-panel.guide-example-cdn-404', 'Streams with the most 404s from the CDN today'),
+      ],
+    },
+  ];
+
+  const finance = {
+    id: 'finance' as const,
+    icon: 'dollar-alt' as const,
+    title: t('dashboard.ai-panel.guide-finance-title', 'Finance'),
+  };
+
+  const isOn = (id: DataDomain['id']) => domainState(domains, id)?.status === 'on';
+  const connected = domainSections.filter((section) => isOn(section.id));
+  const locked = [...domainSections, finance].filter((section) => !isOn(section.id));
+
+  const sourcesLabel = (id: DataDomain['id']): string | undefined => {
+    const names = domainState(domains, id)?.properties.map((p) => p.name) ?? [];
+    if (names.length === 0) {
+      return undefined;
+    }
+    return id === 'behavior'
+      ? t('dashboard.ai-panel.guide-behavior-sources', 'Apps: {{names}}', { names: names.join(', ') })
+      : t('dashboard.ai-panel.guide-cdn-logs-sources', 'Providers: {{names}}', { names: names.join(', ') });
+  };
+
+  const lockedState = (id: DataDomain['id']): string => {
+    switch (domainState(domains, id)?.status) {
+      case 'misconfigured':
+        return t('dashboard.ai-panel.data-state-unavailable', 'Temporarily unavailable');
+      case 'unavailable':
+        return t('dashboard.ai-panel.data-state-soon', 'Not available yet');
+      default:
+        return t('dashboard.ai-panel.data-state-off', 'Not connected for your organization — ask an administrator');
+    }
+  };
+
+  // With more than one source the user may need to say which one a question is about.
+  const sourceHints = [
+    isOn('behavior') &&
+      t('dashboard.ai-panel.guide-ask-source-behavior', '“in the app” for screens, taps and installs'),
+    isOn('cdn_logs') && t('dashboard.ai-panel.guide-ask-source-cdn', '“in CDN logs” for what the CDN returned'),
+  ].filter((hint): hint is string => Boolean(hint));
+
+  const generalSections: GuideSection[] = [
     {
       icon: 'chart-line',
       title: t('dashboard.ai-panel.guide-views-title', 'What you get back'),
@@ -108,6 +243,20 @@ export function CapabilityGuide({ onTry, canRun }: Props) {
             '“Watch time by platform for the last 7 days”. Add a chart type if you have one in mind'
           ),
         },
+        ...(sourceHints.length > 0
+          ? [
+              {
+                label: t('dashboard.ai-panel.guide-ask-source', 'Name the source when it is not obvious'),
+                detail: isOn('behavior')
+                  ? t(
+                      'dashboard.ai-panel.guide-ask-source-detail-behavior',
+                      '{{hints}}. Viewing and app behavior are not linked per user, so ask about them separately',
+                      { hints: sourceHints.join(', ') }
+                    )
+                  : sourceHints.join(', '),
+              },
+            ]
+          : []),
         {
           label: t('dashboard.ai-panel.guide-ask-names', 'Use plain names'),
           detail: t(
@@ -133,66 +282,84 @@ export function CapabilityGuide({ onTry, canRun }: Props) {
     },
   ];
 
-  const examples = [
-    t('dashboard.ai-panel.guide-example-dau', 'Daily active users last month'),
-    t('dashboard.ai-panel.guide-example-errors', 'Playback errors by platform this week'),
-    t('dashboard.ai-panel.guide-example-countries', 'Viewers by country as a pie chart'),
-    t('dashboard.ai-panel.guide-example-changes', 'What changed vs last week'),
-    t('dashboard.ai-panel.guide-example-health', 'Is everything OK with playback today?'),
-  ];
+  const renderItems = (items: GuideSection['items']) => (
+    <ul className={styles.items}>
+      {items.map((item) => (
+        <li key={item.label}>
+          <span className={styles.itemLabel}>{item.label}</span>
+          <span className={styles.itemDetail}>{item.detail}</span>
+        </li>
+      ))}
+    </ul>
+  );
 
   return (
     <div className={styles.card}>
       <div className={styles.intro}>
-        <Trans i18nKey="dashboard.ai-panel.guide-intro">
-          I turn questions about your streaming analytics into ready charts and short insights. I only see the data your
-          organization has access to, and I never change anything.
+        <Trans i18nKey="dashboard.ai-panel.guide-intro-sources">
+          I turn your questions into ready charts and short insights. Below is the data your organization has connected
+          and what you can ask about each source. I only see that data, and I never change anything.
         </Trans>
       </div>
 
       <div className={styles.sections}>
-        {sections.map((section) => (
+        {connected.map((section) => {
+          const sources = sourcesLabel(section.id);
+          return (
+            <div key={section.id} className={styles.section}>
+              <div className={styles.sectionTitle}>
+                <Icon name={section.icon} />
+                {section.title}
+              </div>
+              {sources && <div className={styles.sources}>{sources}</div>}
+              {renderItems(section.items)}
+              <div className={styles.examples}>
+                {section.examples.map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    className={styles.example}
+                    disabled={!canRun}
+                    onClick={() => onTry(example)}
+                  >
+                    <Icon name="play" size="sm" />
+                    {example}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {locked.length > 0 && (
+        <div className={styles.locked}>
+          {locked.map((section) => (
+            <div key={section.id} className={styles.lockedRow}>
+              <Icon name="lock" size="sm" />
+              <span className={styles.lockedTitle}>{section.title}</span>
+              <span>{lockedState(section.id)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className={styles.sections}>
+        {generalSections.map((section) => (
           <div key={section.title} className={styles.section}>
             <div className={styles.sectionTitle}>
               <Icon name={section.icon} />
               {section.title}
             </div>
-            <ul className={styles.items}>
-              {section.items.map((item) => (
-                <li key={item.label}>
-                  <span className={styles.itemLabel}>{item.label}</span>
-                  <span className={styles.itemDetail}>{item.detail}</span>
-                </li>
-              ))}
-            </ul>
+            {renderItems(section.items)}
           </div>
         ))}
       </div>
 
-      <div className={styles.trySection}>
-        <div className={styles.tryTitle}>
-          <Trans i18nKey="dashboard.ai-panel.guide-try">Try one — it runs right away:</Trans>
-        </div>
-        <div className={styles.examples}>
-          {examples.map((example) => (
-            <button
-              key={example}
-              type="button"
-              className={styles.example}
-              disabled={!canRun}
-              onClick={() => onTry(example)}
-            >
-              <Icon name="play" size="sm" />
-              {example}
-            </button>
-          ))}
-        </div>
-      </div>
-
       <div className={styles.footnote}>
-        <Trans i18nKey="dashboard.ai-panel.guide-footnote">
-          Simple charts take seconds; a deeper analysis can take a few minutes. Keep this tab open while I work — your
-          browser runs the queries.
+        <Trans i18nKey="dashboard.ai-panel.guide-footnote-try">
+          The examples run right away. Simple charts take seconds; a deeper analysis can take a few minutes. Keep this
+          tab open while I work — your browser runs the queries.
         </Trans>
       </div>
     </div>
@@ -260,19 +427,34 @@ const getStyles = (theme: GrafanaTheme2) => ({
   itemDetail: css({
     color: analytix.textMuted,
   }),
-  trySection: css({
-    display: 'flex',
-    flexDirection: 'column',
-    gap: theme.spacing(1),
-  }),
-  tryTitle: css({
-    color: analytix.text,
-    fontWeight: theme.typography.fontWeightMedium,
+  sources: css({
+    color: analytix.textMuted,
+    fontSize: theme.typography.bodySmall.fontSize,
   }),
   examples: css({
     display: 'flex',
     flexWrap: 'wrap',
     gap: theme.spacing(1),
+    // Pinned to the bottom so the examples of neighbouring sources line up.
+    marginTop: 'auto',
+    paddingTop: theme.spacing(0.5),
+  }),
+  locked: css({
+    display: 'flex',
+    flexDirection: 'column',
+    gap: theme.spacing(0.5),
+    color: analytix.textDim,
+    fontSize: theme.typography.bodySmall.fontSize,
+  }),
+  lockedRow: css({
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.spacing(1),
+  }),
+  lockedTitle: css({
+    color: analytix.textMuted,
+    fontWeight: theme.typography.fontWeightMedium,
   }),
   example: css({
     display: 'inline-flex',
@@ -284,6 +466,8 @@ const getStyles = (theme: GrafanaTheme2) => ({
     border: `1px solid ${analytix.borderControl}`,
     borderRadius: theme.shape.radius.pill,
     padding: theme.spacing(0.75, 1.5),
+    // Long examples wrap inside a narrow source column.
+    textAlign: 'left',
     cursor: 'pointer',
     '& svg': { color: analytix.textFaint },
     [theme.transitions.handleMotion('no-preference')]: {

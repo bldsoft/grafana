@@ -14,8 +14,9 @@ interface Props {
 
 type DomainState = Pick<DataDomain, 'status' | 'properties'>;
 
-// A service older than the cdn_logs domain does not list it: shown locked as
-// coming, not as "ask an administrator".
+// A service older than the cdn_logs domain does not list it, and the fallback
+// below lists no finance: both are shown locked as coming, not as "ask an
+// administrator".
 const PLANNED: DomainState = { status: 'unavailable', properties: [] };
 
 interface DomainView {
@@ -29,6 +30,12 @@ interface DomainView {
 // /api/capabilities) or a failed lookup shows exactly that.
 const FALLBACK: DataDomain[] = [{ id: 'streaming', status: 'on', properties: [] }];
 
+/** The state of one domain as the Data menu and the guide show it. */
+export function domainState(domains: DataDomain[] | null, id: DataDomain['id']): DomainState | undefined {
+  const list = domains && domains.length > 0 ? domains : FALLBACK;
+  return list.find((d) => d.id === id) ?? (id === 'cdn_logs' || id === 'finance' ? PLANNED : undefined);
+}
+
 /**
  * The header "Data" menu: which data domains the user's organization can ask
  * about and what each of them covers. Availability
@@ -37,9 +44,7 @@ const FALLBACK: DataDomain[] = [{ id: 'streaming', status: 'on', properties: [] 
  */
 export function DataAccessMenu({ domains }: Props) {
   const styles = useStyles2(getStyles);
-  const list = domains && domains.length > 0 ? domains : FALLBACK;
-  const statusOf = (id: DomainView['id']): DomainState | undefined =>
-    list.find((d) => d.id === id) ?? (id === 'cdn_logs' ? PLANNED : undefined);
+  const statusOf = (id: DomainView['id']) => domainState(domains, id);
 
   const views: DomainView[] = [
     {
