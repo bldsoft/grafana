@@ -57,11 +57,35 @@ describe('SupportResults', () => {
     expect(screen.getByText('All resolved')).toBeInTheDocument();
   });
 
+  it('marks a guest, whose id is the device', async () => {
+    const snap = snapshot();
+    const sport = snap.incidents.find((i) => i.title === 'Sport 1')!;
+    const guest = {
+      ...snap.affected(sport.id)[0],
+      userId: 'BD2D089111D4262A0CA1FBFAB1BCB18F',
+      userKind: 'guest' as const,
+      platform: 'Android',
+    };
+    render(
+      <SupportResults
+        snapshot={{ ...snap, affected: (id) => [...snap.affected(id), ...(id === sport.id ? [guest] : [])] }}
+      />
+    );
+
+    await userEvent.click(screen.getByText('Sport 1'));
+    const id = screen.getByRole('button', { name: 'BD2D089111D4262A0CA1FBFAB1BCB18F' });
+    expect(within(id.closest('tr')!).getByText('Guest · device ID')).toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: 'AA-549-001' }).closest('tr')!).queryByText(/Guest/)).toBeNull();
+
+    await userEvent.click(id);
+    expect(screen.getByText('Guest · device ID')).toBeInTheDocument();
+  });
+
   it('says so when an account was not hit by anything', async () => {
     render(<SupportResults snapshot={snapshot()} />);
 
     await userEvent.click(screen.getByRole('tab', { name: /Viewer lookup/ }));
-    await userEvent.type(screen.getByPlaceholderText('Account number'), 'ZZ-1');
+    await userEvent.type(screen.getByPlaceholderText('Account number, or device ID / IP of a guest'), 'ZZ-1');
     expect(screen.getByText('No problems found for ZZ-1')).toBeInTheDocument();
   });
 
@@ -80,7 +104,7 @@ describe('SupportResults', () => {
 
     expect(within(screen.getAllByRole('row')[1]).getByText('Ongoing')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: /Viewer lookup/ }));
-    await userEvent.type(screen.getByPlaceholderText('Account number'), 'aa-549-001');
+    await userEvent.type(screen.getByPlaceholderText('Account number, or device ID / IP of a guest'), 'aa-549-001');
     expect(screen.getByText('Affected by an ongoing problem')).toBeInTheDocument();
   });
 });

@@ -225,10 +225,19 @@ export interface ProviderIncident {
   groupId?: string;
 }
 
+/**
+ * What a viewer id is: a subscriber `account`, or a `guest` (the provider's
+ * shared `<prefix>-GUEST` account) / `none` (no account on the event), whose
+ * id is then the device serial, or the IP address on web.
+ */
+export type ViewerKind = 'account' | 'guest' | 'none';
+
 /** One viewer hit by one incident (query B). */
 export interface AffectedUserRow {
   incidentId: string;
   userId: string;
+  /** Missing in runs exported before guests were told apart. */
+  userKind?: ViewerKind;
   platform: string;
   network: string;
   isp: string;
@@ -246,6 +255,7 @@ export interface CustomerSideRow {
   pid: string;
   provider: string;
   userId: string;
+  userKind?: ViewerKind;
   platform: string;
   network: string;
   isp: string;
@@ -326,21 +336,14 @@ export interface Incident {
 }
 
 /** `service`: a provider-wide problem (no single channel), see providerSurgeFactor. */
-export type DecisionKind =
-  | 'down'
-  | 'service'
-  | 'unstable'
-  | 'back'
-  | 'apology'
-  | 'in_app'
-  | 'suppressed'
-  | 'diagnosis';
+export type DecisionKind = 'down' | 'service' | 'unstable' | 'back' | 'apology' | 'in_app' | 'suppressed' | 'diagnosis';
 
 export interface Decision {
   kind: DecisionKind;
   /** When the message would go out. */
   at: number;
   userId: string;
+  userKind?: ViewerKind;
   pid: string;
   provider: string;
   /** Channel id, empty for customer-side diagnoses. */

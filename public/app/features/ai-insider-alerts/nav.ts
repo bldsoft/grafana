@@ -12,6 +12,12 @@ export const ALERTS_NAV_ID = AI_INSIDER_ALERTS_NAV_ID;
 /** The two sections of the page; `?section=keep` picks the second one. */
 export type AlertsSection = 'tell' | 'keep';
 
+/**
+ * Retention is hidden for now: no menu item and no tab, only Quality shows.
+ * The section still opens by its URL (`?section=keep`) for testing.
+ */
+export const RETENTION_VISIBLE = false;
+
 export function alertsSectionNavId(section: AlertsSection): string {
   return `${ALERTS_NAV_ID}-${section}`;
 }
@@ -22,7 +28,7 @@ export function alertsSectionUrl(section: AlertsSection): string {
 
 /**
  * Analytix: the side menu entry of AI Insider Alerts, a top-level item next to
- * Home and Dashboards with one child per section. Both children open the same
+ * Home and Dashboards with one child per section. The children open the same
  * page (the sections stay mounted there, switching only changes `?section`).
  */
 export function buildAlertsNav(): NavModelItem {
@@ -37,11 +43,15 @@ export function buildAlertsNav(): NavModelItem {
         text: t('ai-insider-alerts.section-tell', 'Quality'),
         url: alertsSectionUrl('tell'),
       },
-      {
-        id: alertsSectionNavId('keep'),
-        text: t('ai-insider-alerts.section-keep', 'Retention'),
-        url: alertsSectionUrl('keep'),
-      },
+      ...(RETENTION_VISIBLE
+        ? [
+            {
+              id: alertsSectionNavId('keep'),
+              text: t('ai-insider-alerts.section-keep', 'Retention'),
+              url: alertsSectionUrl('keep'),
+            },
+          ]
+        : []),
     ],
   };
 }

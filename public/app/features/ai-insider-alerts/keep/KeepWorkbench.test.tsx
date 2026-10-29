@@ -17,6 +17,9 @@ const estimateScan = jest.fn();
 const runReplay = jest.fn();
 const reportInteraction = jest.fn();
 
+// Retention is hidden on the page for now; these tests drive it as a visible section.
+jest.mock('../nav', () => ({ ...jest.requireActual('../nav'), RETENTION_VISIBLE: true }));
+
 jest.mock('app/features/dashboard-scene/ai-panel/useAiInsiderAccess', () => ({
   useAiInsiderAccessState: () => ({ allowed: true, loading: false, providerIds: '111,222' }),
 }));

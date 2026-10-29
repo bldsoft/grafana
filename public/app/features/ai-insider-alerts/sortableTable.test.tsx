@@ -93,14 +93,11 @@ describe('setAiInsiderAlertsNav', () => {
     { id: 'explore', text: 'Explore' },
   ];
 
-  it('puts the section with its two sub-items right after Dashboards, once', () => {
+  it('puts the section with its Quality sub-item right after Dashboards, once (Retention hidden)', () => {
     let state = navTreeReducer(tree, setAiInsiderAlertsNav(buildAlertsNav()));
     state = navTreeReducer(state, setAiInsiderAlertsNav(buildAlertsNav()));
     expect(state.map((item) => item.id)).toEqual(['home', 'dashboards', 'ai-insider-alerts', 'explore']);
-    expect(state[2].children?.map((item) => item.url)).toEqual([
-      '/ai-insider/alerts',
-      '/ai-insider/alerts?section=keep',
-    ]);
+    expect(state[2].children?.map((item) => item.url)).toEqual(['/ai-insider/alerts']);
   });
 
   it('removes the section when access is gone', () => {

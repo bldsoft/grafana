@@ -19,10 +19,13 @@ import {
 import { analytix } from 'app/features/home/analytixTokens';
 
 import { BucketChart, bucketRange } from './BucketChart';
+import { CdnConfirmation } from './CdnCheck';
 import { IncidentTimeline, classColor } from './IncidentTimeline';
+import { ViewerId } from './ViewerId';
 import { activityPeak } from './activity';
 import { AskInsiderButton } from './askInsider';
 import { activityPrompt, channelPrompt, providerPrompt } from './askPrompts';
+import { channelCdnTarget } from './cdn';
 import { topKey } from './engine';
 import { breakdown, decisionsToCsv, formatCount, formatMinutes, formatUtc, formatUtcTime } from './format';
 import { PushDialog } from './push/PushDialog';
@@ -604,6 +607,7 @@ function IncidentDetails({
     <div className={styles.details}>
       <AskInsiderButton source="channel" prompt={() => channelPrompt(incident)} />
       <IncidentSparkline incident={incident} cls={cls} to={snapshot.to} />
+      <CdnConfirmation target={channelCdnTarget(incident, snapshot.to)} />
       <div className={styles.detailGrid}>
         <div>
           <div className={styles.detailLabel}>
@@ -677,7 +681,9 @@ function IncidentDetails({
             const badge = kind ? kindBadge(kind) : undefined;
             return (
               <tr key={u.userId}>
-                <td className={styles.mono}>{u.userId}</td>
+                <td className={styles.mono}>
+                  <ViewerId viewer={u} />
+                </td>
                 <td>
                   {u.platform} · {u.network || '—'}
                   <span className={styles.sub}>{[u.isp, u.city].filter(Boolean).join(' · ') || '—'}</span>
@@ -822,7 +828,7 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
                     <Badge text={badge.text} color={badge.color} />
                   </td>
                   <td className={styles.mono}>
-                    {d.userId}
+                    <ViewerId viewer={d} />
                     <span className={styles.sub}>{d.platform}</span>
                   </td>
                   <td>
@@ -943,7 +949,9 @@ function CustomerTab({ rows }: { rows: CustomerSideRow[] }) {
           <tbody>
             {sorted.slice(0, LOG_LIMIT).map((r) => (
               <tr key={`${r.pid}-${r.userId}-${r.lastMinute}`}>
-                <td className={styles.mono}>{r.userId}</td>
+                <td className={styles.mono}>
+                  <ViewerId viewer={r} />
+                </td>
                 <td>{r.provider ? `${r.pid} ${r.provider}` : r.pid}</td>
                 <td>
                   {r.platform} · {r.network || '—'}
@@ -1162,7 +1170,9 @@ function ProviderViewers({
           const badge = kindBadge(decisionOf(u.userId));
           return (
             <tr key={u.userId}>
-              <td className={styles.mono}>{u.userId}</td>
+              <td className={styles.mono}>
+                <ViewerId viewer={u} />
+              </td>
               <td>
                 {u.platform} · {u.network || '—'}
                 <span className={styles.sub}>{[u.isp, u.city].filter(Boolean).join(' · ') || '—'}</span>

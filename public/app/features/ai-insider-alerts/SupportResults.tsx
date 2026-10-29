@@ -20,11 +20,15 @@ import {
   Tile,
   getStyles as getResultStyles,
 } from './AlertsResults';
+import { CdnConfirmation } from './CdnCheck';
+import { ViewerId, viewerKindText } from './ViewerId';
 import { AskInsiderButton } from './askInsider';
 import { activityPrompt, channelPrompt, providerPrompt } from './askPrompts';
+import { channelCdnTarget, providerCdnTarget } from './cdn';
 import { topKey } from './engine';
 import { breakdown, formatCount, formatMinutes, formatUtc, formatUtcTime } from './format';
 import { useTableSort, SortHeader } from './sortableTable';
+import { PROVIDER_BUCKET_SEC } from './sql';
 import {
   MAX_VIEWER_MATCHES,
   Problem,
@@ -597,6 +601,13 @@ function ProblemDetails({
         <IncidentSparkline incident={problem.channel} cls={snapshot.classOf(problem.channel)} to={snapshot.to} />
       )}
       {problem.providerIncident && <ProviderDetails incident={problem.providerIncident} />}
+      <CdnConfirmation
+        target={
+          problem.channel
+            ? channelCdnTarget(problem.channel, snapshot.to)
+            : problem.providerIncident && providerCdnTarget(problem.providerIncident, PROVIDER_BUCKET_SEC, snapshot.to)
+        }
+      />
       <div className={styles.detailGrid}>
         <div>
           <div className={styles.detailLabel}>
@@ -725,9 +736,7 @@ function AffectedViewers({
           {rows.slice(0, VIEWERS_LIMIT).map((u) => (
             <tr key={u.userId}>
               <td className={cx(styles.mono, local.nowrap)}>
-                <button type="button" className={styles.link} onClick={() => onViewer(u.userId)}>
-                  {u.userId}
-                </button>
+                <ViewerId viewer={u} linkClassName={styles.link} onClick={() => onViewer(u.userId)} />
               </td>
               <td>
                 {u.platform} · {u.network || '—'}
@@ -778,7 +787,10 @@ function ViewerTab({
         <Input
           className={local.viewerSearch}
           prefix={<Icon name="search" />}
-          placeholder={t('ai-insider-alerts.support.viewer-placeholder', 'Account number')}
+          placeholder={t(
+            'ai-insider-alerts.support.viewer-placeholder',
+            'Account number, or device ID / IP of a guest'
+          )}
           value={query}
           onChange={(e) => onQuery(e.currentTarget.value)}
           autoFocus
@@ -809,14 +821,9 @@ function ViewerTab({
           </div>
           <div className={local.matchList}>
             {found.matches.map((r) => (
-              <button
-                key={r.userId}
-                type="button"
-                className={cx(styles.link, styles.mono)}
-                onClick={() => onQuery(r.userId)}
-              >
-                {r.userId}
-              </button>
+              <span key={r.userId} className={styles.mono}>
+                <ViewerId viewer={recordIdentity(r)} linkClassName={styles.link} onClick={() => onQuery(r.userId)} />
+              </span>
             ))}
           </div>
         </div>
@@ -825,6 +832,12 @@ function ViewerTab({
       )}
     </>
   );
+}
+
+/** The kind of a looked-up viewer id, from any row that carries it. */
+function recordIdentity(record: ViewerRecord) {
+  const row = record.hits[0]?.row ?? record.customer[0] ?? record.diagnoses[0];
+  return { userId: record.userId, userKind: row?.userKind, platform: row?.platform };
 }
 
 function ViewerVerdicts({
@@ -933,11 +946,13 @@ function ViewerCard({
   const styles = useStyles2(getResultStyles);
   const local = useStyles2(getStyles);
   const devices = [...new Set(record.hits.map((h) => `${h.row.platform} · ${h.row.network || '—'}`))];
+  const guest = viewerKindText(recordIdentity(record));
 
   return (
     <div className={styles.details}>
       <div className={local.viewerHead}>
         <span className={cx(styles.mono, local.account)}>{record.userId}</span>
+        {guest && <span className={local.faint}>{guest}</span>}
         {devices.length > 0 && <span className={local.faint}>{devices.join(', ')}</span>}
       </div>
       <ViewerVerdicts record={record} account={record.userId} from={from} to={to} />

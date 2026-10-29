@@ -33,6 +33,7 @@ import type {
   CustomerSideRow,
   ErrorVolumeRow,
   ProviderBucketRow,
+  ViewerKind,
 } from './types';
 
 const MAX_ROWS = 50000;
@@ -48,6 +49,13 @@ export const LIVE_WARMUP_SEC = 3600;
 const LIVE_CUSTOMER_WINDOW_SEC = 15 * 60;
 
 type Row = Record<string, unknown>;
+
+const VIEWER_KINDS: readonly ViewerKind[] = ['account', 'guest', 'none'];
+
+/** The `user_kind` column; undefined for anything else (an older statement). */
+export function viewerKind(value: unknown): ViewerKind | undefined {
+  return VIEWER_KINDS.find((k) => k === value);
+}
 
 export function toBadMinute(r: Row): BadMinuteRow {
   return {
@@ -71,6 +79,7 @@ export function toAffectedUser(r: Row, incidentId: string): AffectedUserRow {
   return {
     incidentId,
     userId: str(r.user_id),
+    userKind: viewerKind(r.user_kind_any),
     platform: str(r.platform_any),
     network: str(r.network_any),
     isp: str(r.isp_any),
@@ -113,6 +122,7 @@ export function toCustomerSide(r: Row): CustomerSideRow {
     pid: str(r.pid),
     provider: '',
     userId: str(r.user_id),
+    userKind: viewerKind(r.user_kind_any),
     platform: str(r.platform_any),
     network: str(r.network_any),
     isp: str(r.isp_any),

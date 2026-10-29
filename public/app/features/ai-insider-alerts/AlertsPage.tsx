@@ -35,13 +35,14 @@ import { analytix } from 'app/features/home/analytixTokens';
 import { useSelector } from 'app/types/store';
 
 import { AlertsResults, AlertsSnapshot } from './AlertsResults';
+import { AlertsDatasourceContext } from './CdnCheck';
 import { SupportResults } from './SupportResults';
 import { AskInsiderProvider } from './askInsider';
 import { AlertEngine } from './engine';
 import { ExportMeta, downloadBlob, exportFileName, exportRun, runDatasetExport } from './export';
 import { formatCount, formatUtc, fromUtcInput, toUtcInput } from './format';
 import { KeepWorkbench, datasourceName, runScopeText, scopePids } from './keep/KeepWorkbench';
-import { AlertsSection as Section, alertsSectionNavId, buildAlertsNav } from './nav';
+import { AlertsSection as Section, RETENTION_VISIBLE, alertsSectionNavId, buildAlertsNav } from './nav';
 import { runLive, runReplay } from './runner';
 import { ProviderScope, effectiveScope, parseProviderScope } from './scope';
 import { AlertRules, DEFAULT_RULES } from './types';
@@ -408,10 +409,19 @@ function AlertsSections({
   const [common, setCommon] = useState<CommonSettings>(loadCommon);
   const [tellRunning, setTellRunning] = useState(false);
   const [keepRunning, setKeepRunning] = useState(false);
+  // While Retention is hidden it mounts only once opened by its URL, then stays
+  // mounted like the visible sections.
+  const [keepMounted, setKeepMounted] = useState(RETENTION_VISIBLE || section === 'keep');
 
   useEffect(() => {
     store.setObject(COMMON_KEY, common);
   }, [common]);
+
+  useEffect(() => {
+    if (section === 'keep') {
+      setKeepMounted(true);
+    }
+  }, [section]);
 
   const clickhouse = useMemo(
     () =>
@@ -439,20 +449,22 @@ function AlertsSections({
 
   return (
     <div className={styles.page}>
-      <TabsBar>
-        <Tab
-          label={t('ai-insider-alerts.section-tell', 'Quality')}
-          active={section === 'tell'}
-          onChangeTab={() => show('tell')}
-          suffix={tellRunning ? RunningBadge : undefined}
-        />
-        <Tab
-          label={t('ai-insider-alerts.section-keep', 'Retention')}
-          active={section === 'keep'}
-          onChangeTab={() => show('keep')}
-          suffix={keepRunning ? RunningBadge : undefined}
-        />
-      </TabsBar>
+      {keepMounted && (
+        <TabsBar>
+          <Tab
+            label={t('ai-insider-alerts.section-tell', 'Quality')}
+            active={section === 'tell'}
+            onChangeTab={() => show('tell')}
+            suffix={tellRunning ? RunningBadge : undefined}
+          />
+          <Tab
+            label={t('ai-insider-alerts.section-keep', 'Retention')}
+            active={section === 'keep'}
+            onChangeTab={() => show('keep')}
+            suffix={keepRunning ? RunningBadge : undefined}
+          />
+        </TabsBar>
+      )}
 
       <section className={styles.card}>
         <div className={styles.controls}>
@@ -497,19 +509,23 @@ function AlertsSections({
       </section>
 
       <div hidden={section !== 'tell'}>
-        <AskInsiderProvider datasource={datasource}>
-          <AlertsWorkbench datasource={datasource} scope={scope} onRunningChange={setTellRunning} />
-        </AskInsiderProvider>
+        <AlertsDatasourceContext.Provider value={datasource}>
+          <AskInsiderProvider datasource={datasource}>
+            <AlertsWorkbench datasource={datasource} scope={scope} onRunningChange={setTellRunning} />
+          </AskInsiderProvider>
+        </AlertsDatasourceContext.Provider>
       </div>
-      <div hidden={section !== 'keep'}>
-        <KeepWorkbench
-          datasource={datasource}
-          scope={scope}
-          active={section === 'keep'}
-          onRunningChange={setKeepRunning}
-          onProvidersChange={locked ? undefined : (providers) => setCommon((c) => ({ ...c, providers }))}
-        />
-      </div>
+      {keepMounted && (
+        <div hidden={section !== 'keep'}>
+          <KeepWorkbench
+            datasource={datasource}
+            scope={scope}
+            active={section === 'keep'}
+            onRunningChange={setKeepRunning}
+            onProvidersChange={locked ? undefined : (providers) => setCommon((c) => ({ ...c, providers }))}
+          />
+        </div>
+      )}
     </div>
   );
 }

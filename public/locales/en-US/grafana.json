@@ -399,6 +399,26 @@
     },
     "ask-insider": "Ask AI Insider",
     "ask-insider-tip": "Opens the AI Insider chat with a question about this problem: edit it or send it as is",
+    "cdn": {
+      "all-streams": "all streams of provider {{pid}}",
+      "before": "{{share}} in the {{minutes}} min before",
+      "before-unknown": "too little traffic before to compare",
+      "chart-label": "Share of CDN requests failed per 5 minutes",
+      "chart-legend": "Bars: share of the CDN requests for the stream that failed at the edge, per 5 min ({{from}}–{{to}} UTC, from {{minutes}} min before the problem). Dashed: the level before.",
+      "chart-tip": "{{time}} UTC · {{errors}} of {{requests}} requests failed",
+      "clean": "{{what}}: {{share}} edge errors of {{requests}} requests during the problem ({{before}}).",
+      "clean-badge": "Not seen at the CDN",
+      "clean-tip": "The edge answered this stream as usual while players failed: the cause is likely past the CDN (player, DRM, app) or in the stream content",
+      "codes": "Codes: {{codes}}",
+      "confirmed": "{{what}}: {{share}} of {{requests}} requests failed at the edge during the problem ({{before}}).",
+      "confirmed-badge": "Confirmed by the CDN",
+      "confirmed-tip": "The CDN edge answered the same stream with errors (4xx/5xx, client aborts excluded) at the same time, well above its level before",
+      "error": "The CDN logs could not be read on this datasource: {{error}}",
+      "label": "CDN logs",
+      "loading": "Checking what the CDN saw…",
+      "none": "No CDN logs for {{what}}: the stream goes through another CDN, or the provider is not in the CDN logs.",
+      "per-cdn": "{{cdn}}: {{share}} of {{requests}}"
+    },
     "class-chronic": "Chronic",
     "class-chronic-tip": "Channel has had no clean viewing for hours: a status, not an incident",
     "class-in-app": "In player",
@@ -1113,7 +1133,7 @@
       "viewer-hint": "Type the account of the viewer who contacted you: you will see which problems they ran into in this period, what they were told, and whether the cause is likely on their side.",
       "viewer-many": "{{total}} accounts match, showing {{shown}}. Type more of it.",
       "viewer-pick": "{{total}} accounts match:",
-      "viewer-placeholder": "Account number",
+      "viewer-placeholder": "Account number, or device ID / IP of a guest",
       "viewers-none": "No viewer list for it yet: it is read after the problem is confirmed."
     },
     "tab-customer": "Customer side",
@@ -1146,6 +1166,11 @@
     "unit-errors": "errors",
     "unit-providers": "providers",
     "unit-viewers": "viewers",
+    "viewer-guest": "Guest",
+    "viewer-guest-tip": "Not a subscriber account: guests share one account per provider, so the viewer is told apart by the device (the IP address on web)",
+    "viewer-id-device": "device ID",
+    "viewer-id-ip": "IP address",
+    "viewer-no-account": "No account",
     "whole-service": "Whole service"
   },
   "alerting": {
@@ -3843,11 +3868,6 @@
       "title-preview-not-available": "Preview not available",
       "valid-matcher-affected-alerts": "Add a valid matcher to see affected alerts"
     },
-    "silences": {
-      "affected-instances": "Affected alert instances",
-      "only-firing-instances": "Only alert instances in the firing state are displayed.",
-      "preview-affected-instances": "Preview the alert instances affected by this silence."
-    },
     "silences-editor": {
       "comment-placeholder-details-about-the-silence": "Details about the silence",
       "label-comment": "Comment",
@@ -3869,6 +3889,11 @@
       "text-loading-silences": "Loading silences...",
       "title-error-loading-silences": "Error loading silences",
       "title-the-selected-alertmanager-has-no-configuration": "The selected Alertmanager has no configuration"
+    },
+    "silences": {
+      "affected-instances": "Affected alert instances",
+      "only-firing-instances": "Only alert instances in the firing state are displayed.",
+      "preview-affected-instances": "Preview the alert instances affected by this silence."
     },
     "simple-condition-editor": {
       "label-of-query": "OF QUERY",

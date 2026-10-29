@@ -21,6 +21,12 @@ export const VERSION_GATE =
 const USER_ID =
   "multiIf(content_user_account_number != '' AND content_user_account_number NOT LIKE '%-GUEST', content_user_account_number, device_type != 'web', device_serial_number, network_ip)";
 
+// What USER_ID holds: a subscriber account, or, for a guest (the provider's
+// shared `<prefix>-GUEST` account) and a row without an account, the device
+// serial (the IP on web). See ViewerKind.
+const USER_KIND =
+  "multiIf(content_user_account_number != '' AND content_user_account_number NOT LIKE '%-GUEST', 'account', content_user_account_number LIKE '%-GUEST', 'guest', 'none')";
+
 /**
  * A playback refused by the paywall, not a failure: the subscription is not
  * active (`subsctiprionInActive`, sic, in slot 10 or 11) or the content needs
@@ -147,6 +153,7 @@ function baseRows(from: number, to: number, pids: string[] | null, extra = '', g
         device_type AS platform,
         network_type AS network,${geoColumns}
         ${USER_ID} AS user_id,
+        ${USER_KIND} AS user_kind,
         (${IS_ERR}) AS is_err,
         (${IS_SRV_ERR}) AS is_srv,
         ${CODE} AS code,
@@ -254,6 +261,7 @@ export function affectedUsersSql(windows: IncidentWindow[], pids: string[] | nul
   return `SELECT
     inc,
     user_id,
+    any(user_kind) AS user_kind_any,
     any(platform) AS platform_any,
     any(network) AS network_any,
     anyIf(isp, hit) AS isp_any,
@@ -289,6 +297,7 @@ export function customerSideSql(from: number, to: number, pids: string[] | null,
   return `SELECT
     e.pid AS pid,
     e.user_id AS user_id,
+    any(e.user_kind) AS user_kind_any,
     any(e.platform) AS platform_any,
     any(e.network) AS network_any,
     any(e.isp) AS isp_any,
@@ -300,7 +309,7 @@ export function customerSideSql(from: number, to: number, pids: string[] | null,
     toUnixTimestamp(max(e.minute)) AS last_minute,
     arrayElement(topK(1)(e.code), 1) AS top_code
 FROM (
-    SELECT minute, pid, cid, user_id, platform, network, isp, city, code
+    SELECT minute, pid, cid, user_id, user_kind, platform, network, isp, city, code
     FROM (
         ${baseRows(from, to, pids, `(${IS_ERR})`, true)}
     )
@@ -446,6 +455,7 @@ export function providerUsersSql(windows: ProviderWindow[], pids: string[] | nul
   return `SELECT
     inc,
     user_id,
+    any(user_kind) AS user_kind_any,
     any(platform) AS platform_any,
     any(network) AS network_any,
     any(isp) AS isp_any,

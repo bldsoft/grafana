@@ -713,6 +713,7 @@ export class AlertEngine {
         const seen: Decision = {
           ...base,
           userId: user.userId,
+          userKind: user.userKind,
           platform: user.platform,
           kind: 'down',
           at: 0,
@@ -891,6 +892,7 @@ export class AlertEngine {
           kind: 'service',
           at,
           userId: u.userId,
+          userKind: u.userKind,
           pid: inc.pid,
           provider,
           cid: '',
@@ -960,6 +962,7 @@ export class AlertEngine {
         kind: 'diagnosis',
         at,
         userId: c.userId,
+        userKind: c.userKind,
         pid: c.pid,
         provider: this.providerName(c.pid),
         cid: '',
