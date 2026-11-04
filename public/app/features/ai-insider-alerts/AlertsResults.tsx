@@ -20,6 +20,7 @@ import { analytix } from 'app/features/home/analytixTokens';
 
 import { BucketChart, bucketRange } from './BucketChart';
 import { CdnConfirmation } from './CdnCheck';
+import { ErrorCell, ErrorCodeList, ErrorInline } from './ErrorText';
 import { IncidentTimeline, classColor } from './IncidentTimeline';
 import { ViewerId } from './ViewerId';
 import { activityPeak } from './activity';
@@ -27,7 +28,17 @@ import { AskInsiderButton } from './askInsider';
 import { activityPrompt, channelPrompt, providerPrompt } from './askPrompts';
 import { ProblemChartFrame, channelCdnTarget, channelChartFrame } from './cdn';
 import { topKey } from './engine';
-import { breakdown, decisionsToCsv, formatAt, formatClock, formatCount, formatMinutes, zoneLabel } from './format';
+import { useErrorDictionary } from './errorCodes';
+import {
+  breakdown,
+  decisionsToCsv,
+  formatAt,
+  formatCount,
+  formatMinutes,
+  formatUntil,
+  formatWhen,
+  zoneLabel,
+} from './format';
 import { PushDialog } from './push/PushDialog';
 import { PushTokensPanel, usePushTokens } from './push/PushTokensPanel';
 import { accountKey } from './push/pushPlan';
@@ -468,7 +479,7 @@ function IncidentsTab({
                   >
                     <td>{formatAt(inc.start)}</td>
                     <td>
-                      {formatClock(inc.detectedAt)}
+                      {formatWhen(inc.detectedAt)}
                       <span className={styles.sub}>+{formatMinutes(inc.start, inc.detectedAt)}</span>
                     </td>
                     <td>
@@ -481,7 +492,7 @@ function IncidentsTab({
                         </>
                       ) : inc.closedAt ? (
                         <>
-                          {formatClock(inc.closedAt)}
+                          {formatUntil(inc.detectedAt, inc.closedAt)}
                           <span className={styles.sub}>{formatMinutes(inc.start, inc.closedAt)}</span>
                         </>
                       ) : (
@@ -506,7 +517,8 @@ function IncidentsTab({
                     <td className={styles.evidence}>
                       <span className={styles.mono}>{topKey(inc.paths) || topKey(inc.hosts) || '—'}</span>
                       <span className={styles.sub}>
-                        {topKey(inc.platforms)} · {topKey(inc.codes)}
+                        {topKey(inc.platforms)} ·{' '}
+                        <ErrorInline code={topKey(inc.codes)} platform={topKey(inc.platforms)} />
                         {group ? ` · ${group.label}` : ''}
                       </span>
                     </td>
@@ -558,7 +570,7 @@ export function IncidentSparkline({
             '{{time}} {{tz}} · {{errors}} of {{viewers}} viewers with errors',
             {
               tz: zoneLabel(),
-              time: formatClock(p.minute),
+              time: formatWhen(p.minute),
               errors: p.errUsers,
               viewers: p.users,
             }
@@ -578,8 +590,8 @@ export function IncidentSparkline({
           'Bars: share of the channel viewers with errors, per failing minute ({{from}}–{{to}} {{tz}}). Gaps: minutes without failures.',
           {
             tz: zoneLabel(),
-            from: formatClock(incident.start),
-            to: formatClock(end),
+            from: formatWhen(incident.start),
+            to: formatUntil(incident.start, end),
           }
         )}
       </div>
@@ -652,10 +664,10 @@ function IncidentDetails({
             'ai-insider-alerts.detail-timing-value',
             'start {{start}} · detected {{detected}} · push due {{push}} · back {{back}} · {{bad}} failing minutes',
             {
-              start: formatClock(incident.start),
-              detected: formatClock(incident.detectedAt),
-              push: formatClock(incident.escalatedAt),
-              back: formatClock(incident.closedAt),
+              start: formatWhen(incident.start),
+              detected: formatUntil(incident.start, incident.detectedAt),
+              push: formatUntil(incident.start, incident.escalatedAt),
+              back: formatUntil(incident.start, incident.closedAt),
               bad: incident.badMinutes,
             }
           )}
@@ -665,8 +677,9 @@ function IncidentDetails({
             <Trans i18nKey="ai-insider-alerts.detail-where">Where it fails</Trans>
           </div>
           <span className={styles.mono}>{breakdown(incident.paths)}</span>
+          <div className={styles.sub}>{breakdown(incident.platforms)}</div>
           <div className={styles.sub}>
-            {breakdown(incident.platforms)} · {breakdown(incident.codes)}
+            <ErrorCodeList codes={incident.codes} platforms={incident.platforms} />
           </div>
           {groupLabel && <div className={styles.sub}>{groupLabel}</div>}
         </div>
@@ -707,7 +720,7 @@ function IncidentDetails({
                   {u.platform} · {u.network || '—'}
                   <span className={styles.sub}>{[u.isp, u.city].filter(Boolean).join(' · ') || '—'}</span>
                 </td>
-                <td>{formatClock(u.firstErr)}</td>
+                <td>{formatWhen(u.firstErr)}</td>
                 <td className={styles.num}>{u.errEvents}</td>
                 <td className={styles.num}>{formatMinutes(0, u.watchedBeforeSec)}</td>
                 <td>
@@ -910,6 +923,7 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
 
 function CustomerTab({ rows }: { rows: CustomerSideRow[] }) {
   const styles = useStyles2(getStyles);
+  const dict = useErrorDictionary();
   const { rows: sorted, sort } = useTableSort(rows, {
     viewer: (r) => r.userId,
     provider: (r) => (r.provider ? `${r.pid} ${r.provider}` : r.pid),
@@ -980,9 +994,11 @@ function CustomerTab({ rows }: { rows: CustomerSideRow[] }) {
                 <td className={styles.num}>{r.minutes}</td>
                 <td className={styles.num}>{r.errEvents}</td>
                 <td>
-                  {formatAt(r.firstMinute)} – {formatClock(r.lastMinute + 60)}
+                  {formatAt(r.firstMinute)} – {formatUntil(r.firstMinute, r.lastMinute + 60)}
                 </td>
-                <td className={styles.mono}>{r.topCode}</td>
+                <td>
+                  <ErrorCell code={r.topCode} platform={r.platform} dict={dict} />
+                </td>
               </tr>
             ))}
           </tbody>
@@ -1080,7 +1096,7 @@ function ProvidersTab({
                   >
                     <td>{formatAt(p.start)}</td>
                     <td>
-                      {formatClock(p.detectedAt)}
+                      {formatWhen(p.detectedAt)}
                       <span className={styles.sub}>+{formatMinutes(p.start, p.detectedAt)}</span>
                     </td>
                     <td>
@@ -1095,7 +1111,7 @@ function ProvidersTab({
                         </>
                       ) : (
                         <>
-                          {formatClock(p.closedAt)}
+                          {formatUntil(p.detectedAt, p.closedAt)}
                           <span className={styles.sub}>{formatMinutes(p.start, p.closedAt)}</span>
                         </>
                       )}
@@ -1121,7 +1137,7 @@ function ProvidersTab({
                       </span>
                     </td>
                     <td className={styles.evidence}>
-                      {topKey(p.platforms)} · {topKey(p.codes)}
+                      {topKey(p.platforms)} · <ErrorInline code={topKey(p.codes)} platform={topKey(p.platforms)} />
                     </td>
                   </tr>
                   {open && (
@@ -1196,7 +1212,7 @@ function ProviderViewers({
                 {u.platform} · {u.network || '—'}
                 <span className={styles.sub}>{[u.isp, u.city].filter(Boolean).join(' · ') || '—'}</span>
               </td>
-              <td>{formatClock(u.firstErr)}</td>
+              <td>{formatWhen(u.firstErr)}</td>
               <td className={styles.num}>{u.errEvents}</td>
               <td>
                 <Badge text={badge.text} color={badge.color} />
@@ -1296,7 +1312,7 @@ function ServiceTab({
                     </td>
                     <td>{formatAt(inc.start)}</td>
                     <td>
-                      {formatClock(inc.detectedAt)}
+                      {formatWhen(inc.detectedAt)}
                       <span className={styles.sub}>+{formatMinutes(inc.start, inc.detectedAt)}</span>
                     </td>
                     <td>
@@ -1304,7 +1320,7 @@ function ServiceTab({
                         <Trans i18nKey="ai-insider-alerts.activity-ongoing">still abnormal</Trans>
                       ) : (
                         <>
-                          {formatClock(inc.closedAt)}
+                          {formatUntil(inc.detectedAt, inc.closedAt)}
                           <span className={styles.sub}>{formatMinutes(inc.start, inc.closedAt)}</span>
                         </>
                       )}
@@ -1404,8 +1420,8 @@ export function ServiceDetails({ incident }: { incident: ActivityIncident }) {
   const theme = useTheme2();
   const { series } = incident;
   const range = {
-    from: formatClock(series[0]?.bucket),
-    to: formatClock((series[series.length - 1]?.bucket ?? 0) + 300),
+    from: formatWhen(series[0]?.bucket),
+    to: formatUntil(series[0]?.bucket, (series[series.length - 1]?.bucket ?? 0) + 300),
     tz: zoneLabel(),
   };
   if (incident.kind === 'no_data') {
@@ -1494,8 +1510,11 @@ export function ProviderDetails({ incident, frame }: { incident: ProviderInciden
           'Bars: viewers with errors per 15 min ({{from}}–{{to}} {{tz}}). Dashed: usual level at the same time on previous days.',
           {
             tz: zoneLabel(),
-            from: formatClock(incident.series[0]?.bucket),
-            to: formatClock((incident.series[incident.series.length - 1]?.bucket ?? 0) + PROVIDER_BUCKET_SEC),
+            from: formatWhen(incident.series[0]?.bucket),
+            to: formatUntil(
+              incident.series[0]?.bucket,
+              (incident.series[incident.series.length - 1]?.bucket ?? 0) + PROVIDER_BUCKET_SEC
+            ),
           }
         )}
       </div>
@@ -1599,7 +1618,7 @@ export function OpsTab({ rows }: { rows: ChannelReportRow[] }) {
                 <td className={styles.evidence}>
                   <span className={styles.mono}>{r.topPath || '—'}</span>
                   <span className={styles.sub}>
-                    {r.topPlatform} · {r.topCode}
+                    {r.topPlatform} · <ErrorInline code={r.topCode} platform={r.topPlatform} />
                   </span>
                 </td>
                 <td>

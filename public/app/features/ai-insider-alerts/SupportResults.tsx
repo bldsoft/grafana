@@ -21,20 +21,23 @@ import {
   getStyles as getResultStyles,
 } from './AlertsResults';
 import { CdnConfirmation } from './CdnCheck';
+import { ColumnFilter, FilterColumn, useColumnFilter } from './ColumnFilter';
+import { ErrorCell, ErrorCodeList } from './ErrorText';
 import { ViewerId } from './ViewerId';
-import { AffectedViewersTable, CohortBreakdown, ErrorCell, ViewerProfile, errorKeyText } from './ViewerTables';
+import { AffectedViewersTable, CohortBreakdown, ViewerProfile, viewerFilterColumns } from './ViewerTables';
 import { AskInsiderButton } from './askInsider';
 import { activityPrompt, channelPrompt, providerPrompt } from './askPrompts';
 import { channelCdnTarget, channelChartFrame, providerCdnTarget, providerChartFrame } from './cdn';
 import { topKey } from './engine';
-import { describeError, useErrorDictionary } from './errorCodes';
-import { breakdown, formatAt, formatClock, formatCount, formatMinutes, zoneLabel } from './format';
+import { useErrorDictionary } from './errorCodes';
+import { breakdown, formatAt, formatCount, formatMinutes, formatUntil, formatWhen, zoneLabel } from './format';
 import { useTableSort, SortHeader } from './sortableTable';
 import { PROVIDER_BUCKET_SEC } from './sql';
 import {
   MAX_VIEWER_MATCHES,
   Problem,
   ProblemKind,
+  ViewerHit,
   ViewerRecord,
   buildProblems,
   buildViewerAliases,
@@ -247,7 +250,7 @@ function MessageChain({ messages, ongoing }: { messages: Decision[]; ongoing?: b
         const badge = messageBadge(m.kind);
         return (
           <span key={`${m.kind}-${m.at}-${i}`} className={styles.chainItem}>
-            <span className={styles.faint}>{formatClock(m.at)}</span>
+            <span className={styles.faint}>{formatWhen(m.at)}</span>
             <Badge text={badge.text} color={badge.color} tooltip={badge.tooltip} />
           </span>
         );
@@ -589,10 +592,10 @@ function ProblemsTab({
                         <span className={styles.sub}>
                           {p.recovered === false
                             ? t('ai-insider-alerts.support.ended-at', 'errors stopped {{time}}', {
-                                time: formatClock(p.closedAt),
+                                time: formatUntil(p.start, p.closedAt),
                               })
                             : t('ai-insider-alerts.support.back-at', 'back at {{time}}', {
-                                time: formatClock(p.closedAt),
+                                time: formatUntil(p.start, p.closedAt),
                               })}
                         </span>
                       )}
@@ -710,8 +713,9 @@ function ProblemDetails({
               <Trans i18nKey="ai-insider-alerts.support.detail-where">For the operations team</Trans>
             </div>
             <span className={styles.mono}>{topKey(problem.channel.paths) || topKey(problem.channel.hosts) || '—'}</span>
+            <div className={styles.sub}>{breakdown(problem.channel.platforms, 3)}</div>
             <div className={styles.sub}>
-              {breakdown(problem.channel.platforms, 3)} · {breakdown(problem.channel.codes, 3)}
+              <ErrorCodeList codes={problem.channel.codes} platforms={problem.channel.platforms} limit={3} />
             </div>
           </div>
         )}
@@ -720,7 +724,14 @@ function ProblemDetails({
             <div className={styles.detailLabel}>
               <Trans i18nKey="ai-insider-alerts.support.detail-where">For the operations team</Trans>
             </div>
-            {breakdown(problem.providerIncident.platforms, 3)} · {breakdown(problem.providerIncident.codes, 3)}
+            <div>{breakdown(problem.providerIncident.platforms, 3)}</div>
+            <div className={styles.sub}>
+              <ErrorCodeList
+                codes={problem.providerIncident.codes}
+                platforms={problem.providerIncident.platforms}
+                limit={3}
+              />
+            </div>
           </div>
         )}
       </div>
@@ -932,7 +943,7 @@ function ViewerVerdicts({
             tz: zoneLabel(),
             channels: c.channels,
             from: formatAt(c.firstMinute),
-            to: formatClock(c.lastMinute + 60),
+            to: formatUntil(c.firstMinute, c.lastMinute + 60),
             platform: [c.platform, c.network].filter(Boolean).join(' · ') || '—',
             where: [c.isp, c.city].filter(Boolean).join(', ') || '—',
             interpolation: { escapeValue: false },
@@ -991,34 +1002,24 @@ function ViewerCard({
   const styles = useStyles2(getResultStyles);
   const local = useStyles2(getStyles);
   const dict = useErrorDictionary();
-  const [filter, setFilter] = useState('');
-  const hits = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    if (!q) {
-      return record.hits;
-    }
-    return record.hits.filter((h) =>
-      [
-        problemTitle(h.problem),
-        problemSub(h.problem),
-        problemBadge(h.problem.kind).text,
-        h.row.platform,
-        h.row.models,
-        h.row.os,
-        h.row.appVersions,
-        h.row.network,
-        h.row.isp,
-        h.row.city,
-        h.row.ips,
-        errorKeyText(h.row.topCode),
-        describeError(dict, h.row.topCode, h.row.platform),
-      ]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(q)
-    );
-  }, [record.hits, filter, dict]);
+  const columns = useMemo(
+    (): Array<FilterColumn<ViewerHit>> => [
+      {
+        key: 'problem',
+        label: t('ai-insider-alerts.filter.col-problem', 'Problem'),
+        values: (h) => [problemTitle(h.problem)],
+        hint: (_, h) => problemSub(h.problem),
+      },
+      {
+        key: 'kind',
+        label: t('ai-insider-alerts.filter.col-kind', 'Kind'),
+        values: (h) => [problemBadge(h.problem.kind).text],
+      },
+      ...viewerFilterColumns((h: ViewerHit) => h.row, dict).filter((c) => c.key !== 'account'),
+    ],
+    [dict]
+  );
+  const { filter, rows: hits } = useColumnFilter(record.hits, columns);
   const { rows, sort } = useTableSort(hits, {
     firstErr: (h) => h.row.firstErr,
     problem: (h) => problemTitle(h.problem),
@@ -1038,15 +1039,7 @@ function ViewerCard({
       <ViewerVerdicts record={record} account={record.userId} from={from} to={to} />
       {record.hits.length > 0 && (
         <>
-          <div className={styles.toolbar}>
-            <Input
-              className={local.viewerSearch}
-              prefix={<Icon name="filter" />}
-              placeholder={t('ai-insider-alerts.support.hits-filter', 'Filter: channel, device, version, ISP, error…')}
-              value={filter}
-              onChange={(e) => setFilter(e.currentTarget.value)}
-            />
-          </div>
+          <ColumnFilter filter={filter} rows={record.hits} columns={columns} shown={hits.length} />
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>

@@ -54,7 +54,7 @@ import { SupportResults } from './SupportResults';
 import { AskInsiderProvider } from './askInsider';
 import { AlertEngine } from './engine';
 import { ExportMeta, downloadBlob, exportFileName, exportRun, runDatasetExport } from './export';
-import { formatAt, formatCount, fromUtcInput, setDisplayTimeZone, zoneLabel } from './format';
+import { formatAt, formatCount, fromUtcInput, setDisplaySpan, setDisplayTimeZone, zoneLabel } from './format';
 import { KeepWorkbench, datasourceName, runScopeText, scopePids } from './keep/KeepWorkbench';
 import { ShareStatus, liveClientId, liveRoom, runSharedLive } from './liveShare';
 import { AlertsSection as Section, RETENTION_VISIBLE, alertsSectionNavId, buildAlertsNav } from './nav';
@@ -621,6 +621,8 @@ function AlertsWorkbench({
   const [error, setError] = useState<string>();
   const [warning, setWarning] = useState<string>();
   const [snapshot, setSnapshot] = useState<AlertsSnapshot>();
+  // Set before the results render: a run that started before today dates every time it shows.
+  setDisplaySpan(snapshot?.from);
   /** The last-24-hours overview, kept on screen while one of its hours is open. */
   const [overview, setOverview] = useState<Overview>();
   const [dayLoading, setDayLoading] = useState(false);
@@ -1327,6 +1329,13 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   rangeField: css({
     minWidth: 280,
+    // TimeRangeInput opens the picker in its short form (217 px) when there is
+    // no history list: the From/To form then hides "Apply time range" below a
+    // scroll. Give it the height Grafana uses for the tall form.
+    '& #TimePickerContent > div:first-of-type': {
+      height: 381,
+      maxHeight: 'calc(100vh - 160px)',
+    },
   }),
   zoneField: css({
     minWidth: 200,

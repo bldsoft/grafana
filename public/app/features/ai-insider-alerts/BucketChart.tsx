@@ -10,7 +10,7 @@ import { GrafanaTheme2 } from '@grafana/data';
 import { useStyles2, useTheme2 } from '@grafana/ui';
 import { analytix } from 'app/features/home/analytixTokens';
 
-import { formatAt, formatClock, formatCount, zoneLabel, zoneOffsetSec } from './format';
+import { formatAt, formatClock, formatCount, formatUntil, formatWhen, zoneLabel, zoneOffsetSec } from './format';
 
 export interface ChartBar {
   /** Bucket start, epoch seconds. */
@@ -103,9 +103,9 @@ export function compactCount(n: number): string {
   return String(Math.round(n));
 }
 
-/** `18:00–18:15`, or just `18:07` for one-minute buckets. */
+/** `18:00–18:15`, or just `18:07` for one-minute buckets; dated when the run spans other days. */
 export function bucketRange(start: number, step: number): string {
-  return step <= 60 ? formatClock(start) : `${formatClock(start)}–${formatClock(start + step)}`;
+  return step <= 60 ? formatWhen(start) : `${formatWhen(start)}–${formatUntil(start, start + step)}`;
 }
 
 function timeLabel(sec: number): string {

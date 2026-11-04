@@ -1,5 +1,5 @@
-import { cohortsOf, concentrated, errorKeyText } from './ViewerTables';
-import { buildErrorDictionary, describeError } from './errorCodes';
+import { cohortsOf, concentrated } from './ViewerTables';
+import { buildErrorDictionary, describeCodes, describeError, errorDictionarySql, errorKeyText } from './errorCodes';
 import type { AffectedUserRow } from './types';
 
 function viewer(i: number, overrides: Partial<AffectedUserRow> = {}): AffectedUserRow {
@@ -49,5 +49,33 @@ describe('viewer tables', () => {
     expect(describeError(dict, '403/-', 'Android')).toBe('Forbidden');
     expect(describeError(dict, '-/9999', 'Android')).toBeUndefined();
     expect(describeError(undefined, '403/1001', 'Android')).toBeUndefined();
+  });
+
+  it("does not borrow another platform's words for a code that means different things", () => {
+    const dict = buildErrorDictionary([
+      { platform: 'android', code: '4001', description: 'Decoder initialization failure' },
+      { platform: 'smarttv', code: '4001', description: 'Invalid DASH manifest XML' },
+      { platform: 'ios', code: '12660', description: 'HTTP 403: Forbidden' },
+      { platform: 'tvos', code: '12660', description: 'HTTP 403: Forbidden' },
+    ]);
+    expect(describeError(dict, '-/4001', 'SmartTV')).toBe('Invalid DASH manifest XML');
+    expect(describeError(dict, '-/4001', 'Roku')).toBeUndefined();
+    // Every platform says the same: fine for any viewer.
+    expect(describeError(dict, '403/-12660', 'web')).toBe('HTTP 403: Forbidden');
+    expect(describeCodes(dict, { '-/4001': 3, '403/-12660': 9 }, { Android: 10, SmartTV: 2 })).toEqual([
+      { key: '403/-12660', count: 9, description: 'HTTP 403: Forbidden' },
+      { key: '-/4001', count: 3, description: 'Decoder initialization failure' },
+    ]);
+  });
+
+  it('reads the ClickHouse dictionary, the table only as a fallback', () => {
+    expect(errorDictionarySql()).toContain('FROM stat.error_dictionary_dict');
+    expect(errorDictionarySql('stat.error_dictionary_dst')).toContain('FROM stat.error_dictionary_dst');
+  });
+
+  it('puts the error meaning on the error cohort', () => {
+    const dict = buildErrorDictionary([{ platform: 'android', code: '1001', description: 'Source error' }]);
+    const error = cohortsOf([viewer(1)], dict).find((c) => c.key === 'error')!;
+    expect(error.values[0].value).toBe('1001 — Source error');
   });
 });

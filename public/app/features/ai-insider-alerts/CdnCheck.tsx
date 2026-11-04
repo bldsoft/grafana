@@ -23,7 +23,7 @@ import {
   evaluateCdn,
   toCdnStatus,
 } from './cdn';
-import { formatClock, formatCount, zoneLabel } from './format';
+import { formatCount, formatUntil, formatWhen, zoneLabel } from './format';
 import { queryRows } from './query';
 
 /** The ClickHouse datasource of the run, for reads a problem's details make on their own. */
@@ -263,7 +263,7 @@ function CdnBlock({ target, state, frame }: { target: CdnTarget; state: State; f
           usual: check.shareBefore,
           tip: t('ai-insider-alerts.cdn.chart-tip', '{{time}} {{tz}} · {{errors}} of {{requests}} requests failed', {
             tz: zoneLabel(),
-            time: formatClock(b.bucket),
+            time: formatWhen(b.bucket),
             errors: formatCount(b.errors),
             requests: formatCount(b.requests),
           }),
@@ -282,8 +282,8 @@ function CdnBlock({ target, state, frame }: { target: CdnTarget; state: State; f
           'Bars: share of the CDN requests for the stream that failed at the edge, per 5 min ({{from}}–{{to}} {{tz}}, from {{minutes}} min before the problem). Shaded: the problem. Dashed: the level before.',
           {
             tz: zoneLabel(),
-            from: formatClock(target.from),
-            to: formatClock(target.to),
+            from: formatWhen(target.from),
+            to: formatUntil(target.from, target.to),
             minutes: CDN_BEFORE_SEC / 60,
           }
         )}
@@ -301,7 +301,7 @@ function TrafficChart({ check, target, frame }: { check: CdnCheck; target: CdnTa
         start: b.bucket,
         value: b.requests,
         tip: t('ai-insider-alerts.cdn.traffic-tip', '{{time}} {{tz}} · {{requests}} requests', {
-          time: formatClock(b.bucket),
+          time: formatWhen(b.bucket),
           tz: zoneLabel(b.bucket),
           requests: formatCount(b.requests),
         }),

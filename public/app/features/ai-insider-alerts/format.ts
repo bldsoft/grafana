@@ -105,7 +105,48 @@ export function formatAt(sec: number | undefined): string {
   return `${z.day} ${MONTHS[z.month]} ${pad(z.hour)}:${pad(z.minute)}`;
 }
 
-/** `18:44` in the display zone. */
+/** Start of the run on screen; undefined when there is none. */
+let spanFrom: number | undefined;
+
+/**
+ * Sets the start of the run the page shows. A time of a run that started on
+ * an earlier day (a past period, the last 24 hours, Live past midnight) is
+ * ambiguous without its date: formatWhen then adds it.
+ */
+export function setDisplaySpan(from: number | undefined): void {
+  spanFrom = from !== undefined && Number.isFinite(from) ? from : undefined;
+}
+
+function dayOf(sec: number): number {
+  const z = zoned(sec);
+  return z.year * 10000 + z.month * 100 + z.day;
+}
+
+/** True when the run on screen did not start today (in the display zone). */
+export function datesNeeded(now = Date.now() / 1000): boolean {
+  return spanFrom !== undefined && dayOf(spanFrom) !== dayOf(now);
+}
+
+/** `29 Sep 18:44` when the run spans other days than today, `18:44` otherwise. */
+export function formatWhen(sec: number | undefined): string {
+  return datesNeeded() ? formatAt(sec) : formatClock(sec);
+}
+
+/**
+ * The end of a span that starts at `start`: `19:10` on the same day (it
+ * follows a dated start), `30 Sep 01:10` when it runs past midnight.
+ */
+export function formatUntil(start: number | undefined, end: number | undefined): string {
+  if (end === undefined || !Number.isFinite(end)) {
+    return '—';
+  }
+  if (start === undefined || !Number.isFinite(start)) {
+    return formatWhen(end);
+  }
+  return dayOf(start) === dayOf(end) ? formatClock(end) : formatAt(end);
+}
+
+/** `18:44` in the display zone, no date: chart axes and spans already dated. */
 export function formatClock(sec: number | undefined): string {
   if (sec === undefined || !Number.isFinite(sec)) {
     return '—';

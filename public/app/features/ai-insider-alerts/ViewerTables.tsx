@@ -5,17 +5,19 @@
 // problem (which platform, model, build, OS, ISP its errors fall on).
 
 import { css, cx } from '@emotion/css';
-import { ReactNode, useMemo, useState } from 'react';
+import { ReactNode, useMemo } from 'react';
 
 import { GrafanaTheme2 } from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
-import { Icon, Input, useStyles2 } from '@grafana/ui';
+import { useStyles2 } from '@grafana/ui';
 import { analytix } from 'app/features/home/analytixTokens';
 
 import { getStyles as getResultStyles } from './AlertsResults';
+import { ColumnFilter, FilterColumn, useColumnFilter } from './ColumnFilter';
+import { ErrorCell } from './ErrorText';
 import { ViewerId, viewerKindText } from './ViewerId';
-import { ErrorDictionary, describeError, useErrorDictionary } from './errorCodes';
-import { formatClock, formatCount, zoneLabel } from './format';
+import { ErrorDictionary, describeError, errorKeyText, useErrorDictionary } from './errorCodes';
+import { formatCount, formatWhen, zoneLabel } from './format';
 import { SortHeader, SortValue, useTableSort } from './sortableTable';
 import { detailValues, mergeDetail } from './support';
 import type { AffectedUserRow, CustomerSideRow, ViewerDetail } from './types';
@@ -28,80 +30,50 @@ function list(value: string | undefined): string {
   return detailValues(value).join(', ') || '—';
 }
 
-/** The error key `403/1001` as support reads it: `403 / 1001`, `-` slots dropped. */
-export function errorKeyText(key: string): string {
-  return (
-    key
-      .split('/')
-      .filter((c) => c && c !== '-')
-      .join(' / ') || '—'
-  );
-}
-
-/** Everything a row can be found by, lower case. */
-function haystack(parts: Array<string | undefined>): string {
-  return parts.filter(Boolean).join(' ').toLowerCase();
-}
-
-function useFilter<T>(
-  rows: T[],
-  text: (row: T) => string
-): { filter: string; setFilter: (v: string) => void; rows: T[] } {
-  const [filter, setFilter] = useState('');
-  const filtered = useMemo(() => {
-    const q = filter.trim().toLowerCase();
-    return q ? rows.filter((r) => text(r).includes(q)) : rows;
-  }, [rows, filter, text]);
-  return { filter, setFilter, rows: filtered };
-}
-
-function FilterInput({
-  value,
-  onChange,
-  total,
-  shown,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-  total: number;
-  shown: number;
-}) {
-  const styles = useStyles2(getResultStyles);
-  const local = useStyles2(getStyles);
-  return (
-    <div className={styles.toolbar}>
-      <Input
-        className={local.filter}
-        prefix={<Icon name="filter" />}
-        placeholder={t(
-          'ai-insider-alerts.viewers.filter',
-          'Filter: account, model, OS, app version, ISP, IP, device ID, error…'
-        )}
-        value={value}
-        onChange={(e) => onChange(e.currentTarget.value)}
-      />
-      {value.trim() && (
-        <span className={local.faint}>
-          {t('ai-insider-alerts.viewers.filter-count', '{{shown}} of {{total}}', {
-            shown: formatCount(shown),
-            total: formatCount(total),
-          })}
-        </span>
-      )}
-    </div>
-  );
-}
-
-/** Code and its meaning, for a table cell. */
-export function ErrorCell({ code, platform, dict }: { code: string; platform: string; dict?: ErrorDictionary }) {
-  const styles = useStyles2(getResultStyles);
-  const description = describeError(dict, code, platform);
-  return (
-    <>
-      <span className={styles.mono}>{errorKeyText(code)}</span>
-      {description && <span className={styles.sub}>{description}</span>}
-    </>
-  );
+/** Columns a viewer table can be filtered by; `of` reads the viewer row out of a table row. */
+export function viewerFilterColumns<T>(
+  of: (row: T) => AffectedUserRow,
+  dict: ErrorDictionary | undefined
+): Array<FilterColumn<T>> {
+  return [
+    {
+      key: 'account',
+      label: t('ai-insider-alerts.filter.col-account', 'Account'),
+      values: (r) => [of(r).userId, ...detailValues(of(r).accounts)],
+    },
+    { key: 'platform', label: t('ai-insider-alerts.filter.col-platform', 'Platform'), values: (r) => [of(r).platform] },
+    {
+      key: 'model',
+      label: t('ai-insider-alerts.filter.col-model', 'Model'),
+      values: (r) => detailValues(of(r).models),
+    },
+    { key: 'os', label: t('ai-insider-alerts.filter.col-os', 'OS'), values: (r) => detailValues(of(r).os) },
+    {
+      key: 'app',
+      label: t('ai-insider-alerts.filter.col-app', 'App version'),
+      values: (r) => detailValues(of(r).appVersions),
+    },
+    { key: 'network', label: t('ai-insider-alerts.filter.col-network', 'Network'), values: (r) => [of(r).network] },
+    { key: 'isp', label: t('ai-insider-alerts.filter.col-isp', 'ISP'), values: (r) => [of(r).isp] },
+    { key: 'city', label: t('ai-insider-alerts.filter.col-city', 'City'), values: (r) => [of(r).city] },
+    { key: 'ip', label: t('ai-insider-alerts.filter.col-ip', 'IP'), values: (r) => detailValues(of(r).ips) },
+    {
+      key: 'serial',
+      label: t('ai-insider-alerts.filter.col-serial', 'Serial'),
+      values: (r) => detailValues(of(r).serials),
+    },
+    {
+      key: 'deviceId',
+      label: t('ai-insider-alerts.filter.col-device-id', 'Device ID'),
+      values: (r) => detailValues(of(r).deviceIds),
+    },
+    {
+      key: 'error',
+      label: t('ai-insider-alerts.filter.col-error', 'Error'),
+      values: (r) => [of(r).topCode ? errorKeyText(of(r).topCode) : undefined],
+      hint: (_, r) => describeError(dict, of(r).topCode, of(r).platform),
+    },
+  ];
 }
 
 function DeviceCell({ row }: { row: AffectedUserRow }) {
@@ -169,27 +141,8 @@ export function AffectedViewersTable({
   const styles = useStyles2(getResultStyles);
   const local = useStyles2(getStyles);
   const dict = useErrorDictionary();
-  const text = useMemo(
-    () => (u: AffectedUserRow) =>
-      haystack([
-        u.userId,
-        u.accounts,
-        u.platform,
-        u.models,
-        u.os,
-        u.appVersions,
-        u.network,
-        u.isp,
-        u.city,
-        u.ips,
-        u.serials,
-        u.deviceIds,
-        errorKeyText(u.topCode),
-        describeError(dict, u.topCode, u.platform),
-      ]),
-    [dict]
-  );
-  const { filter, setFilter, rows: filtered } = useFilter(viewers, text);
+  const columns = useMemo(() => viewerFilterColumns((u: AffectedUserRow) => u, dict), [dict]);
+  const { filter, rows: filtered } = useColumnFilter(viewers, columns);
   const { rows, sort } = useTableSort(filtered, {
     viewer: (u) => u.userId,
     device: (u) => `${u.platform} ${u.models ?? ''}`,
@@ -215,7 +168,7 @@ export function AffectedViewersTable({
   }
   return (
     <>
-      <FilterInput value={filter} onChange={setFilter} total={viewers.length} shown={filtered.length} />
+      <ColumnFilter filter={filter} rows={viewers} columns={columns} shown={filtered.length} />
       <div className={styles.tableWrap}>
         <table className={cx(styles.table, styles.innerTable)}>
           <thead>
@@ -273,7 +226,7 @@ export function AffectedViewersTable({
                 <td>
                   <IdsCell row={u} />
                 </td>
-                <td>{formatClock(u.firstErr)}</td>
+                <td>{formatWhen(u.firstErr)}</td>
                 <td className={styles.num}>{u.errEvents}</td>
                 <td>
                   <ErrorCell code={u.topCode} platform={u.platform} dict={dict} />
@@ -373,7 +326,7 @@ export const COHORT_CONCENTRATED = 0.8;
 const COHORT_MIN = 5;
 const COHORT_TOP = 4;
 
-export function cohortsOf(viewers: AffectedUserRow[]): Cohort[] {
+export function cohortsOf(viewers: AffectedUserRow[], dict?: ErrorDictionary): Cohort[] {
   const dims: Array<{ key: Cohort['key']; label: string; of: (u: AffectedUserRow) => string }> = [
     { key: 'platform', label: t('ai-insider-alerts.cohort.platform', 'Platform'), of: (u) => u.platform },
     {
@@ -399,7 +352,14 @@ export function cohortsOf(viewers: AffectedUserRow[]): Cohort[] {
     },
     { key: 'network', label: t('ai-insider-alerts.cohort.network', 'Network'), of: (u) => u.network },
     { key: 'isp', label: t('ai-insider-alerts.cohort.isp', 'ISP'), of: (u) => u.isp },
-    { key: 'error', label: t('ai-insider-alerts.cohort.error', 'Error'), of: (u) => errorKeyText(u.topCode) },
+    {
+      key: 'error',
+      label: t('ai-insider-alerts.cohort.error', 'Error'),
+      of: (u) => {
+        const description = describeError(dict, u.topCode, u.platform);
+        return description ? `${errorKeyText(u.topCode)} — ${description}` : errorKeyText(u.topCode);
+      },
+    },
   ];
   return dims.map((d) => {
     const counts = new Map<string, number>();
@@ -428,7 +388,8 @@ export function concentrated(cohort: Cohort, total: number): { value: string; sh
 export function CohortBreakdown({ viewers }: { viewers: AffectedUserRow[] }) {
   const styles = useStyles2(getResultStyles);
   const local = useStyles2(getStyles);
-  const cohorts = useMemo(() => cohortsOf(viewers), [viewers]);
+  const dict = useErrorDictionary();
+  const cohorts = useMemo(() => cohortsOf(viewers, dict), [viewers, dict]);
   if (!viewers.length) {
     return null;
   }
@@ -486,10 +447,6 @@ export function CohortBreakdown({ viewers }: { viewers: AffectedUserRow[] }) {
 }
 
 const getStyles = (theme: GrafanaTheme2) => ({
-  filter: css({
-    width: 420,
-    maxWidth: '100%',
-  }),
   faint: css({
     color: theme.colors.text.secondary,
     fontSize: theme.typography.bodySmall.fontSize,

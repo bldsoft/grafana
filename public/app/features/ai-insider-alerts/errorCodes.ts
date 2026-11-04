@@ -1,8 +1,9 @@
 // Analytix: AI Insider Alerts - what an error code means, in words. The
 // detector keys an error as `<slot 10>/<slot 11>` (HTTP code / player code);
-// stat.error_dictionary_dst describes the codes per platform. The dictionary
-// is small: read once per datasource when a table first needs it, cached for
-// the page.
+// the ClickHouse dictionary stat.error_dictionary_dict describes the codes per
+// platform (its source table stat.error_dictionary_dst is read when the
+// dictionary is not there). It is small: read once per datasource when a view
+// first needs it, cached for the page.
 
 import { useContext, useEffect, useState } from 'react';
 
@@ -18,15 +19,28 @@ const SETTINGS = settingsClause('ai-insider:alerts-errors', { maxExecutionSec: 3
 /** Code (normalised) → description per platform (lower case), '' for "any platform". */
 export type ErrorDictionary = Map<string, Map<string, string>>;
 
-export function errorDictionarySql(): string {
+export const ERROR_DICTIONARY = 'stat.error_dictionary_dict';
+const ERROR_DICTIONARY_TABLE = 'stat.error_dictionary_dst';
+
+export function errorDictionarySql(from: string = ERROR_DICTIONARY): string {
   return `SELECT
     lower(toString(platform)) AS platform,
     trim(replace(toString(error_code), '-', '')) AS code,
     any(toString(description)) AS description
-FROM stat.error_dictionary_dst
+FROM ${from}
 WHERE description != ''
 GROUP BY platform, code
 ${SETTINGS}`;
+}
+
+/** The error key `403/1001` as support reads it: `403 / 1001`, `-` slots dropped. */
+export function errorKeyText(key: string): string {
+  return (
+    key
+      .split('/')
+      .filter((c) => c && c !== '-')
+      .join(' / ') || '—'
+  );
 }
 
 /** The dictionary and the stream disagree about leading dashes: compare without them. */
@@ -54,8 +68,16 @@ function lookup(dict: ErrorDictionary, code: string, platform: string): string |
   if (!byPlatform) {
     return undefined;
   }
-  // The viewer's own platform first, then any platform's wording.
-  return byPlatform.get(platform.toLowerCase()) ?? byPlatform.get('') ?? byPlatform.values().next().value;
+  // The viewer's own platform first, then the "any platform" wording. A code
+  // means different things on different players (4001 is a decoder failure on
+  // Android and bad DASH XML on SmartTV): another platform's words are used
+  // only when every platform says the same.
+  const own = byPlatform.get(platform.toLowerCase()) ?? byPlatform.get('');
+  if (own) {
+    return own;
+  }
+  const said = new Set(byPlatform.values());
+  return said.size === 1 ? said.values().next().value : undefined;
 }
 
 /**
@@ -77,13 +99,36 @@ export function describeError(dict: ErrorDictionary | undefined, key: string, pl
   return undefined;
 }
 
+/** The incident's codes, most viewers first, each with its words (read on the incident's top platform). */
+export function describeCodes(
+  dict: ErrorDictionary | undefined,
+  codes: Record<string, number>,
+  platforms: Record<string, number>,
+  limit = 4
+): Array<{ key: string; count: number; description?: string }> {
+  let platform = '';
+  let best = -1;
+  for (const [p, n] of Object.entries(platforms)) {
+    if (n > best) {
+      platform = p;
+      best = n;
+    }
+  }
+  return Object.entries(codes)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([key, count]) => ({ key, count, description: describeError(dict, key, platform) }));
+}
+
 const cache = new Map<string, Promise<ErrorDictionary>>();
 
 function load(datasource: DataSourceRef): Promise<ErrorDictionary> {
   const key = datasource.uid ?? '';
   let hit = cache.get(key);
   if (!hit) {
-    hit = queryRows(datasource, errorDictionarySql(), { timeoutMs: 35_000 }).then(buildErrorDictionary);
+    hit = queryRows(datasource, errorDictionarySql(), { timeoutMs: 35_000 })
+      .catch(() => queryRows(datasource, errorDictionarySql(ERROR_DICTIONARY_TABLE), { timeoutMs: 35_000 }))
+      .then(buildErrorDictionary);
     // A failed read is tried again the next time a table needs it.
     hit.catch(() => cache.delete(key));
     cache.set(key, hit);
