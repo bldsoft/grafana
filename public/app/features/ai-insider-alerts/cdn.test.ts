@@ -5,8 +5,11 @@ import {
   CdnStatusRow,
   CdnTarget,
   cdnStatusSql,
+  CDN_BEFORE_SEC,
   channelCdnTarget,
+  channelChartFrame,
   evaluateCdn,
+  providerChartFrame,
   providerCdnTarget,
   streamOfPath,
 } from './cdn';
@@ -123,5 +126,45 @@ describe('CDN confirmation', () => {
 
   it('says there are no CDN logs when nothing was requested', () => {
     expect(evaluateCdn([], target()).verdict).toBe('none');
+  });
+
+  it('calls out a drop in traffic when viewers stopped reaching the edge', () => {
+    const before = [-6, -5, -4, -3, -2, -1].map((i) => row(i, 200, 1000));
+    const during = [0, 1, 2].map((i) => row(i, 200, 100));
+    const check = evaluateCdn([...before, ...during], target());
+    expect(check.verdict).toBe('dropped');
+    expect(check.trafficRatio).toBeCloseTo(0.1);
+    // As much traffic as before: served as usual.
+    expect(evaluateCdn([...before, ...[0, 1, 2].map((i) => row(i, 200, 1000))], target()).verdict).toBe('clean');
+  });
+
+  it('does not read buckets the CDN logs have not filled yet as a drop', () => {
+    const before = [-6, -5, -4, -3, -2, -1].map((i) => row(i, 200, 1000));
+    const now = target().start + 60;
+    const check = evaluateCdn([...before, row(0, 200, 50)], target(), now);
+    expect(check.trafficRatio).toBeUndefined();
+    expect(check.verdict).toBe('clean');
+  });
+
+  it('puts the analytics chart and the CDN chart of a problem on one axis', () => {
+    const inc = incident();
+    const frame = channelChartFrame(inc, T0 + 3600);
+    const cdn = target();
+    expect(frame.range).toEqual({ from: cdn.from, to: cdn.to });
+    expect(frame.highlight).toEqual({ from: inc.start, to: inc.closedAt });
+    expect(frame.range.from).toBe(Math.floor(T0 / CDN_BUCKET_SEC) * CDN_BUCKET_SEC - CDN_BEFORE_SEC);
+
+    const bucket = Math.floor(T0 / 900) * 900;
+    const prov = {
+      pid: '222',
+      start: bucket,
+      lastSurge: bucket + 900,
+      closedAt: bucket + 2700,
+      series: [0, 1, 2].map((i) => ({ bucket: bucket + i * 900, users: 100, errUsers: 50, baselineErr: 5 })),
+    } as ProviderIncident;
+    const pf = providerChartFrame(prov, 900, T0 + 3600);
+    expect(pf.range.from).toBeLessThanOrEqual(prov.series[0].bucket);
+    expect(pf.range.to).toBeGreaterThanOrEqual(prov.series[prov.series.length - 1].bucket + 900);
+    expect(pf.range.from % CDN_BUCKET_SEC).toBe(0);
   });
 });

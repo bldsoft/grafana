@@ -4,7 +4,7 @@ import { GrafanaTheme2 } from '@grafana/data';
 import { t } from '@grafana/i18n';
 import { useStyles2, useTheme2 } from '@grafana/ui';
 
-import { formatUtc, formatUtcTime } from './format';
+import { formatAt, formatClock } from './format';
 import type { Incident, IncidentClass } from './types';
 
 const MAX_ROWS = 40;
@@ -74,7 +74,7 @@ export function IncidentTimeline({ incidents, classOf, from, to, onSelect }: Pro
           <g key={s}>
             <line x1={x(s)} x2={x(s)} y1={AXIS_H - 4} y2={height} stroke={theme.colors.border.weak} />
             <text x={x(s)} y={12} fontSize={10} textAnchor="middle" fill={theme.colors.text.secondary}>
-              {tickStep >= 86400 ? formatUtc(s).slice(0, -6) : formatUtcTime(s)}
+              {tickStep >= 86400 ? formatAt(s).slice(0, -6) : formatClock(s)}
             </text>
           </g>
         ))}
@@ -85,7 +85,7 @@ export function IncidentTimeline({ incidents, classOf, from, to, onSelect }: Pro
           const label = `${inc.provider || inc.pid} · ${inc.title || inc.cid}`;
           return (
             <g key={inc.id} className={styles.row} onClick={() => onSelect(inc.id)}>
-              <title>{`${label}\n${formatUtc(inc.start)} → ${inc.closedAt ? formatUtc(inc.closedAt) : '…'}`}</title>
+              <title>{`${label}\n${formatAt(inc.start)} → ${inc.closedAt ? formatAt(inc.closedAt) : '…'}`}</title>
               <rect x={0} y={y} width={WIDTH} height={ROW_H} fill="transparent" />
               <text x={4} y={y + 11} fontSize={10} fill={theme.colors.text.primary}>
                 {label.length > 32 ? `${label.slice(0, 31)}…` : label}

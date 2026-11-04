@@ -232,8 +232,24 @@ export interface ProviderIncident {
  */
 export type ViewerKind = 'account' | 'guest' | 'none';
 
+/**
+ * Who a viewer is and on what, for support: up to three distinct values of
+ * each, comma-separated. Missing in runs exported before it was read.
+ */
+export interface ViewerDetail {
+  /** The raw account, a guest's shared `<prefix>-GUEST` one too. */
+  accounts?: string;
+  serials?: string;
+  /** Server-issued device ids. */
+  deviceIds?: string;
+  ips?: string;
+  models?: string;
+  os?: string;
+  appVersions?: string;
+}
+
 /** One viewer hit by one incident (query B). */
-export interface AffectedUserRow {
+export interface AffectedUserRow extends ViewerDetail {
   incidentId: string;
   userId: string;
   /** Missing in runs exported before guests were told apart. */
@@ -251,7 +267,7 @@ export interface AffectedUserRow {
 }
 
 /** A viewer failing on channels that are healthy for everyone else (query C). */
-export interface CustomerSideRow {
+export interface CustomerSideRow extends ViewerDetail {
   pid: string;
   provider: string;
   userId: string;

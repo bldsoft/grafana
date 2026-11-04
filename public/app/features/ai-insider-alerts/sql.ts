@@ -130,6 +130,39 @@ export function epoch(sec: number): string {
   return `toDateTime(${Math.floor(sec)})`;
 }
 
+// Who the viewer is and on what, for support: the raw account (a guest's
+// shared one too), device ids, the public IP, model, OS and app build. Read
+// only with the geo columns, on the narrowed rows of the viewer queries.
+const VIEWER_COLUMNS = `
+        content_user_account_number AS account,
+        device_serial_number AS serial,
+        device_id AS dev_id,
+        network_ip AS ip,
+        if(analytics_version = '2.0', device_name, device_model) AS model,
+        device_OsVersion AS os,
+        app_releaseVersion AS app_version,`;
+
+/**
+ * The viewer's identity and device as one row per viewer: up to three
+ * distinct values of each, comma-separated (a viewer may switch devices or
+ * networks). `cond` narrows to the rows that count (the errors of a window).
+ */
+function viewerDetail(cond?: string, table = ''): string {
+  const list = (col: string, alias: string) => {
+    const c = `${table}${col}`;
+    return `arrayStringConcat(groupUniqArrayIf(3)(${c}, ${c} != ''${cond ? ` AND ${cond}` : ''}), ', ') AS ${alias}`;
+  };
+  return [
+    list('account', 'accounts_any'),
+    list('serial', 'serials_any'),
+    list('dev_id', 'device_ids_any'),
+    list('ip', 'ips_any'),
+    list('model', 'models_any'),
+    list('os', 'os_any'),
+    list('app_version', 'app_versions_any'),
+  ].join(',\n    ');
+}
+
 /**
  * The live-TV playback rows of one window, one row per player event, with the
  * derived columns every query below groups on. `pids === null` means all
@@ -141,7 +174,7 @@ function baseRows(from: number, to: number, pids: string[] | null, extra = '', g
   const geoColumns = geo
     ? `
         ISP AS isp,
-        City AS city,`
+        City AS city,${VIEWER_COLUMNS}`
     : '';
   return `SELECT
         event_timestamp AS ts,
@@ -270,6 +303,7 @@ export function affectedUsersSql(windows: IncidentWindow[], pids: string[] | nul
     maxIf(ts_s, hit) AS last_err,
     countIf(hit) AS err_events,
     arrayElement(topKIf(1)(code, hit), 1) AS top_code,
+    ${viewerDetail('hit')},
     sumIf(watch, et = 'play_stop' AND NOT is_err AND watch > 0 AND watch < 20000 AND ts_s < err_from + ${ERR_LEAD_SEC}) AS watched_before
 FROM (
     SELECT *, toUnixTimestamp(ts) AS ts_s, is_err AND ts_s >= err_from AS hit
@@ -307,9 +341,11 @@ export function customerSideSql(from: number, to: number, pids: string[] | null,
     count() AS err_events,
     toUnixTimestamp(min(e.minute)) AS first_minute,
     toUnixTimestamp(max(e.minute)) AS last_minute,
-    arrayElement(topK(1)(e.code), 1) AS top_code
+    arrayElement(topK(1)(e.code), 1) AS top_code,
+    ${viewerDetail(undefined, 'e.')}
 FROM (
-    SELECT minute, pid, cid, user_id, user_kind, platform, network, isp, city, code
+    SELECT minute, pid, cid, user_id, user_kind, platform, network, isp, city, code,
+        account, serial, dev_id, ip, model, os, app_version
     FROM (
         ${baseRows(from, to, pids, `(${IS_ERR})`, true)}
     )
@@ -463,7 +499,8 @@ export function providerUsersSql(windows: ProviderWindow[], pids: string[] | nul
     min(toUnixTimestamp(ts)) AS first_err,
     max(toUnixTimestamp(ts)) AS last_err,
     count() AS err_events,
-    arrayElement(topK(1)(code), 1) AS top_code
+    arrayElement(topK(1)(code), 1) AS top_code,
+    ${viewerDetail()}
 FROM (
     SELECT *, multiIf(${branches.join(', ')}, -1) AS inc
     FROM (
@@ -503,5 +540,28 @@ WHERE event_timestamp >= ${epoch(from)} AND event_timestamp < ${epoch(to)}
   AND content_provider_id != ''${pidClause(pids)}
 GROUP BY bucket_ts, pid
 ORDER BY bucket_ts, pid
+${SETTINGS}`;
+}
+
+/**
+ * Query H: the overview of a day, per hour over the whole scope — viewers,
+ * viewers with an error, server-side errors and the provider and channel with
+ * the most viewers failing. Read for the last 24 hours and the 24 before them
+ * (the same hour yesterday is the usual level).
+ */
+export function hourlyOverviewSql(from: number, to: number, pids: string[] | null): string {
+  return `SELECT
+    toUnixTimestamp(toStartOfHour(ts)) AS hour_ts,
+    uniq(user_id) AS users,
+    uniqIf(user_id, is_err) AS err_users,
+    countIf(is_err) AS err_events,
+    uniqIf(user_id, is_srv) AS srv_err_users,
+    arrayElement(topKIf(1)(pid, is_err), 1) AS top_pid,
+    arrayElement(topKIf(1)(ch_title, is_err), 1) AS top_channel
+FROM (
+    ${baseRows(from, to, pids)}
+)
+GROUP BY hour_ts
+ORDER BY hour_ts
 ${SETTINGS}`;
 }

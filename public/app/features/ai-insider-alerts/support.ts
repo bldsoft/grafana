@@ -11,6 +11,7 @@ import type {
   Incident,
   IncidentClass,
   ProviderIncident,
+  ViewerDetail,
 } from './types';
 
 export type ProblemKind = 'channel' | 'unstable' | 'chronic' | 'provider' | 'service_down' | 'outage' | 'no_data';
@@ -83,9 +84,28 @@ function toldCount(decisions: Decision[] | undefined): number {
   return new Set((decisions ?? []).filter((d) => TOLD_KINDS.has(d.kind)).map((d) => d.userId)).size;
 }
 
-/** Ongoing first (chronic channels last among them), then the most recent. */
+/**
+ * Problems wider than one channel: a whole provider, the service or several
+ * providers at once. They hit far more viewers than a channel does, so the
+ * support view pins them above the stream of channel failures.
+ */
+export const MAJOR_KINDS: ReadonlySet<ProblemKind> = new Set<ProblemKind>([
+  'provider',
+  'service_down',
+  'outage',
+  'no_data',
+]);
+
+export function isMajor(p: Problem): boolean {
+  return MAJOR_KINDS.has(p.kind);
+}
+
+/** Ongoing first (wide problems on top, chronic channels last), then the most recent. */
 function rank(p: Problem): number {
-  return p.ongoing ? (p.kind === 'chronic' ? 1 : 0) : 2;
+  if (!p.ongoing) {
+    return 3;
+  }
+  return isMajor(p) ? 0 : p.kind === 'chronic' ? 2 : 1;
 }
 
 export function buildProblems(input: SupportInput): Problem[] {
@@ -231,14 +251,56 @@ export function buildViewerIndex(input: SupportInput, problems: Problem[]): Map<
 
 export const MAX_VIEWER_MATCHES = 20;
 
+/** The comma-separated values of a ViewerDetail field. */
+export function detailValues(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+/** Distinct values of one detail field over all rows of a viewer, in first-seen order. */
+export function mergeDetail(rows: Array<ViewerDetail | undefined>, field: keyof ViewerDetail): string[] {
+  return Array.from(new Set(rows.flatMap((r) => detailValues(r?.[field]))));
+}
+
+const ALIAS_FIELDS: Array<keyof ViewerDetail> = ['accounts', 'serials', 'deviceIds', 'ips'];
+
 /**
- * Accounts matching what support typed: the exact account if it is there,
- * otherwise every account containing the text (at most MAX_VIEWER_MATCHES,
- * plus the total).
+ * Other ids of a viewer → their records: the raw account, device serials,
+ * device ids and IP addresses seen on their errors. A caller may read any of
+ * them off a device or a router instead of the account.
+ */
+export function buildViewerAliases(index: Map<string, ViewerRecord>): Map<string, ViewerRecord[]> {
+  const aliases = new Map<string, ViewerRecord[]>();
+  for (const [key, r] of index) {
+    const rows: ViewerDetail[] = [...r.hits.map((h) => h.row), ...r.customer];
+    for (const field of ALIAS_FIELDS) {
+      for (const value of mergeDetail(rows, field)) {
+        const alias = accountKey(value);
+        if (alias === key) {
+          continue;
+        }
+        const list = aliases.get(alias) ?? [];
+        if (!list.includes(r)) {
+          list.push(r);
+        }
+        aliases.set(alias, list);
+      }
+    }
+  }
+  return aliases;
+}
+
+/**
+ * Viewers matching what support typed: the exact account if it is there, a
+ * viewer whose IP, device serial or device id it is, otherwise every account
+ * containing the text (at most MAX_VIEWER_MATCHES, plus the total).
  */
 export function findViewers(
   index: Map<string, ViewerRecord>,
-  query: string
+  query: string,
+  aliases?: Map<string, ViewerRecord[]>
 ): { exact?: ViewerRecord; matches: ViewerRecord[]; total: number } {
   const key = accountKey(query);
   if (!key) {
@@ -247,6 +309,14 @@ export function findViewers(
   const exact = index.get(key);
   if (exact) {
     return { exact, matches: [exact], total: 1 };
+  }
+  const byAlias = aliases?.get(key);
+  if (byAlias?.length) {
+    return {
+      exact: byAlias.length === 1 ? byAlias[0] : undefined,
+      matches: byAlias.slice(0, MAX_VIEWER_MATCHES),
+      total: byAlias.length,
+    };
   }
   const matches: ViewerRecord[] = [];
   let total = 0;

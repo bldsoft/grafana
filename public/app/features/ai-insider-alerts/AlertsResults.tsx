@@ -25,9 +25,9 @@ import { ViewerId } from './ViewerId';
 import { activityPeak } from './activity';
 import { AskInsiderButton } from './askInsider';
 import { activityPrompt, channelPrompt, providerPrompt } from './askPrompts';
-import { channelCdnTarget } from './cdn';
+import { ProblemChartFrame, channelCdnTarget, channelChartFrame } from './cdn';
 import { topKey } from './engine';
-import { breakdown, decisionsToCsv, formatCount, formatMinutes, formatUtc, formatUtcTime } from './format';
+import { breakdown, decisionsToCsv, formatAt, formatClock, formatCount, formatMinutes, zoneLabel } from './format';
 import { PushDialog } from './push/PushDialog';
 import { PushTokensPanel, usePushTokens } from './push/PushTokensPanel';
 import { accountKey } from './push/pushPlan';
@@ -428,7 +428,7 @@ function IncidentsTab({
           <thead>
             <tr>
               <SortHeader sort={sort} column="started">
-                <Trans i18nKey="ai-insider-alerts.col-started">Started (UTC)</Trans>
+                {t('ai-insider-alerts.col-started', 'Started ({{tz}})', { tz: zoneLabel() })}
               </SortHeader>
               <SortHeader sort={sort} column="detected">
                 <Trans i18nKey="ai-insider-alerts.col-detected">Detected</Trans>
@@ -466,9 +466,9 @@ function IncidentsTab({
                     className={cx(styles.clickable, open && styles.rowOpen)}
                     onClick={() => onToggle(open ? undefined : inc.id)}
                   >
-                    <td>{formatUtc(inc.start)}</td>
+                    <td>{formatAt(inc.start)}</td>
                     <td>
-                      {formatUtcTime(inc.detectedAt)}
+                      {formatClock(inc.detectedAt)}
                       <span className={styles.sub}>+{formatMinutes(inc.start, inc.detectedAt)}</span>
                     </td>
                     <td>
@@ -481,7 +481,7 @@ function IncidentsTab({
                         </>
                       ) : inc.closedAt ? (
                         <>
-                          {formatUtcTime(inc.closedAt)}
+                          {formatClock(inc.closedAt)}
                           <span className={styles.sub}>{formatMinutes(inc.start, inc.closedAt)}</span>
                         </>
                       ) : (
@@ -532,7 +532,18 @@ function IncidentsTab({
  * The incident's life, one bar per minute, height = share of viewers with
  * errors (bad minutes only; clean minutes stay empty).
  */
-export function IncidentSparkline({ incident, cls, to }: { incident: Incident; cls: IncidentClass; to: number }) {
+export function IncidentSparkline({
+  incident,
+  cls,
+  to,
+  frame,
+}: {
+  incident: Incident;
+  cls: IncidentClass;
+  to: number;
+  /** The axis shared with the CDN chart; the incident itself when missing. */
+  frame?: ProblemChartFrame;
+}) {
   const styles = useStyles2(getStyles);
   const theme = useTheme2();
   const end = incident.closedAt ?? Math.max(incident.lastBad + 60, to);
@@ -544,17 +555,19 @@ export function IncidentSparkline({ incident, cls, to }: { incident: Incident; c
           value: p.users ? p.errUsers / p.users : 0,
           tip: t(
             'ai-insider-alerts.incident-chart-tip',
-            '{{time}} UTC · {{errors}} of {{viewers}} viewers with errors',
+            '{{time}} {{tz}} · {{errors}} of {{viewers}} viewers with errors',
             {
-              time: formatUtcTime(p.minute),
+              tz: zoneLabel(),
+              time: formatClock(p.minute),
               errors: p.errUsers,
               viewers: p.users,
             }
           ),
         }))}
         step={60}
-        from={incident.start}
-        to={end}
+        from={frame?.range.from ?? incident.start}
+        to={frame?.range.to ?? end}
+        highlight={frame?.highlight}
         color={classColor(theme, cls)}
         unit="share"
         label={t('ai-insider-alerts.incident-chart-label', 'Share of viewers with errors per minute')}
@@ -562,8 +575,12 @@ export function IncidentSparkline({ incident, cls, to }: { incident: Incident; c
       <div className={styles.legend}>
         {t(
           'ai-insider-alerts.incident-chart-legend',
-          'Bars: share of the channel viewers with errors, per failing minute ({{from}}–{{to}} UTC). Gaps: minutes without failures.',
-          { from: formatUtcTime(incident.start), to: formatUtcTime(end) }
+          'Bars: share of the channel viewers with errors, per failing minute ({{from}}–{{to}} {{tz}}). Gaps: minutes without failures.',
+          {
+            tz: zoneLabel(),
+            from: formatClock(incident.start),
+            to: formatClock(end),
+          }
         )}
       </div>
     </>
@@ -603,11 +620,13 @@ function IncidentDetails({
     },
   });
 
+  const frame = channelChartFrame(incident, snapshot.to);
+
   return (
     <div className={styles.details}>
       <AskInsiderButton source="channel" prompt={() => channelPrompt(incident)} />
-      <IncidentSparkline incident={incident} cls={cls} to={snapshot.to} />
-      <CdnConfirmation target={channelCdnTarget(incident, snapshot.to)} />
+      <IncidentSparkline incident={incident} cls={cls} to={snapshot.to} frame={frame} />
+      <CdnConfirmation target={channelCdnTarget(incident, snapshot.to)} frame={frame} />
       <div className={styles.detailGrid}>
         <div>
           <div className={styles.detailLabel}>
@@ -627,16 +646,16 @@ function IncidentDetails({
         </div>
         <div>
           <div className={styles.detailLabel}>
-            <Trans i18nKey="ai-insider-alerts.detail-timing">Timing (UTC)</Trans>
+            {t('ai-insider-alerts.detail-timing', 'Timing ({{tz}})', { tz: zoneLabel() })}
           </div>
           {t(
             'ai-insider-alerts.detail-timing-value',
             'start {{start}} · detected {{detected}} · push due {{push}} · back {{back}} · {{bad}} failing minutes',
             {
-              start: formatUtcTime(incident.start),
-              detected: formatUtcTime(incident.detectedAt),
-              push: formatUtcTime(incident.escalatedAt),
-              back: formatUtcTime(incident.closedAt),
+              start: formatClock(incident.start),
+              detected: formatClock(incident.detectedAt),
+              push: formatClock(incident.escalatedAt),
+              back: formatClock(incident.closedAt),
               bad: incident.badMinutes,
             }
           )}
@@ -688,7 +707,7 @@ function IncidentDetails({
                   {u.platform} · {u.network || '—'}
                   <span className={styles.sub}>{[u.isp, u.city].filter(Boolean).join(' · ') || '—'}</span>
                 </td>
-                <td>{formatUtcTime(u.firstErr)}</td>
+                <td>{formatClock(u.firstErr)}</td>
                 <td className={styles.num}>{u.errEvents}</td>
                 <td className={styles.num}>{formatMinutes(0, u.watchedBeforeSec)}</td>
                 <td>
@@ -800,7 +819,7 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
           <thead>
             <tr>
               <SortHeader sort={sort} column="time">
-                <Trans i18nKey="ai-insider-alerts.col-time">Time (UTC)</Trans>
+                {t('ai-insider-alerts.col-time', 'Time ({{tz}})', { tz: zoneLabel() })}
               </SortHeader>
               <SortHeader sort={sort} column="message">
                 <Trans i18nKey="ai-insider-alerts.col-message">Message</Trans>
@@ -823,7 +842,7 @@ function MessagesTab({ decisions, onSelect }: { decisions: Decision[]; onSelect:
               const hasToken = pushTokens.parsed.byAccount.has(accountKey(d.userId));
               return (
                 <tr key={`${d.kind}-${d.userId}-${d.incidentId ?? ''}-${i}`}>
-                  <td>{formatUtc(d.at)}</td>
+                  <td>{formatAt(d.at)}</td>
                   <td>
                     <Badge text={badge.text} color={badge.color} />
                   </td>
@@ -939,7 +958,7 @@ function CustomerTab({ rows }: { rows: CustomerSideRow[] }) {
                 <Trans i18nKey="ai-insider-alerts.col-errors">Errors</Trans>
               </SortHeader>
               <SortHeader sort={sort} column="window">
-                <Trans i18nKey="ai-insider-alerts.col-window">Window (UTC)</Trans>
+                {t('ai-insider-alerts.col-window', 'Window ({{tz}})', { tz: zoneLabel() })}
               </SortHeader>
               <SortHeader sort={sort} column="code">
                 <Trans i18nKey="ai-insider-alerts.col-code">Top code</Trans>
@@ -961,7 +980,7 @@ function CustomerTab({ rows }: { rows: CustomerSideRow[] }) {
                 <td className={styles.num}>{r.minutes}</td>
                 <td className={styles.num}>{r.errEvents}</td>
                 <td>
-                  {formatUtc(r.firstMinute)} – {formatUtcTime(r.lastMinute + 60)}
+                  {formatAt(r.firstMinute)} – {formatClock(r.lastMinute + 60)}
                 </td>
                 <td className={styles.mono}>{r.topCode}</td>
               </tr>
@@ -1023,7 +1042,7 @@ function ProvidersTab({
           <thead>
             <tr>
               <SortHeader sort={sort} column="started">
-                <Trans i18nKey="ai-insider-alerts.col-started">Started (UTC)</Trans>
+                {t('ai-insider-alerts.col-started', 'Started ({{tz}})', { tz: zoneLabel() })}
               </SortHeader>
               <SortHeader sort={sort} column="detected">
                 <Trans i18nKey="ai-insider-alerts.col-detected">Detected</Trans>
@@ -1059,9 +1078,9 @@ function ProvidersTab({
                     className={cx(styles.clickable, open && styles.rowOpen)}
                     onClick={() => onToggle(open ? undefined : p.id)}
                   >
-                    <td>{formatUtc(p.start)}</td>
+                    <td>{formatAt(p.start)}</td>
                     <td>
-                      {formatUtcTime(p.detectedAt)}
+                      {formatClock(p.detectedAt)}
                       <span className={styles.sub}>+{formatMinutes(p.start, p.detectedAt)}</span>
                     </td>
                     <td>
@@ -1076,7 +1095,7 @@ function ProvidersTab({
                         </>
                       ) : (
                         <>
-                          {formatUtcTime(p.closedAt)}
+                          {formatClock(p.closedAt)}
                           <span className={styles.sub}>{formatMinutes(p.start, p.closedAt)}</span>
                         </>
                       )}
@@ -1177,7 +1196,7 @@ function ProviderViewers({
                 {u.platform} · {u.network || '—'}
                 <span className={styles.sub}>{[u.isp, u.city].filter(Boolean).join(' · ') || '—'}</span>
               </td>
-              <td>{formatUtcTime(u.firstErr)}</td>
+              <td>{formatClock(u.firstErr)}</td>
               <td className={styles.num}>{u.errEvents}</td>
               <td>
                 <Badge text={badge.text} color={badge.color} />
@@ -1241,7 +1260,7 @@ function ServiceTab({
                 <Trans i18nKey="ai-insider-alerts.col-kind">Kind</Trans>
               </SortHeader>
               <SortHeader sort={sort} column="started">
-                <Trans i18nKey="ai-insider-alerts.col-started">Started (UTC)</Trans>
+                {t('ai-insider-alerts.col-started', 'Started ({{tz}})', { tz: zoneLabel() })}
               </SortHeader>
               <SortHeader sort={sort} column="detected">
                 <Trans i18nKey="ai-insider-alerts.col-detected">Detected</Trans>
@@ -1275,9 +1294,9 @@ function ServiceTab({
                     <td>
                       <Badge text={badge.text} color={badge.color} tooltip={badge.tooltip} />
                     </td>
-                    <td>{formatUtc(inc.start)}</td>
+                    <td>{formatAt(inc.start)}</td>
                     <td>
-                      {formatUtcTime(inc.detectedAt)}
+                      {formatClock(inc.detectedAt)}
                       <span className={styles.sub}>+{formatMinutes(inc.start, inc.detectedAt)}</span>
                     </td>
                     <td>
@@ -1285,7 +1304,7 @@ function ServiceTab({
                         <Trans i18nKey="ai-insider-alerts.activity-ongoing">still abnormal</Trans>
                       ) : (
                         <>
-                          {formatUtcTime(inc.closedAt)}
+                          {formatClock(inc.closedAt)}
                           <span className={styles.sub}>{formatMinutes(inc.start, inc.closedAt)}</span>
                         </>
                       )}
@@ -1365,7 +1384,8 @@ function ActivityChart({
         start: p.bucket,
         value: value(p),
         usual: usual(p),
-        tip: t('ai-insider-alerts.activity-chart-tip', '{{range}} UTC · {{value}} {{what}} · usual {{usual}}', {
+        tip: t('ai-insider-alerts.activity-chart-tip', '{{range}} {{tz}} · {{value}} {{what}} · usual {{usual}}', {
+          tz: zoneLabel(),
           range: bucketRange(p.bucket, ACTIVITY_BUCKET_SEC),
           value: formatCount(value(p)),
           what,
@@ -1384,8 +1404,9 @@ export function ServiceDetails({ incident }: { incident: ActivityIncident }) {
   const theme = useTheme2();
   const { series } = incident;
   const range = {
-    from: formatUtcTime(series[0]?.bucket),
-    to: formatUtcTime((series[series.length - 1]?.bucket ?? 0) + 300),
+    from: formatClock(series[0]?.bucket),
+    to: formatClock((series[series.length - 1]?.bucket ?? 0) + 300),
+    tz: zoneLabel(),
   };
   if (incident.kind === 'no_data') {
     return (
@@ -1400,7 +1421,7 @@ export function ServiceDetails({ incident }: { incident: ActivityIncident }) {
         <div className={styles.legend}>
           {t(
             'ai-insider-alerts.activity-chart-events',
-            'Bars: events per 5 min from the silent providers ({{from}}–{{to}} UTC). Dashed: usual level.',
+            'Bars: events per 5 min from the silent providers ({{from}}–{{to}} {{tz}}). Dashed: usual level.',
             range
           )}
         </div>
@@ -1419,7 +1440,7 @@ export function ServiceDetails({ incident }: { incident: ActivityIncident }) {
       <div className={styles.legend}>
         {t(
           'ai-insider-alerts.activity-chart-plays',
-          'Bars: playback starts per 5 min ({{from}}–{{to}} UTC). Dashed: usual level at the same time on previous days.',
+          'Bars: playback starts per 5 min ({{from}}–{{to}} {{tz}}). Dashed: usual level at the same time on previous days.',
           range
         )}
       </div>
@@ -1438,7 +1459,7 @@ export function ServiceDetails({ incident }: { incident: ActivityIncident }) {
 }
 
 /** Errors per 15 minutes (bars) against the usual level of the same time (line). */
-export function ProviderDetails({ incident }: { incident: ProviderIncident }) {
+export function ProviderDetails({ incident, frame }: { incident: ProviderIncident; frame?: ProblemChartFrame }) {
   const styles = useStyles2(getStyles);
   const theme = useTheme2();
   return (
@@ -1450,8 +1471,9 @@ export function ProviderDetails({ incident }: { incident: ProviderIncident }) {
           usual: p.baselineErr,
           tip: t(
             'ai-insider-alerts.provider-chart-tip',
-            '{{range}} UTC · {{errors}} of {{viewers}} viewers with errors · usual {{usual}}',
+            '{{range}} {{tz}} · {{errors}} of {{viewers}} viewers with errors · usual {{usual}}',
             {
+              tz: zoneLabel(),
               range: bucketRange(p.bucket, PROVIDER_BUCKET_SEC),
               errors: formatCount(p.errUsers),
               viewers: formatCount(p.users),
@@ -1460,16 +1482,20 @@ export function ProviderDetails({ incident }: { incident: ProviderIncident }) {
           ),
         }))}
         step={PROVIDER_BUCKET_SEC}
+        from={frame?.range.from}
+        to={frame?.range.to}
+        highlight={frame?.highlight}
         color={theme.colors.error.main}
         label={t('ai-insider-alerts.provider-chart-label', 'Viewers with errors per 15 minutes')}
       />
       <div className={styles.legend}>
         {t(
           'ai-insider-alerts.provider-chart-legend',
-          'Bars: viewers with errors per 15 min ({{from}}–{{to}} UTC). Dashed: usual level at the same time on previous days.',
+          'Bars: viewers with errors per 15 min ({{from}}–{{to}} {{tz}}). Dashed: usual level at the same time on previous days.',
           {
-            from: formatUtcTime(incident.series[0]?.bucket),
-            to: formatUtcTime((incident.series[incident.series.length - 1]?.bucket ?? 0) + PROVIDER_BUCKET_SEC),
+            tz: zoneLabel(),
+            from: formatClock(incident.series[0]?.bucket),
+            to: formatClock((incident.series[incident.series.length - 1]?.bucket ?? 0) + PROVIDER_BUCKET_SEC),
           }
         )}
       </div>
@@ -1531,7 +1557,7 @@ export function OpsTab({ rows }: { rows: ChannelReportRow[] }) {
                 <Trans i18nKey="ai-insider-alerts.col-evidence">Evidence</Trans>
               </SortHeader>
               <SortHeader sort={sort} column="seen">
-                <Trans i18nKey="ai-insider-alerts.col-seen-range">First – last (UTC)</Trans>
+                {t('ai-insider-alerts.col-seen-range', 'First – last ({{tz}})', { tz: zoneLabel() })}
               </SortHeader>
             </tr>
           </thead>
@@ -1577,7 +1603,7 @@ export function OpsTab({ rows }: { rows: ChannelReportRow[] }) {
                   </span>
                 </td>
                 <td>
-                  {formatUtc(r.firstStart)} – {formatUtc(r.lastStart)}
+                  {formatAt(r.firstStart)} – {formatAt(r.lastStart)}
                 </td>
               </tr>
             ))}
@@ -1625,7 +1651,7 @@ export function DeadTab({ rows }: { rows: DeadChannel[] }) {
                 <Trans i18nKey="ai-insider-alerts.col-tried">Tried to watch</Trans>
               </SortHeader>
               <SortHeader sort={sort} column="seen">
-                <Trans i18nKey="ai-insider-alerts.col-seen">Seen dead (UTC)</Trans>
+                {t('ai-insider-alerts.col-seen', 'Seen dead ({{tz}})', { tz: zoneLabel() })}
               </SortHeader>
             </tr>
           </thead>
@@ -1639,7 +1665,7 @@ export function DeadTab({ rows }: { rows: DeadChannel[] }) {
                 <td className={styles.num}>{r.srvErrUsers}</td>
                 <td className={styles.num}>{r.triedUsers}</td>
                 <td>
-                  {formatUtc(r.firstSeen)} – {formatUtc(r.lastSeen)}
+                  {formatAt(r.firstSeen)} – {formatAt(r.lastSeen)}
                 </td>
               </tr>
             ))}

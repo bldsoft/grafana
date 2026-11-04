@@ -23,6 +23,15 @@ export const CDN_MIN_ERROR_SHARE = 0.05;
 /** …and this many times the share before it (when there was enough traffic before to compare). */
 export const CDN_MIN_RATIO = 3;
 const MIN_BEFORE_REQUESTS = 100;
+/**
+ * Requests per 5 minutes during the problem at most this share of the level
+ * before: viewers stopped reaching the edge at all. A DNS failure, a broken
+ * multi-CDN steering step (the player never gets a CDN host) or a network
+ * outage before the edge leave no error in the CDN logs, only missing traffic.
+ */
+export const CDN_DROP_SHARE = 0.5;
+/** The CDN logs land this late: the newest buckets are not complete yet. */
+export const CDN_LOG_LAG_SEC = 10 * 60;
 
 const STREAM_RE = /^[A-Za-z0-9_.-]{1,64}$/;
 const SETTINGS = settingsClause('ai-insider:alerts-cdn', { maxExecutionSec: 30, maxResultRows: 20_000 });
@@ -84,6 +93,48 @@ export function providerCdnTarget(incident: ProviderIncident, bucketSec: number,
   return cdnWindow(incident.pid, [], incident.start, incident.closedAt ?? openEnd(incident.lastSurge + bucketSec, now));
 }
 
+/**
+ * The time axis every chart of one problem shares, so the player's errors and
+ * the CDN's sit on the same clock: from CDN_BEFORE_SEC before the problem to
+ * its end, on CDN bucket edges, widened to whatever the analytics chart covers.
+ */
+export function problemChartRange(
+  start: number,
+  end: number,
+  analytics?: { from: number; to: number }
+): { from: number; to: number } {
+  const from = Math.floor(start / CDN_BUCKET_SEC) * CDN_BUCKET_SEC - CDN_BEFORE_SEC;
+  const to = Math.ceil(end / CDN_BUCKET_SEC) * CDN_BUCKET_SEC;
+  return {
+    from: Math.min(from, analytics?.from ?? from),
+    to: Math.max(to, analytics?.to ?? to),
+  };
+}
+
+/** A problem on the charts: the shared axis and the problem period shaded on it. */
+export interface ProblemChartFrame {
+  range: { from: number; to: number };
+  highlight: { from: number; to: number };
+}
+
+export function channelChartFrame(incident: Incident, now: number): ProblemChartFrame {
+  const end = incident.closedAt ?? Math.max(incident.lastBad + 60, now);
+  return {
+    range: problemChartRange(incident.start, end, { from: incident.start, to: end }),
+    highlight: { from: incident.start, to: end },
+  };
+}
+
+export function providerChartFrame(incident: ProviderIncident, bucketSec: number, now: number): ProblemChartFrame {
+  const end = incident.closedAt ?? Math.max(incident.lastSurge + bucketSec, now);
+  const first = incident.series[0]?.bucket ?? incident.start;
+  const last = (incident.series[incident.series.length - 1]?.bucket ?? incident.lastSurge) + bucketSec;
+  return {
+    range: problemChartRange(incident.start, end, { from: first, to: last }),
+    highlight: { from: incident.start, to: end },
+  };
+}
+
 /** Requests per 5 minutes, CDN and status of the target. */
 export function cdnStatusSql(target: CdnTarget): string {
   if (!Number.isInteger(target.pid) || target.pid < 0 || target.streams.some((s) => !STREAM_RE.test(s))) {
@@ -132,10 +183,12 @@ export interface CdnPerCdn {
 
 /**
  * `confirmed`: the edge failed the stream during the problem, well above its
- * level before; `clean`: the CDN served it about as usual; `none`: the CDN
- * logs have no requests for it (another CDN, or the provider is not logged).
+ * level before; `dropped`: no more errors at the edge, but far fewer requests
+ * reached it than before (the failure is before the CDN: DNS, multi-CDN
+ * steering, network); `clean`: the CDN served it about as usual; `none`: the
+ * CDN logs have no requests for it (another CDN, or the provider is not logged).
  */
-export type CdnVerdict = 'confirmed' | 'clean' | 'none';
+export type CdnVerdict = 'confirmed' | 'dropped' | 'clean' | 'none';
 
 export interface CdnCheck {
   verdict: CdnVerdict;
@@ -144,6 +197,11 @@ export interface CdnCheck {
   errors: number;
   /** In the CDN_BEFORE_SEC before it; undefined when there was too little traffic to compare. */
   shareBefore?: number;
+  /**
+   * Requests per 5 minutes during the problem against before it (complete
+   * buckets only); undefined when there was too little traffic before.
+   */
+  trafficRatio?: number;
   /** Edge error statuses during the problem, most frequent first. */
   codes: Array<{ status: number; requests: number }>;
   /** Per CDN during the problem, most requests first. */
@@ -151,8 +209,15 @@ export interface CdnCheck {
   buckets: CdnBucket[];
 }
 
-export function evaluateCdn(rows: CdnStatusRow[], target: CdnTarget): CdnCheck {
+/**
+ * `now`: the wall clock, so the buckets the CDN logs have not filled yet do not
+ * read as a traffic drop (Infinity = all complete).
+ */
+export function evaluateCdn(rows: CdnStatusRow[], target: CdnTarget, now = Infinity): CdnCheck {
   const buckets = new Map<number, CdnBucket>();
+  const complete = Math.floor((now - CDN_LOG_LAG_SEC) / CDN_BUCKET_SEC) * CDN_BUCKET_SEC;
+  const firstDuring = Math.floor(target.start / CDN_BUCKET_SEC) * CDN_BUCKET_SEC;
+  let completeRequests = 0;
   const codes = new Map<number, number>();
   const cdns = new Map<string, CdnPerCdn>();
   let requests = 0;
@@ -176,6 +241,9 @@ export function evaluateCdn(rows: CdnStatusRow[], target: CdnTarget): CdnCheck {
     if (r.bucket >= target.end) {
       continue;
     }
+    if (r.bucket + CDN_BUCKET_SEC <= complete) {
+      completeRequests += r.requests;
+    }
     requests += r.requests;
     errors += err;
     if (err) {
@@ -193,13 +261,28 @@ export function evaluateCdn(rows: CdnStatusRow[], target: CdnTarget): CdnCheck {
     errors >= CDN_MIN_ERRORS &&
     share >= CDN_MIN_ERROR_SHARE &&
     (shareBefore === undefined || share >= CDN_MIN_RATIO * shareBefore);
-  const verdict: CdnVerdict = confirmed ? 'confirmed' : requests || beforeRequests ? 'clean' : 'none';
+  const beforeBuckets = Math.max(1, (firstDuring - target.from) / CDN_BUCKET_SEC);
+  const duringBuckets = Math.max(0, (Math.min(target.end, complete) - firstDuring) / CDN_BUCKET_SEC);
+  const completeBuckets = Math.floor(duringBuckets);
+  const trafficRatio =
+    beforeRequests >= MIN_BEFORE_REQUESTS && completeBuckets >= 1
+      ? completeRequests / completeBuckets / (beforeRequests / beforeBuckets)
+      : undefined;
+  const dropped = trafficRatio !== undefined && trafficRatio <= CDN_DROP_SHARE;
+  const verdict: CdnVerdict = confirmed
+    ? 'confirmed'
+    : dropped
+      ? 'dropped'
+      : requests || beforeRequests
+        ? 'clean'
+        : 'none';
 
   return {
     verdict,
     requests,
     errors,
     shareBefore,
+    trafficRatio,
     codes: [...codes.entries()].map(([status, n]) => ({ status, requests: n })).sort((a, b) => b.requests - a.requests),
     cdns: [...cdns.values()].sort((a, b) => b.requests - a.requests),
     buckets: [...buckets.values()].sort((a, b) => a.bucket - b.bucket),

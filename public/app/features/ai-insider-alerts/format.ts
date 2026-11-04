@@ -1,11 +1,118 @@
-// Analytix: formatting helpers of the alerts page. Every time on the page is
-// UTC: the event stream stores absolute instants and the replay range is
-// entered in UTC, so a viewer in another zone reads the same clock as the data.
+// Analytix: formatting helpers of the alerts page. The event stream stores
+// absolute instants; the page shows them in one display time zone, picked
+// next to the time range (UTC by default), and every label names it. The
+// Retention section and the prompts for the AI Insider chat keep plain UTC
+// (formatUtc / toUtcInput): their days are UTC days.
 
 import type { Decision } from './types';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** Grafana's time zone values: 'utc', 'browser' (or '') or an IANA name. */
+let displayZone = 'utc';
+
+/** The IANA name Intl takes; undefined for the browser's own zone. */
+function intlZone(zone: string): string | undefined {
+  if (zone === 'utc' || zone === 'UTC') {
+    return 'UTC';
+  }
+  return !zone || zone === 'browser' ? undefined : zone;
+}
+
+function isValidZone(zone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: intlZone(zone) });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Sets the zone every alerts time is shown in; an unknown zone falls back to UTC. */
+export function setDisplayTimeZone(zone: string | undefined): void {
+  const next = zone && isValidZone(zone) ? zone : 'utc';
+  if (next !== displayZone) {
+    displayZone = next;
+    partsFormatter = undefined;
+  }
+}
+
+export function getDisplayTimeZone(): string {
+  return displayZone;
+}
+
+let partsFormatter: Intl.DateTimeFormat | undefined;
+
+/** Wall-clock fields of an instant in the display zone. */
+function zoned(sec: number): { year: number; month: number; day: number; hour: number; minute: number } {
+  const zone = intlZone(displayZone);
+  if (zone === 'UTC') {
+    const d = new Date(sec * 1000);
+    return {
+      year: d.getUTCFullYear(),
+      month: d.getUTCMonth(),
+      day: d.getUTCDate(),
+      hour: d.getUTCHours(),
+      minute: d.getUTCMinutes(),
+    };
+  }
+  partsFormatter ??= new Intl.DateTimeFormat('en-US', {
+    timeZone: zone,
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: 'numeric',
+  });
+  const parts: Record<string, number> = {};
+  for (const p of partsFormatter.formatToParts(new Date(sec * 1000))) {
+    if (p.type !== 'literal') {
+      parts[p.type] = Number(p.value);
+    }
+  }
+  return { year: parts.year, month: parts.month - 1, day: parts.day, hour: parts.hour % 24, minute: parts.minute };
+}
+
+/** Seconds the display zone is ahead of UTC at that instant (UTC+3 → 10800). */
+export function zoneOffsetSec(sec: number): number {
+  const z = zoned(sec);
+  const wall = Date.UTC(z.year, z.month, z.day, z.hour, z.minute) / 1000;
+  return wall - Math.floor(sec / 60) * 60;
+}
+
+/** The display zone as labels name it: `UTC`, `UTC+3`, `UTC−4:30`. */
+export function zoneLabel(at = Date.now() / 1000): string {
+  if (intlZone(displayZone) === 'UTC') {
+    return 'UTC';
+  }
+  const off = Math.round(zoneOffsetSec(at) / 60);
+  if (!off) {
+    return 'UTC';
+  }
+  const abs = Math.abs(off);
+  const hm = abs % 60 ? `${Math.floor(abs / 60)}:${pad(abs % 60)}` : String(abs / 60);
+  return `UTC${off > 0 ? '+' : '−'}${hm}`;
+}
+
+/** `29 Sep 18:44` in the display zone. */
+export function formatAt(sec: number | undefined): string {
+  if (sec === undefined || !Number.isFinite(sec)) {
+    return '—';
+  }
+  const z = zoned(sec);
+  return `${z.day} ${MONTHS[z.month]} ${pad(z.hour)}:${pad(z.minute)}`;
+}
+
+/** `18:44` in the display zone. */
+export function formatClock(sec: number | undefined): string {
+  if (sec === undefined || !Number.isFinite(sec)) {
+    return '—';
+  }
+  const z = zoned(sec);
+  return `${pad(z.hour)}:${pad(z.minute)}`;
+}
 
 /** `29 Sep 18:44` (UTC). */
 export function formatUtc(sec: number | undefined): string {

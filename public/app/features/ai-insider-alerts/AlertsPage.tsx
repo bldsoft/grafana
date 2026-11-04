@@ -10,7 +10,18 @@
 import { css } from '@emotion/css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { DataSourceInstanceSettings, DataSourceRef, GrafanaTheme2, NavModel, store } from '@grafana/data';
+import {
+  DataSourceInstanceSettings,
+  DataSourceRef,
+  GrafanaTheme2,
+  InternalTimeZones,
+  NavModel,
+  TimeRange,
+  TimeZone,
+  dateMath,
+  dateTime,
+  store,
+} from '@grafana/data';
 import { Trans, t } from '@grafana/i18n';
 import { DataSourcePicker, getDataSourceSrv, reportInteraction } from '@grafana/runtime';
 import {
@@ -25,6 +36,8 @@ import {
   Spinner,
   Tab,
   TabsBar,
+  TimeRangeInput,
+  TimeZonePicker,
   useStyles2,
 } from '@grafana/ui';
 import { Page } from 'app/core/components/Page/Page';
@@ -36,13 +49,16 @@ import { useSelector } from 'app/types/store';
 
 import { AlertsResults, AlertsSnapshot } from './AlertsResults';
 import { AlertsDatasourceContext } from './CdnCheck';
+import { DayOverview } from './DayOverview';
 import { SupportResults } from './SupportResults';
 import { AskInsiderProvider } from './askInsider';
 import { AlertEngine } from './engine';
 import { ExportMeta, downloadBlob, exportFileName, exportRun, runDatasetExport } from './export';
-import { formatCount, formatUtc, fromUtcInput, toUtcInput } from './format';
+import { formatAt, formatCount, fromUtcInput, setDisplayTimeZone, zoneLabel } from './format';
 import { KeepWorkbench, datasourceName, runScopeText, scopePids } from './keep/KeepWorkbench';
+import { ShareStatus, liveClientId, liveRoom, runSharedLive } from './liveShare';
 import { AlertsSection as Section, RETENTION_VISIBLE, alertsSectionNavId, buildAlertsNav } from './nav';
+import { HOUR_SEC, Overview, loadOverview } from './overview';
 import { runLive, runReplay } from './runner';
 import { ProviderScope, effectiveScope, parseProviderScope } from './scope';
 import { AlertRules, DEFAULT_RULES } from './types';
@@ -55,10 +71,17 @@ const ADVANCED_KEY = 'analytix.aiAlerts.advanced.v1';
 const MAX_REPLAY_SEC = 7 * 86400;
 const LIVE_POLL_MS = 60000;
 
-type Mode = 'replay' | 'live';
+/** `day`: the last 24 hours per hour, a click opens an hour as a past period (`replay`). */
+type Mode = 'replay' | 'live' | 'day';
+type RunMode = Exclude<Mode, 'day'>;
 
 interface Settings {
   mode: Mode;
+  /**
+   * The past period as the time picker gives it: relative (`now-24h`, `now/d`)
+   * or an absolute instant in epoch milliseconds. Older saves hold a UTC
+   * `YYYY-MM-DDTHH:mm`.
+   */
   from: string;
   to: string;
   step: number;
@@ -69,6 +92,8 @@ interface Settings {
 interface CommonSettings {
   datasourceUid?: string;
   providers: string;
+  /** The zone every time on the page is shown and picked in ('utc', 'browser' or an IANA name). */
+  timeZone?: TimeZone;
 }
 
 /** Settings of the "Tell the customer" section before the scope moved to COMMON_KEY. */
@@ -79,21 +104,37 @@ interface RunState {
   engine: AlertEngine;
   datasource: DataSourceRef;
   pids: string[] | null;
-  mode: Mode;
+  mode: RunMode;
   from: number;
   to: number;
   step: number;
 }
 
 function defaultSettings(): Settings {
-  const today = Math.floor(Date.now() / 86400000) * 86400;
   return {
     mode: 'live',
-    from: toUtcInput(today - 86400),
-    to: toUtcInput(today),
+    from: 'now-24h',
+    to: 'now',
     step: 3600,
     rules: DEFAULT_RULES,
   };
+}
+
+/** One end of the period in epoch seconds; NaN when it cannot be read. */
+export function resolveTime(value: string, roundUp: boolean, timeZone: TimeZone, now = Date.now()): number {
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
+    return fromUtcInput(value);
+  }
+  if (/^\d+$/.test(value)) {
+    return Math.floor(Number(value) / 1000);
+  }
+  const parsed = value.includes('now') ? dateMath.toDateTime(value, { roundUp, timezone: timeZone, now }) : undefined;
+  return parsed?.isValid() ? Math.floor(parsed.valueOf() / 1000) : NaN;
+}
+
+/** The picker's value for one end: relative stays as typed, absolute becomes epoch milliseconds. */
+function rawEnd(raw: TimeRange['raw']['from'], resolved: TimeRange['from']): string {
+  return typeof raw === 'string' && raw.includes('now') ? raw : String(resolved.valueOf());
 }
 
 function loadSettings(): Settings {
@@ -407,6 +448,9 @@ function AlertsSections({
 }) {
   const styles = useStyles2(getStyles);
   const [common, setCommon] = useState<CommonSettings>(loadCommon);
+  const timeZone = common.timeZone ?? 'utc';
+  // Set before the sections render: every alerts time below is shown in it.
+  setDisplayTimeZone(timeZone);
   const [tellRunning, setTellRunning] = useState(false);
   const [keepRunning, setKeepRunning] = useState(false);
   // While Retention is hidden it mounts only once opened by its URL, then stays
@@ -511,7 +555,13 @@ function AlertsSections({
       <div hidden={section !== 'tell'}>
         <AlertsDatasourceContext.Provider value={datasource}>
           <AskInsiderProvider datasource={datasource}>
-            <AlertsWorkbench datasource={datasource} scope={scope} onRunningChange={setTellRunning} />
+            <AlertsWorkbench
+              datasource={datasource}
+              scope={scope}
+              onRunningChange={setTellRunning}
+              timeZone={timeZone}
+              onTimeZone={(tz) => setCommon((c) => ({ ...c, timeZone: tz }))}
+            />
           </AskInsiderProvider>
         </AlertsDatasourceContext.Provider>
       </div>
@@ -554,10 +604,14 @@ function AlertsWorkbench({
   datasource,
   scope,
   onRunningChange,
+  timeZone,
+  onTimeZone,
 }: {
   datasource?: DataSourceRef;
   scope: ProviderScope;
   onRunningChange: (running: boolean) => void;
+  timeZone: TimeZone;
+  onTimeZone: (timeZone: TimeZone) => void;
 }) {
   const styles = useStyles2(getStyles);
   const [settings, setSettings] = useState<Settings>(loadSettings);
@@ -567,6 +621,11 @@ function AlertsWorkbench({
   const [error, setError] = useState<string>();
   const [warning, setWarning] = useState<string>();
   const [snapshot, setSnapshot] = useState<AlertsSnapshot>();
+  /** The last-24-hours overview, kept on screen while one of its hours is open. */
+  const [overview, setOverview] = useState<Overview>();
+  const [dayLoading, setDayLoading] = useState(false);
+  /** The hour of the overview opened as a past period. */
+  const [dayHour, setDayHour] = useState<number>();
   const [progress, setProgress] = useState<{
     kind: 'replay' | 'live' | 'export';
     clock: number;
@@ -580,6 +639,8 @@ function AlertsWorkbench({
   const [resumable, setResumable] = useState<RunState>();
   /** Live keeps running through a failed step; this says which minutes are being retried. */
   const [liveIssue, setLiveIssue] = useState<string>();
+  /** Where this page stands in the shared Live of its room (leader, follower, or alone). */
+  const [share, setShare] = useState<ShareStatus>();
   /**
    * Datasource and providers of the run or export in progress: fixed at its
    * start, whatever the shared scope bar shows meanwhile (the other section
@@ -601,21 +662,35 @@ function AlertsWorkbench({
     onRunningChange(running);
   }, [running, onRunningChange]);
 
-  // Stop polling / replaying when the page is left.
-  useEffect(
-    () => () => {
+  // Stop polling / replaying when the page is left. Closing the tab counts too:
+  // a leading page then hands the shared Live over at once.
+  useEffect(() => {
+    const leave = () => abortRef.current?.abort();
+    window.addEventListener('pagehide', leave);
+    return () => {
+      window.removeEventListener('pagehide', leave);
       unmountedRef.current = true;
       abortRef.current?.abort();
-    },
-    []
-  );
+    };
+  }, []);
 
   const update = (patch: Partial<Settings>) => setSettings((s) => ({ ...s, ...patch }));
   const updateRule = (key: keyof AlertRules, value: number) =>
     setSettings((s) => ({ ...s, rules: { ...s.rules, [key]: value } }));
 
-  const from = fromUtcInput(settings.from);
-  const to = fromUtcInput(settings.to);
+  const from = resolveTime(settings.from, false, timeZone);
+  const to = resolveTime(settings.to, true, timeZone);
+  const timeRange: TimeRange | undefined =
+    Number.isFinite(from) && Number.isFinite(to)
+      ? {
+          from: dateTime(from * 1000),
+          to: dateTime(to * 1000),
+          raw: {
+            from: settings.from.includes('now') ? settings.from : dateTime(from * 1000),
+            to: settings.to.includes('now') ? settings.to : dateTime(to * 1000),
+          },
+        }
+      : undefined;
   const rangeError =
     settings.mode !== 'replay'
       ? undefined
@@ -637,6 +712,10 @@ function AlertsWorkbench({
     if (!datasource) {
       return;
     }
+    if (settings.mode === 'day') {
+      loadDay();
+      return;
+    }
     const windowFrom = settings.mode === 'replay' ? from : Math.floor(Date.now() / 1000) - 3600;
     runMetaRef.current = { from: windowFrom, to: windowFrom, pids: scope, rules: settings.rules, mode: settings.mode };
     reportInteraction('analytix_ai_alerts_run', { mode: settings.mode, hours: Math.round((to - from) / 3600) });
@@ -648,6 +727,64 @@ function AlertsWorkbench({
       from: windowFrom,
       to,
       step: settings.step,
+    });
+  };
+
+  /** Reads the last 24 hours per hour. */
+  const loadDay = async () => {
+    if (!datasource) {
+      return;
+    }
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setError(undefined);
+    setRunning(true);
+    setDayLoading(true);
+    setSnapshot(undefined);
+    setProgress(undefined);
+    setDayHour(undefined);
+    setRunScope({ datasource, pids: scope });
+    reportInteraction('analytix_ai_alerts_day');
+    try {
+      const result = await loadOverview({
+        datasource,
+        pids: scope,
+        now: Date.now() / 1000,
+        signal: controller.signal,
+        onPiece: setOverview,
+      });
+      setOverview(result);
+    } catch (e) {
+      if (!controller.signal.aborted) {
+        setError(e instanceof Error ? e.message : String(e));
+      }
+    } finally {
+      if (abortRef.current === controller) {
+        setRunning(false);
+        setDayLoading(false);
+      }
+    }
+  };
+
+  /** Opens one hour of the overview as a past period, with the full detector. */
+  const openHour = (hour: number) => {
+    if (!datasource || running) {
+      return;
+    }
+    const end = Math.min(hour + HOUR_SEC, Math.floor(Date.now() / 60000) * 60);
+    reportInteraction('analytix_ai_alerts_day_hour');
+    setDayHour(hour);
+    update({ mode: 'replay', from: String(hour * 1000), to: String(end * 1000) });
+    runMetaRef.current = { from: hour, to: hour, pids: scope, rules: settings.rules, mode: 'replay' };
+    execute({
+      engine: new AlertEngine(settings.rules),
+      datasource,
+      pids: scope,
+      mode: 'replay',
+      from: hour,
+      to: end,
+      step: 900,
     });
   };
 
@@ -669,6 +806,7 @@ function AlertsWorkbench({
     setError(undefined);
     setWarning(undefined);
     setLiveIssue(undefined);
+    setShare(undefined);
     setRunning(true);
     setRunScope({ datasource: run.datasource, pids: run.pids });
     setSnapshot(snapshotOf(engine, windowFrom, engine.processedTo ?? windowFrom));
@@ -698,18 +836,53 @@ function AlertsWorkbench({
       if (run.mode === 'replay') {
         await runReplay({ ...common, from: run.from, to: run.to, step: run.step });
       } else {
-        await runLive({
-          ...common,
-          pollMs: LIVE_POLL_MS,
-          onLiveError: (message, at) =>
-            setLiveIssue(
-              t(
-                'ai-insider-alerts.live-retrying',
-                'The step after {{at}} UTC failed ({{error}}). Live keeps running and tries the same minutes again every minute.',
-                { at: formatUtc(at), error: message }
-              )
-            ),
-        });
+        const onLiveError = (message: string, at: number) =>
+          setLiveIssue(
+            t(
+              'ai-insider-alerts.live-retrying',
+              'The step after {{at}} {{tz}} failed ({{error}}). Live keeps running and tries the same minutes again every minute.',
+              {
+                tz: zoneLabel(),
+                at: formatAt(at),
+                error: message,
+              }
+            )
+          );
+        // One detector per room: this page runs it only while it leads, each
+        // term on a fresh engine from the last hour, like a fresh Live.
+        const runOwn = (signal: AbortSignal, publish: (snapshot: AlertsSnapshot) => void) => {
+          const own = new AlertEngine(engine.rules);
+          const from = Math.floor(Date.now() / 1000) - 3600;
+          return runLive({
+            ...common,
+            engine: own,
+            signal,
+            pollMs: LIVE_POLL_MS,
+            onLiveError,
+            onChunk: (clock: number) => {
+              const snap = snapshotOf(own, from, clock);
+              setLiveIssue(undefined);
+              setProgress((p) => (p ? { ...p, clock } : p));
+              setSnapshot(snap);
+              publish(snap);
+            },
+          });
+        };
+        if (run.datasource.uid) {
+          await runSharedLive({
+            room: liveRoom(run.datasource.uid, run.pids, engine.rules),
+            clientId: liveClientId(),
+            signal: controller.signal,
+            runOwn,
+            onSnapshot: (snap) => {
+              setSnapshot(snap);
+              setProgress((p) => (p ? { ...p, clock: snap.to } : p));
+            },
+            onStatus: setShare,
+          });
+        } else {
+          await runOwn(controller.signal, () => undefined);
+        }
       }
     } catch (e) {
       if (!controller.signal.aborted) {
@@ -718,8 +891,12 @@ function AlertsWorkbench({
         setError(
           t(
             'ai-insider-alerts.replay-stopped',
-            'Replay stopped at {{at}} UTC: {{error}}. "Continue replay" picks it up from there with everything found so far.',
-            { at: formatUtc(at), error: e instanceof Error ? e.message : String(e) }
+            'Replay stopped at {{at}} {{tz}}: {{error}}. "Continue replay" picks it up from there with everything found so far.',
+            {
+              tz: zoneLabel(),
+              at: formatAt(at),
+              error: e instanceof Error ? e.message : String(e),
+            }
           )
         );
       }
@@ -762,12 +939,16 @@ function AlertsWorkbench({
       }
       if (!result.complete) {
         // Continue from where it stopped on the next click.
-        update({ from: toUtcInput(result.upTo) });
+        update({ from: String(result.upTo * 1000) });
         setError(
           t(
             'ai-insider-alerts.export-partial',
-            'Export stopped at {{at}} UTC after repeated failures ({{error}}). Every hour before that is saved; "From" is set to {{at}} so the next export continues from there.',
-            { at: formatUtc(result.upTo), error: result.error ?? '' }
+            'Export stopped at {{at}} {{tz}} after repeated failures ({{error}}). Every hour before that is saved; "From" is set to {{at}} so the next export continues from there.',
+            {
+              tz: zoneLabel(),
+              at: formatAt(result.upTo),
+              error: result.error ?? '',
+            }
           )
         );
       }
@@ -791,23 +972,32 @@ function AlertsWorkbench({
     }
   };
 
+  const dayOption = {
+    label: t('ai-insider-alerts.mode-day', 'Last 24 hours'),
+    value: 'day' as const,
+    description: t('ai-insider-alerts.mode-day-tip', 'Errors per hour over the last day; click an hour to open it'),
+  };
   const modeOptions = advanced
     ? [
         { label: t('ai-insider-alerts.mode-replay', 'Replay'), value: 'replay' as const },
         { label: t('ai-insider-alerts.mode-live', 'Live'), value: 'live' as const },
+        dayOption,
       ]
     : [
         { label: t('ai-insider-alerts.mode-live', 'Live'), value: 'live' as const },
+        dayOption,
         { label: t('ai-insider-alerts.mode-past', 'Past period'), value: 'replay' as const },
       ];
   const runLabel =
-    settings.mode === 'replay'
-      ? advanced
-        ? t('ai-insider-alerts.run-replay', 'Run replay')
-        : t('ai-insider-alerts.show-period', 'Show period')
-      : advanced
-        ? t('ai-insider-alerts.start-live', 'Start live')
-        : t('ai-insider-alerts.start-monitoring', 'Start monitoring');
+    settings.mode === 'day'
+      ? t('ai-insider-alerts.show-day', 'Show last 24 hours')
+      : settings.mode === 'replay'
+        ? advanced
+          ? t('ai-insider-alerts.run-replay', 'Run replay')
+          : t('ai-insider-alerts.show-period', 'Show period')
+        : advanced
+          ? t('ai-insider-alerts.start-live', 'Start live')
+          : t('ai-insider-alerts.start-monitoring', 'Start monitoring');
   const customRules = Object.entries(DEFAULT_RULES).some(([key, value]) => Reflect.get(settings.rules, key) !== value);
   const stepOptions = [
     { label: t('ai-insider-alerts.step-15m', '15 min'), value: 900 },
@@ -853,26 +1043,25 @@ function AlertsWorkbench({
             <RadioButtonGroup
               options={modeOptions}
               value={settings.mode}
-              onChange={(mode) => update({ mode })}
+              onChange={(mode) => {
+                update({ mode });
+                setDayHour(undefined);
+              }}
               disabled={running}
             />
           </Field>
           {settings.mode === 'replay' && (
             <>
-              <Field label={t('ai-insider-alerts.from', 'From (UTC)')} className={styles.field} noMargin>
-                <Input
-                  type="datetime-local"
-                  value={settings.from}
-                  onChange={(e) => update({ from: e.currentTarget.value })}
+              <Field label={t('ai-insider-alerts.period', 'Period')} className={styles.rangeField} noMargin>
+                <TimeRangeInput
+                  value={timeRange ?? { from: dateTime(), to: dateTime(), raw: { from: 'now-24h', to: 'now' } }}
+                  timeZone={timeZone}
+                  onChange={(range) =>
+                    update({ from: rawEnd(range.raw.from, range.from), to: rawEnd(range.raw.to, range.to) })
+                  }
+                  onChangeTimeZone={onTimeZone}
                   disabled={running}
-                />
-              </Field>
-              <Field label={t('ai-insider-alerts.to', 'To (UTC)')} className={styles.field} noMargin>
-                <Input
-                  type="datetime-local"
-                  value={settings.to}
-                  onChange={(e) => update({ to: e.currentTarget.value })}
-                  disabled={running}
+                  showIcon
                 />
               </Field>
               {advanced && (
@@ -892,13 +1081,25 @@ function AlertsWorkbench({
               )}
             </>
           )}
+          <Field label={t('ai-insider-alerts.time-zone', 'Time zone')} className={styles.zoneField} noMargin>
+            <TimeZonePicker
+              value={timeZone}
+              onChange={(tz) => onTimeZone(tz ?? 'utc')}
+              includeInternal={[InternalTimeZones.utc, InternalTimeZones.localBrowserTime]}
+              width={30}
+            />
+          </Field>
           <div className={styles.actions}>
             {running ? (
               <Button variant="destructive" icon="square-shape" onClick={stop}>
                 <Trans i18nKey="ai-insider-alerts.stop">Stop</Trans>
               </Button>
             ) : (
-              <Button icon={settings.mode === 'replay' ? 'history' : 'play'} onClick={start} disabled={!canRun}>
+              <Button
+                icon={settings.mode === 'replay' ? 'history' : settings.mode === 'day' ? 'chart-line' : 'play'}
+                onClick={start}
+                disabled={!canRun}
+              >
                 {runLabel}
               </Button>
             )}
@@ -909,12 +1110,13 @@ function AlertsWorkbench({
                 onClick={resume}
                 tooltip={t(
                   'ai-insider-alerts.continue-replay-tip',
-                  'Continues the stopped replay on {{datasource}} from {{at}} UTC to {{to}} UTC with its original providers ({{pids}}) and rules',
+                  'Continues the stopped replay on {{datasource}} from {{at}} {{tz}} to {{to}} {{tz}} with its original providers ({{pids}}) and rules',
                   {
+                    tz: zoneLabel(),
                     datasource: datasourceName(resumable.datasource),
                     pids: scopePids(resumable.pids),
-                    at: formatUtc(resumable.engine.processedTo ?? resumable.from),
-                    to: formatUtc(resumable.to),
+                    at: formatAt(resumable.engine.processedTo ?? resumable.from),
+                    to: formatAt(resumable.to),
                     interpolation: { escapeValue: false },
                   }
                 )}
@@ -984,17 +1186,33 @@ function AlertsWorkbench({
             {running && <Spinner inline />}
             <span>
               {progress?.kind === 'export'
-                ? t('ai-insider-alerts.progress-export', 'Exporting dataset up to {{clock}} UTC · {{rows}} rows', {
-                    clock: formatUtc(progress.clock),
+                ? t('ai-insider-alerts.progress-export', 'Exporting dataset up to {{clock}} {{tz}} · {{rows}} rows', {
+                    tz: zoneLabel(),
+                    clock: formatAt(progress.clock),
                     rows: formatCount(progress.rows ?? 0),
                   })
                 : progress?.kind === 'replay'
-                  ? t('ai-insider-alerts.progress-replay', 'Replayed up to {{clock}} UTC', {
-                      clock: formatUtc(progress?.clock),
+                  ? t('ai-insider-alerts.progress-replay', 'Replayed up to {{clock}} {{tz}}', {
+                      tz: zoneLabel(),
+                      clock: formatAt(progress?.clock),
                     })
-                  : t('ai-insider-alerts.progress-live', 'Live: processed up to {{clock}} UTC, checking every minute', {
-                      clock: formatUtc(progress?.clock),
-                    })}
+                  : share?.mode === 'follower'
+                    ? t(
+                        'ai-insider-alerts.progress-live-follower',
+                        'Live, shared: the detector runs on another open page; showing its results up to {{clock}} {{tz}}',
+                        {
+                          tz: zoneLabel(),
+                          clock: formatAt(progress?.clock),
+                        }
+                      )
+                    : t(
+                        'ai-insider-alerts.progress-live',
+                        'Live: processed up to {{clock}} {{tz}}, checking every minute',
+                        {
+                          tz: zoneLabel(),
+                          clock: formatAt(progress?.clock),
+                        }
+                      )}
               {pct !== undefined ? ` · ${pct}%` : ''}
             </span>
             {pct !== undefined && (
@@ -1018,9 +1236,37 @@ function AlertsWorkbench({
             {error}
           </Alert>
         )}
+        {running && share && share.mode !== 'local' && (
+          <div className={styles.scope}>
+            {share.mode === 'leader'
+              ? t(
+                  'ai-insider-alerts.share-leader',
+                  'This page runs Live for everyone watching the same providers and rules ({{count}} pages now): the others show its results without querying ClickHouse. Keep it open; if it closes, another page takes over.',
+                  { count: share.watchers }
+                )
+              : t(
+                  'ai-insider-alerts.share-follower',
+                  '{{count}} pages watch this Live; one of them queries ClickHouse for all. If it closes, this page takes over within a few minutes.',
+                  { count: share.watchers }
+                )}
+          </div>
+        )}
+        {running && share?.issue && (
+          <div className={styles.warning}>
+            {t(
+              'ai-insider-alerts.share-issue',
+              'Shared Live: the AI Insider service did not answer ({{error}}). Trying again.',
+              { error: share.issue, interpolation: { escapeValue: false } }
+            )}
+          </div>
+        )}
         {liveIssue && running && <div className={styles.warning}>{liveIssue}</div>}
         {warning && <div className={styles.warning}>{warning}</div>}
       </section>
+
+      {overview && (settings.mode === 'day' || (settings.mode === 'replay' && dayHour !== undefined)) && (
+        <DayOverview overview={overview} loading={dayLoading} onHour={openHour} disabled={running} selected={dayHour} />
+      )}
 
       {snapshot &&
         (advanced ? (
@@ -1078,6 +1324,12 @@ const getStyles = (theme: GrafanaTheme2) => ({
   }),
   field: css({
     minWidth: 180,
+  }),
+  rangeField: css({
+    minWidth: 280,
+  }),
+  zoneField: css({
+    minWidth: 200,
   }),
   providersField: css({
     // Wide enough for the whole placeholder: the hint says what to type.

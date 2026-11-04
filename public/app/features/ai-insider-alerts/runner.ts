@@ -33,6 +33,7 @@ import type {
   CustomerSideRow,
   ErrorVolumeRow,
   ProviderBucketRow,
+  ViewerDetail,
   ViewerKind,
 } from './types';
 
@@ -75,6 +76,18 @@ export function toBadMinute(r: Row): BadMinuteRow {
   };
 }
 
+export function toViewerDetail(r: Row): ViewerDetail {
+  return {
+    accounts: str(r.accounts_any),
+    serials: str(r.serials_any),
+    deviceIds: str(r.device_ids_any),
+    ips: str(r.ips_any),
+    models: str(r.models_any),
+    os: str(r.os_any),
+    appVersions: str(r.app_versions_any),
+  };
+}
+
 export function toAffectedUser(r: Row, incidentId: string): AffectedUserRow {
   return {
     incidentId,
@@ -89,6 +102,7 @@ export function toAffectedUser(r: Row, incidentId: string): AffectedUserRow {
     errEvents: num(r.err_events),
     topCode: str(r.top_code),
     watchedBeforeSec: num(r.watched_before),
+    ...toViewerDetail(r),
   };
 }
 
@@ -133,6 +147,7 @@ export function toCustomerSide(r: Row): CustomerSideRow {
     firstMinute: num(r.first_minute),
     lastMinute: num(r.last_minute),
     topCode: str(r.top_code),
+    ...toViewerDetail(r),
   };
 }
 

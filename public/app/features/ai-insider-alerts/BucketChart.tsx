@@ -1,5 +1,5 @@
 // Analytix: the bar charts of the alerts page. One bar per time bucket, an
-// optional dashed "usual level", a UTC time axis below and a value axis on the
+// optional dashed "usual level", a time axis in the display zone below and a value axis on the
 // left. Drawn at the container's real width, so the axis text is not stretched
 // the way a viewBox with preserveAspectRatio="none" would stretch it.
 
@@ -10,7 +10,7 @@ import { GrafanaTheme2 } from '@grafana/data';
 import { useStyles2, useTheme2 } from '@grafana/ui';
 import { analytix } from 'app/features/home/analytixTokens';
 
-import { formatCount, formatUtc, formatUtcTime } from './format';
+import { formatAt, formatClock, formatCount, zoneLabel, zoneOffsetSec } from './format';
 
 export interface ChartBar {
   /** Bucket start, epoch seconds. */
@@ -20,6 +20,8 @@ export interface ChartBar {
   usual?: number;
   /** Hover text; the bucket's time and value when missing. */
   tip?: string;
+  /** This bar's own colour (a marked bucket); the chart's colour when missing. */
+  color?: string;
 }
 
 /** 'share': values are 0..1, the axis goes to 100%. */
@@ -36,6 +38,10 @@ interface Props {
   unit?: ChartUnit;
   /** What the chart shows, for screen readers. */
   label: string;
+  /** The problem itself, shaded behind the bars, so charts of one problem read alike. */
+  highlight?: { from: number; to: number };
+  /** Makes every bar a button: called with the bucket start. */
+  onBarClick?: (start: number) => void;
 }
 
 const HEIGHT = 120;
@@ -67,15 +73,16 @@ export function valueTicks(max: number, unit: ChartUnit = 'count'): number[] {
 }
 
 /**
- * Time ticks on round UTC times, at most `maxTicks` of them. The step is never
- * shorter than a bucket, so the ticks fall on bucket edges.
+ * Time ticks on round times of the display zone (`offset` seconds ahead of
+ * UTC), at most `maxTicks` of them. The step is never shorter than a bucket,
+ * so the ticks fall on bucket edges.
  */
-export function timeTicks(from: number, to: number, minStep: number, maxTicks: number): number[] {
+export function timeTicks(from: number, to: number, minStep: number, maxTicks: number, offset = 0): number[] {
   const span = Math.max(1, to - from);
   const step =
     TIME_STEPS.find((s) => s >= minStep && span / s <= maxTicks) ?? Math.ceil(span / maxTicks / 86400) * 86400;
   const ticks: number[] = [];
-  for (let s = Math.ceil(from / step) * step; s <= to; s += step) {
+  for (let s = Math.ceil((from + offset) / step) * step - offset; s <= to; s += step) {
     ticks.push(s);
   }
   return ticks;
@@ -98,15 +105,15 @@ export function compactCount(n: number): string {
 
 /** `18:00–18:15`, or just `18:07` for one-minute buckets. */
 export function bucketRange(start: number, step: number): string {
-  return step <= 60 ? formatUtcTime(start) : `${formatUtcTime(start)}–${formatUtcTime(start + step)}`;
+  return step <= 60 ? formatClock(start) : `${formatClock(start)}–${formatClock(start + step)}`;
 }
 
 function timeLabel(sec: number): string {
   // Midnight names the day instead: "10 Oct" rather than "00:00".
-  return sec % 86400 === 0 ? formatUtc(sec).slice(0, -6) : formatUtcTime(sec);
+  return (sec + zoneOffsetSec(sec)) % 86400 === 0 ? formatAt(sec).slice(0, -6) : formatClock(sec);
 }
 
-export function BucketChart({ bars, step, from, to, color, unit = 'count', label }: Props) {
+export function BucketChart({ bars, step, from, to, color, unit = 'count', label, highlight, onBarClick }: Props) {
   const styles = useStyles2(getStyles);
   const theme = useTheme2();
   const [ref, { width: measured }] = useMeasure<HTMLDivElement>();
@@ -125,7 +132,13 @@ export function BucketChart({ bars, step, from, to, color, unit = 'count', label
   const span = Math.max(1, x1 - x0);
   const x = (sec: number) => left + ((sec - x0) / span) * plotW;
   const y = (v: number) => bottom - (Math.min(Math.max(v, 0), top) / top) * plotH;
-  const xTicks = timeTicks(x0, x1, step, Math.min(MAX_TIME_TICKS, Math.max(2, Math.floor(plotW / MIN_TICK_GAP))));
+  const xTicks = timeTicks(
+    x0,
+    x1,
+    step,
+    Math.min(MAX_TIME_TICKS, Math.max(2, Math.floor(plotW / MIN_TICK_GAP))),
+    zoneOffsetSec(x0)
+  );
 
   const usual = bars.filter((b) => b.usual !== undefined);
   const line =
@@ -133,10 +146,25 @@ export function BucketChart({ bars, step, from, to, color, unit = 'count', label
       ? `M ${x(usual[0].start)} ${y(usual[0].usual ?? 0)} L ${x(usual[0].start + step)} ${y(usual[0].usual ?? 0)}`
       : usual.map((b, i) => `${i ? 'L' : 'M'} ${x(b.start + step / 2)} ${y(b.usual ?? 0)}`).join(' ');
   const text = { fontSize: FONT, fill: theme.colors.text.secondary };
+  const shade =
+    highlight && highlight.to > x0 && highlight.from < x1
+      ? { x: x(Math.max(highlight.from, x0)), x2: x(Math.min(highlight.to, x1)) }
+      : undefined;
 
   return (
     <div ref={ref} className={styles.wrap}>
       <svg width={width} height={HEIGHT} className={styles.svg} role="img" aria-label={label}>
+        {shade && (
+          <rect
+            data-testid="chart-highlight"
+            x={shade.x}
+            y={PAD_TOP}
+            width={Math.max(1, shade.x2 - shade.x)}
+            height={plotH}
+            fill={theme.colors.error.transparent}
+            pointerEvents="none"
+          />
+        )}
         {yTicks.map((v) => (
           <g key={v}>
             <line x1={left} x2={left + plotW} y1={y(v)} y2={y(v)} stroke={theme.colors.border.weak} />
@@ -150,10 +178,27 @@ export function BucketChart({ bars, step, from, to, color, unit = 'count', label
           const bw = Math.max(1, x(b.start + step) - bx);
           const gap = bw > 6 ? 2 : bw > 2 ? 0.5 : 0;
           return (
-            <g key={b.start} className={styles.bar}>
+            <g
+              key={b.start}
+              className={onBarClick ? `${styles.bar} ${styles.clickable}` : styles.bar}
+              onClick={onBarClick ? () => onBarClick(b.start) : undefined}
+              onKeyDown={
+                onBarClick
+                  ? (e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onBarClick(b.start);
+                      }
+                    }
+                  : undefined
+              }
+              role={onBarClick ? 'button' : undefined}
+              tabIndex={onBarClick ? 0 : undefined}
+              aria-label={onBarClick ? (b.tip ?? bucketRange(b.start, step)) : undefined}
+            >
               <title>
                 {b.tip ??
-                  `${bucketRange(b.start, step)} UTC · ${unit === 'share' ? yLabel(b.value) : formatCount(b.value)}`}
+                  `${bucketRange(b.start, step)} ${zoneLabel(b.start)} · ${unit === 'share' ? yLabel(b.value) : formatCount(b.value)}`}
               </title>
               <rect x={bx} y={PAD_TOP} width={bw} height={plotH} fill="transparent" />
               <rect
@@ -161,7 +206,7 @@ export function BucketChart({ bars, step, from, to, color, unit = 'count', label
                 y={y(b.value)}
                 width={Math.max(1, bw - gap)}
                 height={bottom - y(b.value)}
-                fill={color}
+                fill={b.color ?? color}
                 opacity={0.85}
               />
             </g>
@@ -208,6 +253,13 @@ const getStyles = (theme: GrafanaTheme2) => ({
   bar: css({
     '&:hover rect:first-of-type': {
       fill: theme.colors.action.hover,
+    },
+  }),
+  clickable: css({
+    cursor: 'pointer',
+    outline: 'none',
+    '&:focus-visible rect:first-of-type': {
+      fill: theme.colors.action.focus,
     },
   }),
 });

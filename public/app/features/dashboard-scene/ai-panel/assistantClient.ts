@@ -84,7 +84,7 @@ export function getAssistantBaseUrl(): string {
 }
 
 /** Auth headers for a non-localhost backend (see AUTH_TOKEN on the service). */
-function authHeaders(): Record<string, string> {
+export function authHeaders(): Record<string, string> {
   // The extra header also skips the ngrok free-tier browser interstitial,
   // which would otherwise replace API responses with an HTML warning page.
   const headers: Record<string, string> = { 'ngrok-skip-browser-warning': '1' };

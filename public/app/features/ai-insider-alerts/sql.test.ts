@@ -9,9 +9,11 @@ import {
   channelMinutesSql,
   customerSideSql,
   errorVolumeSql,
+  hourlyOverviewSql,
   IS_ERR,
   IS_PAYWALL,
   providerNamesSql,
+  providerUsersSql,
   settingsClause,
   userErrorsSql,
 } from './sql';
@@ -28,6 +30,8 @@ const statements = () => [
   channelMinutesSql(FROM, TO, null, [{ pid: '222', cid: '20002549' }]),
   errorVolumeSql(FROM, TO, null),
   userErrorsSql(FROM, TO, ['222']),
+  hourlyOverviewSql(FROM, TO, ['111', '222']),
+  providerUsersSql([{ id: 'prov-1', pid: '222', start: FROM, end: TO }], null),
 ];
 
 describe('alerts SQL', () => {
@@ -302,5 +306,31 @@ describe('provider scope', () => {
     expect(effectiveScope(null, 'All')).toBeNull();
     expect(effectiveScope(['111', '222'], '*')).toEqual(['111', '222']);
     expect(effectiveScope(null, '111 222')).toEqual(['111', '222']);
+  });
+
+  it('reads who the viewer is and on what, only in the viewer queries', () => {
+    const viewers = [
+      affectedUsersSql([{ id: 'inc-1', pid: '222', cid: '20002549', start: FROM, end: TO }], null),
+      providerUsersSql([{ id: 'prov-1', pid: '222', start: FROM, end: TO }], null),
+      customerSideSql(FROM, TO, null, DEFAULT_RULES),
+    ];
+    for (const sql of viewers) {
+      for (const alias of [
+        'accounts_any',
+        'serials_any',
+        'device_ids_any',
+        'ips_any',
+        'models_any',
+        'os_any',
+        'app_versions_any',
+      ]) {
+        expect(sql).toContain(` AS ${alias}`);
+      }
+      expect(sql).toContain('device_serial_number AS serial');
+    }
+    // The errors of the window only, in the channel query.
+    expect(viewers[0]).toContain("groupUniqArrayIf(3)(ip, ip != '' AND hit)");
+    expect(viewers[2]).toContain("groupUniqArrayIf(3)(e.ip, e.ip != '')");
+    expect(badMinutesSql(FROM, TO, null, DEFAULT_RULES)).not.toContain('AS serial');
   });
 });

@@ -21,12 +21,14 @@ import {
   getStyles as getResultStyles,
 } from './AlertsResults';
 import { CdnConfirmation } from './CdnCheck';
-import { ViewerId, viewerKindText } from './ViewerId';
+import { ViewerId } from './ViewerId';
+import { AffectedViewersTable, CohortBreakdown, ErrorCell, ViewerProfile, errorKeyText } from './ViewerTables';
 import { AskInsiderButton } from './askInsider';
 import { activityPrompt, channelPrompt, providerPrompt } from './askPrompts';
-import { channelCdnTarget, providerCdnTarget } from './cdn';
+import { channelCdnTarget, channelChartFrame, providerCdnTarget, providerChartFrame } from './cdn';
 import { topKey } from './engine';
-import { breakdown, formatCount, formatMinutes, formatUtc, formatUtcTime } from './format';
+import { describeError, useErrorDictionary } from './errorCodes';
+import { breakdown, formatAt, formatClock, formatCount, formatMinutes, zoneLabel } from './format';
 import { useTableSort, SortHeader } from './sortableTable';
 import { PROVIDER_BUCKET_SEC } from './sql';
 import {
@@ -35,8 +37,11 @@ import {
   ProblemKind,
   ViewerRecord,
   buildProblems,
+  buildViewerAliases,
   buildViewerIndex,
+  detailValues,
   findViewers,
+  isMajor,
   medianRecoveryMinutes,
   viewerTotals,
   visibleMessages,
@@ -44,9 +49,8 @@ import {
 import type { AffectedUserRow, Decision, DecisionKind } from './types';
 
 type SupportTab = 'problems' | 'viewer' | 'summary';
-type ProblemFilter = 'all' | 'ongoing';
+type ProblemFilter = 'all' | 'ongoing' | 'major';
 
-const VIEWERS_LIMIT = 100;
 const PROBLEMS_LIMIT = 300;
 
 export function problemBadge(kind: ProblemKind): { text: string; color: BadgeColor; tooltip: string } {
@@ -243,7 +247,7 @@ function MessageChain({ messages, ongoing }: { messages: Decision[]; ongoing?: b
         const badge = messageBadge(m.kind);
         return (
           <span key={`${m.kind}-${m.at}-${i}`} className={styles.chainItem}>
-            <span className={styles.faint}>{formatUtcTime(m.at)}</span>
+            <span className={styles.faint}>{formatClock(m.at)}</span>
             <Badge text={badge.text} color={badge.color} tooltip={badge.tooltip} />
           </span>
         );
@@ -258,12 +262,16 @@ export function SupportResults({ snapshot }: { snapshot: AlertsSnapshot }) {
   const [tab, setTab] = useState<SupportTab>('problems');
   const [expanded, setExpanded] = useState<string>();
   const [viewerQuery, setViewerQuery] = useState('');
+  const [filter, setFilter] = useState<ProblemFilter>('all');
+  const [search, setSearch] = useState('');
 
   const problems = useMemo(() => buildProblems(snapshot), [snapshot]);
   const viewers = useMemo(() => buildViewerIndex(snapshot, problems), [snapshot, problems]);
+  const aliases = useMemo(() => buildViewerAliases(viewers), [viewers]);
   const totals = useMemo(() => viewerTotals(viewers), [viewers]);
 
   const ongoing = problems.filter((p) => p.ongoing && p.kind !== 'chronic');
+  const majorOngoing = ongoing.filter(isMajor);
   const chronic = problems.filter((p) => p.ongoing && p.kind === 'chronic').length;
   const recovered = problems.filter((p) => !p.ongoing).length;
   const median = medianRecoveryMinutes(problems);
@@ -275,12 +283,18 @@ export function SupportResults({ snapshot }: { snapshot: AlertsSnapshot }) {
   };
   const openProblem = (id: string) => {
     setTab('problems');
+    // Whatever the list was narrowed to, the problem opened must be in it.
+    setSearch('');
+    setFilter((f) =>
+      f === 'all' || problems.find((p) => p.id === id && (f === 'ongoing' ? p.ongoing : isMajor(p))) ? f : 'all'
+    );
     setExpanded(id);
     requestAnimationFrame(() => document.getElementById(`ai-support-${id}`)?.scrollIntoView({ block: 'center' }));
   };
 
   return (
     <div className={styles.results}>
+      {majorOngoing.length > 0 && <MajorProblems problems={majorOngoing} to={snapshot.to} onOpen={openProblem} />}
       <div className={styles.tiles}>
         <Tile
           alert={ongoing.length > 0}
@@ -290,14 +304,16 @@ export function SupportResults({ snapshot }: { snapshot: AlertsSnapshot }) {
             chronic
               ? t(
                   'ai-insider-alerts.support.tile-ongoing-chronic',
-                  'as of {{clock}} UTC · and {{chronic}} channels down for hours',
+                  'as of {{clock}} {{tz}} · and {{chronic}} channels down for hours',
                   {
-                    clock: formatUtc(snapshot.to),
+                    tz: zoneLabel(),
+                    clock: formatAt(snapshot.to),
                     chronic,
                   }
                 )
-              : t('ai-insider-alerts.support.tile-ongoing-detail', 'as of {{clock}} UTC', {
-                  clock: formatUtc(snapshot.to),
+              : t('ai-insider-alerts.support.tile-ongoing-detail', 'as of {{clock}} {{tz}}', {
+                  tz: zoneLabel(),
+                  clock: formatAt(snapshot.to),
                 })
           }
         />
@@ -313,8 +329,9 @@ export function SupportResults({ snapshot }: { snapshot: AlertsSnapshot }) {
           value={formatCount(recovered)}
           detail={
             median === undefined
-              ? t('ai-insider-alerts.support.tile-resolved-none', 'since {{from}} UTC', {
-                  from: formatUtc(snapshot.from),
+              ? t('ai-insider-alerts.support.tile-resolved-none', 'since {{from}} {{tz}}', {
+                  tz: zoneLabel(),
+                  from: formatAt(snapshot.from),
                 })
               : t('ai-insider-alerts.support.tile-resolved-detail', 'typically back in {{minutes}} min', {
                   minutes: Math.round(median),
@@ -351,6 +368,10 @@ export function SupportResults({ snapshot }: { snapshot: AlertsSnapshot }) {
           <ProblemsTab
             problems={problems}
             snapshot={snapshot}
+            filter={filter}
+            onFilter={setFilter}
+            search={search}
+            onSearch={setSearch}
             expanded={expanded}
             onToggle={setExpanded}
             onViewer={openViewer}
@@ -359,6 +380,7 @@ export function SupportResults({ snapshot }: { snapshot: AlertsSnapshot }) {
         {tab === 'viewer' && (
           <ViewerTab
             index={viewers}
+            aliases={aliases}
             query={viewerQuery}
             onQuery={setViewerQuery}
             from={snapshot.from}
@@ -391,33 +413,79 @@ export function SupportResults({ snapshot }: { snapshot: AlertsSnapshot }) {
   );
 }
 
+/**
+ * Ongoing problems wider than one channel, pinned above everything: a
+ * provider, the service or several providers down must not drown among the
+ * channel failures in the list below.
+ */
+function MajorProblems({ problems, to, onOpen }: { problems: Problem[]; to: number; onOpen: (id: string) => void }) {
+  const local = useStyles2(getStyles);
+  return (
+    <section
+      className={local.major}
+      aria-label={t('ai-insider-alerts.support.major-label', 'Ongoing problems wider than one channel')}
+    >
+      <div className={local.majorTitle}>
+        <Icon name="fire" />
+        {t('ai-insider-alerts.support.major-title', 'Wide problems now: {{count}}', { count: problems.length })}
+      </div>
+      {problems.map((p) => {
+        const badge = problemBadge(p.kind);
+        const sub = problemSub(p);
+        return (
+          <button key={p.id} type="button" className={local.majorRow} onClick={() => onOpen(p.id)}>
+            <Badge text={badge.text} color={badge.color} tooltip={badge.tooltip} />
+            <strong>{problemTitle(p)}</strong>
+            {sub && <span className={local.faint}>{sub}</span>}
+            <span className={local.majorSince}>
+              {t('ai-insider-alerts.support.major-since', 'since {{time}} · {{duration}}', {
+                time: formatAt(p.start),
+                duration: formatMinutes(p.start, to),
+              })}
+              {p.source !== 'activity' &&
+                ` · ${t('ai-insider-alerts.support.major-viewers', '{{count}} viewers hit', { count: p.viewers })}`}
+            </span>
+          </button>
+        );
+      })}
+    </section>
+  );
+}
+
 function ProblemsTab({
   problems,
   snapshot,
+  filter,
+  onFilter: setFilter,
+  search,
+  onSearch: setSearch,
   expanded,
   onToggle,
   onViewer,
 }: {
   problems: Problem[];
   snapshot: AlertsSnapshot;
+  filter: ProblemFilter;
+  onFilter: (filter: ProblemFilter) => void;
+  search: string;
+  onSearch: (search: string) => void;
   expanded?: string;
   onToggle: (id?: string) => void;
   onViewer: (userId: string) => void;
 }) {
   const styles = useStyles2(getResultStyles);
   const local = useStyles2(getStyles);
-  const [filter, setFilter] = useState<ProblemFilter>('all');
-  const [search, setSearch] = useState('');
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return problems.filter(
       (p) =>
-        (filter === 'all' || p.ongoing) &&
+        (filter === 'all' || (filter === 'ongoing' ? p.ongoing : isMajor(p))) &&
         (!q || `${problemTitle(p)} ${p.pid} ${p.provider} ${problemBadge(p.kind).text}`.toLowerCase().includes(q))
     );
   }, [problems, filter, search]);
   const ongoingCount = problems.filter((p) => p.ongoing).length;
+  const majorCount = problems.filter(isMajor).length;
 
   if (!problems.length) {
     return (
@@ -437,6 +505,14 @@ function ProblemsTab({
     {
       label: t('ai-insider-alerts.support.filter-ongoing', 'Ongoing ({{count}})', { count: ongoingCount }),
       value: 'ongoing' as const,
+    },
+    {
+      label: t('ai-insider-alerts.support.filter-major', 'Wide ({{count}})', { count: majorCount }),
+      value: 'major' as const,
+      description: t(
+        'ai-insider-alerts.support.filter-major-tip',
+        'Problems wider than one channel: a provider, the service, several providers'
+      ),
     },
   ];
 
@@ -462,9 +538,7 @@ function ProblemsTab({
               <th>
                 <Trans i18nKey="ai-insider-alerts.support.col-problem">Problem</Trans>
               </th>
-              <th>
-                <Trans i18nKey="ai-insider-alerts.support.col-started">Started (UTC)</Trans>
-              </th>
+              <th>{t('ai-insider-alerts.support.col-started', 'Started ({{tz}})', { tz: zoneLabel() })}</th>
               <th>
                 <Trans i18nKey="ai-insider-alerts.support.col-duration">Duration</Trans>
               </th>
@@ -482,7 +556,12 @@ function ProblemsTab({
                 <Fragment key={p.id}>
                   <tr
                     id={`ai-support-${p.id}`}
-                    className={cx(styles.clickable, open && styles.rowOpen, p.ongoing && local.ongoingRow)}
+                    className={cx(
+                      styles.clickable,
+                      open && styles.rowOpen,
+                      p.ongoing && local.ongoingRow,
+                      p.ongoing && isMajor(p) && local.majorRowTable
+                    )}
                     onClick={() => onToggle(open ? undefined : p.id)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
@@ -503,17 +582,17 @@ function ProblemsTab({
                       </div>
                       {sub && <span className={styles.sub}>{sub}</span>}
                     </td>
-                    <td>{formatUtc(p.start)}</td>
+                    <td>{formatAt(p.start)}</td>
                     <td>
                       {formatMinutes(p.start, p.closedAt ?? snapshot.to)}
                       {p.closedAt !== undefined && (
                         <span className={styles.sub}>
                           {p.recovered === false
                             ? t('ai-insider-alerts.support.ended-at', 'errors stopped {{time}}', {
-                                time: formatUtcTime(p.closedAt),
+                                time: formatClock(p.closedAt),
                               })
                             : t('ai-insider-alerts.support.back-at', 'back at {{time}}', {
-                                time: formatUtcTime(p.closedAt),
+                                time: formatClock(p.closedAt),
                               })}
                         </span>
                       )}
@@ -594,14 +673,24 @@ function ProblemDetails({
 
   const viewers = problem.channel ? snapshot.affected(problem.id) : snapshot.providerAffected(problem.id);
   const messages = snapshot.decisions.filter((d) => d.incidentId === problem.id);
+  // One time axis for the analytics chart and the CDN chart below it.
+  const frame = problem.channel
+    ? channelChartFrame(problem.channel, snapshot.to)
+    : problem.providerIncident && providerChartFrame(problem.providerIncident, PROVIDER_BUCKET_SEC, snapshot.to);
   return (
     <div className={styles.details}>
       {ask}
       {problem.channel && (
-        <IncidentSparkline incident={problem.channel} cls={snapshot.classOf(problem.channel)} to={snapshot.to} />
+        <IncidentSparkline
+          incident={problem.channel}
+          cls={snapshot.classOf(problem.channel)}
+          to={snapshot.to}
+          frame={frame}
+        />
       )}
-      {problem.providerIncident && <ProviderDetails incident={problem.providerIncident} />}
+      {problem.providerIncident && <ProviderDetails incident={problem.providerIncident} frame={frame} />}
       <CdnConfirmation
+        frame={frame}
         target={
           problem.channel
             ? channelCdnTarget(problem.channel, snapshot.to)
@@ -635,6 +724,7 @@ function ProblemDetails({
           </div>
         )}
       </div>
+      <CohortBreakdown viewers={viewers} />
       <AffectedViewers viewers={viewers} messages={messages} ongoing={problem.ongoing} onViewer={onViewer} />
     </div>
   );
@@ -686,8 +776,6 @@ function AffectedViewers({
   ongoing: boolean;
   onViewer: (userId: string) => void;
 }) {
-  const styles = useStyles2(getResultStyles);
-  const local = useStyles2(getStyles);
   const byUser = useMemo(() => {
     const map = new Map<string, Decision[]>();
     for (const m of messages) {
@@ -695,75 +783,24 @@ function AffectedViewers({
     }
     return map;
   }, [messages]);
-  const { rows, sort } = useTableSort(viewers, {
-    viewer: (u) => u.userId,
-    platform: (u) => `${u.platform} ${u.network}`,
-    firstErr: (u) => u.firstErr,
-    errors: (u) => u.errEvents,
-  });
-  if (!viewers.length) {
-    return (
-      <div className={styles.legend}>
-        <Trans i18nKey="ai-insider-alerts.support.viewers-none">
-          No viewer list for it yet: it is read after the problem is confirmed.
-        </Trans>
-      </div>
-    );
-  }
+  const shown = (u: AffectedUserRow) => visibleMessages(byUser.get(u.userId) ?? []);
   return (
-    <>
-      <table className={cx(styles.table, styles.innerTable)}>
-        <thead>
-          <tr>
-            <SortHeader sort={sort} column="viewer">
-              <Trans i18nKey="ai-insider-alerts.support.col-account">Account</Trans>
-            </SortHeader>
-            <SortHeader sort={sort} column="platform">
-              <Trans i18nKey="ai-insider-alerts.support.col-device">Device · network</Trans>
-            </SortHeader>
-            <SortHeader sort={sort} column="firstErr">
-              <Trans i18nKey="ai-insider-alerts.support.col-first-error">First error (UTC)</Trans>
-            </SortHeader>
-            <SortHeader sort={sort} column="errors" className={styles.num}>
-              <Trans i18nKey="ai-insider-alerts.support.col-errors">Errors</Trans>
-            </SortHeader>
-            <th>
-              <Trans i18nKey="ai-insider-alerts.support.col-told">Told</Trans>
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.slice(0, VIEWERS_LIMIT).map((u) => (
-            <tr key={u.userId}>
-              <td className={cx(styles.mono, local.nowrap)}>
-                <ViewerId viewer={u} linkClassName={styles.link} onClick={() => onViewer(u.userId)} />
-              </td>
-              <td>
-                {u.platform} · {u.network || '—'}
-                <span className={styles.sub}>{[u.isp, u.city].filter(Boolean).join(' · ') || '—'}</span>
-              </td>
-              <td>{formatUtcTime(u.firstErr)}</td>
-              <td className={styles.num}>{u.errEvents}</td>
-              <td>
-                <MessageChain messages={visibleMessages(byUser.get(u.userId) ?? [])} ongoing={ongoing} />
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {viewers.length > VIEWERS_LIMIT && (
-        <div className={styles.sub}>
-          {t('ai-insider-alerts.support.more-viewers', '…and {{count}} more. Find any of them in Viewer lookup.', {
-            count: formatCount(viewers.length - VIEWERS_LIMIT),
-          })}
-        </div>
-      )}
-    </>
+    <AffectedViewersTable
+      viewers={viewers}
+      onViewer={onViewer}
+      told={(u) => <MessageChain messages={shown(u)} ongoing={ongoing} />}
+      toldSort={(u) =>
+        shown(u)
+          .map((m) => messageBadge(m.kind).text)
+          .join(' ') || undefined
+      }
+    />
   );
 }
 
 function ViewerTab({
   index,
+  aliases,
   query,
   onQuery,
   from,
@@ -771,6 +808,7 @@ function ViewerTab({
   onProblem,
 }: {
   index: Map<string, ViewerRecord>;
+  aliases: Map<string, ViewerRecord[]>;
   query: string;
   onQuery: (query: string) => void;
   from: number;
@@ -779,7 +817,7 @@ function ViewerTab({
 }) {
   const styles = useStyles2(getResultStyles);
   const local = useStyles2(getStyles);
-  const found = useMemo(() => findViewers(index, query), [index, query]);
+  const found = useMemo(() => findViewers(index, query, aliases), [index, query, aliases]);
 
   return (
     <>
@@ -789,7 +827,7 @@ function ViewerTab({
           prefix={<Icon name="search" />}
           placeholder={t(
             'ai-insider-alerts.support.viewer-placeholder',
-            'Account number, or device ID / IP of a guest'
+            'Account number, device serial, device ID or IP'
           )}
           value={query}
           onChange={(e) => onQuery(e.currentTarget.value)}
@@ -799,8 +837,9 @@ function ViewerTab({
       {!query.trim() ? (
         <p className={styles.empty}>
           <Trans i18nKey="ai-insider-alerts.support.viewer-hint">
-            Type the account of the viewer who contacted you: you will see which problems they ran into in this period,
-            what they were told, and whether the cause is likely on their side.
+            Type the account of the viewer who contacted you, or the serial, device ID or IP of their device: you will
+            see their devices and app versions, which problems they ran into in this period, the errors, what they were
+            told, and whether the cause is likely on their side.
           </Trans>
         </p>
       ) : found.exact ? (
@@ -866,11 +905,12 @@ function ViewerVerdicts({
       >
         {t(
           'ai-insider-alerts.support.verdict-ongoing-body',
-          '{{kind}}: {{what}}, since {{since}} UTC. The cause is on our side, not with the viewer or their device.',
+          '{{kind}}: {{what}}, since {{since}} {{tz}}. The cause is on our side, not with the viewer or their device.',
           {
+            tz: zoneLabel(),
             kind: problemBadge(first.kind).text,
             what: problemTitle(first),
-            since: formatUtc(first.start),
+            since: formatAt(first.start),
             interpolation: { escapeValue: false },
           }
         )}
@@ -887,11 +927,12 @@ function ViewerVerdicts({
       >
         {t(
           'ai-insider-alerts.support.verdict-customer-body',
-          'Errors on {{channels}} channels that worked for everyone else at the same time ({{from}} – {{to}} UTC, {{platform}}, {{where}}). Suggest restarting the device and checking the home network.',
+          'Errors on {{channels}} channels that worked for everyone else at the same time ({{from}} – {{to}} {{tz}}, {{platform}}, {{where}}). Suggest restarting the device and checking the home network.',
           {
+            tz: zoneLabel(),
             channels: c.channels,
-            from: formatUtc(c.firstMinute),
-            to: formatUtcTime(c.lastMinute + 60),
+            from: formatAt(c.firstMinute),
+            to: formatClock(c.lastMinute + 60),
             platform: [c.platform, c.network].filter(Boolean).join(' · ') || '—',
             where: [c.isp, c.city].filter(Boolean).join(', ') || '—',
             interpolation: { escapeValue: false },
@@ -923,8 +964,12 @@ function ViewerVerdicts({
       >
         {t(
           'ai-insider-alerts.support.verdict-none-body',
-          'Between {{from}} and {{to}} UTC this account was not hit by any outage. Single errors outside an outage are not listed here; check the account in the CRM, or run a longer period.',
-          { from: formatUtc(from), to: formatUtc(to) }
+          'Between {{from}} and {{to}} {{tz}} this account was not hit by any outage. Single errors outside an outage are not listed here; check the account in the CRM, or run a longer period.',
+          {
+            tz: zoneLabel(),
+            from: formatAt(from),
+            to: formatAt(to),
+          }
         )}
       </Alert>
     );
@@ -945,33 +990,150 @@ function ViewerCard({
 }) {
   const styles = useStyles2(getResultStyles);
   const local = useStyles2(getStyles);
-  const devices = [...new Set(record.hits.map((h) => `${h.row.platform} · ${h.row.network || '—'}`))];
-  const guest = viewerKindText(recordIdentity(record));
+  const dict = useErrorDictionary();
+  const [filter, setFilter] = useState('');
+  const hits = useMemo(() => {
+    const q = filter.trim().toLowerCase();
+    if (!q) {
+      return record.hits;
+    }
+    return record.hits.filter((h) =>
+      [
+        problemTitle(h.problem),
+        problemSub(h.problem),
+        problemBadge(h.problem.kind).text,
+        h.row.platform,
+        h.row.models,
+        h.row.os,
+        h.row.appVersions,
+        h.row.network,
+        h.row.isp,
+        h.row.city,
+        h.row.ips,
+        errorKeyText(h.row.topCode),
+        describeError(dict, h.row.topCode, h.row.platform),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q)
+    );
+  }, [record.hits, filter, dict]);
+  const { rows, sort } = useTableSort(hits, {
+    firstErr: (h) => h.row.firstErr,
+    problem: (h) => problemTitle(h.problem),
+    status: (h) => (h.problem.ongoing ? 0 : h.problem.recovered === false ? 1 : 2),
+    device: (h) => `${h.row.platform} ${h.row.models ?? ''}`,
+    app: (h) => h.row.appVersions,
+    network: (h) => `${h.row.network} ${h.row.isp}`,
+    ip: (h) => h.row.ips,
+    errors: (h) => h.row.errEvents,
+    error: (h) => h.row.topCode,
+    told: (h) => h.messages.map((m) => messageBadge(m.kind).text).join(' ') || undefined,
+  });
 
   return (
     <div className={styles.details}>
-      <div className={local.viewerHead}>
-        <span className={cx(styles.mono, local.account)}>{record.userId}</span>
-        {guest && <span className={local.faint}>{guest}</span>}
-        {devices.length > 0 && <span className={local.faint}>{devices.join(', ')}</span>}
-      </div>
+      <ViewerProfile userId={record.userId} rows={record.hits.map((h) => h.row)} customer={record.customer} />
       <ViewerVerdicts record={record} account={record.userId} from={from} to={to} />
-      {(record.hits.length > 0 || record.diagnoses.length > 0) && (
+      {record.hits.length > 0 && (
+        <>
+          <div className={styles.toolbar}>
+            <Input
+              className={local.viewerSearch}
+              prefix={<Icon name="filter" />}
+              placeholder={t('ai-insider-alerts.support.hits-filter', 'Filter: channel, device, version, ISP, error…')}
+              value={filter}
+              onChange={(e) => setFilter(e.currentTarget.value)}
+            />
+          </div>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <SortHeader sort={sort} column="firstErr">
+                    {t('ai-insider-alerts.support.col-first-error', 'First error ({{tz}})', { tz: zoneLabel() })}
+                  </SortHeader>
+                  <SortHeader sort={sort} column="problem">
+                    <Trans i18nKey="ai-insider-alerts.support.col-problem">Problem</Trans>
+                  </SortHeader>
+                  <SortHeader sort={sort} column="status">
+                    <Trans i18nKey="ai-insider-alerts.support.col-status">Status</Trans>
+                  </SortHeader>
+                  <SortHeader sort={sort} column="device">
+                    <Trans i18nKey="ai-insider-alerts.viewers.col-device-os">Device · OS</Trans>
+                  </SortHeader>
+                  <SortHeader sort={sort} column="app">
+                    <Trans i18nKey="ai-insider-alerts.viewers.col-app">App version</Trans>
+                  </SortHeader>
+                  <SortHeader sort={sort} column="network">
+                    <Trans i18nKey="ai-insider-alerts.viewers.col-network">Network · ISP</Trans>
+                  </SortHeader>
+                  <SortHeader sort={sort} column="ip">
+                    <Trans i18nKey="ai-insider-alerts.viewers.col-ip">IP</Trans>
+                  </SortHeader>
+                  <SortHeader sort={sort} column="errors" className={styles.num}>
+                    <Trans i18nKey="ai-insider-alerts.support.col-errors">Errors</Trans>
+                  </SortHeader>
+                  <SortHeader sort={sort} column="error">
+                    <Trans i18nKey="ai-insider-alerts.viewers.col-error">Error</Trans>
+                  </SortHeader>
+                  <SortHeader sort={sort} column="told">
+                    <Trans i18nKey="ai-insider-alerts.support.col-told">Told</Trans>
+                  </SortHeader>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((h) => {
+                  const badge = problemBadge(h.problem.kind);
+                  return (
+                    <tr key={h.problem.id}>
+                      <td>{formatAt(h.row.firstErr)}</td>
+                      <td>
+                        <div className={local.problemCell}>
+                          <Badge text={badge.text} color={badge.color} tooltip={badge.tooltip} />
+                          <button type="button" className={styles.link} onClick={() => onProblem(h.problem.id)}>
+                            {problemTitle(h.problem)}
+                          </button>
+                        </div>
+                        <span className={styles.sub}>{problemSub(h.problem)}</span>
+                      </td>
+                      <td>
+                        <StatusBadge problem={h.problem} />
+                      </td>
+                      <td>
+                        {[h.row.platform, detailValues(h.row.models).join(', ')].filter(Boolean).join(' · ') || '—'}
+                        <span className={styles.sub}>{detailValues(h.row.os).join(', ') || '—'}</span>
+                      </td>
+                      <td className={styles.mono}>{detailValues(h.row.appVersions).join(', ') || '—'}</td>
+                      <td>
+                        {h.row.network || '—'}
+                        <span className={styles.sub}>{[h.row.isp, h.row.city].filter(Boolean).join(' · ') || '—'}</span>
+                      </td>
+                      <td className={cx(styles.mono, local.nowrap)}>{detailValues(h.row.ips).join(', ') || '—'}</td>
+                      <td className={styles.num}>{h.row.errEvents}</td>
+                      <td>
+                        <ErrorCell code={h.row.topCode} platform={h.row.platform} dict={dict} />
+                      </td>
+                      <td>
+                        <MessageChain messages={h.messages} ongoing={h.problem.ongoing} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+      {record.diagnoses.length > 0 && (
         <div className={styles.tableWrap}>
           <table className={styles.table}>
             <thead>
               <tr>
-                <th>
-                  <Trans i18nKey="ai-insider-alerts.support.col-first-error">First error (UTC)</Trans>
-                </th>
+                <th>{t('ai-insider-alerts.support.col-when', 'When ({{tz}})', { tz: zoneLabel() })}</th>
                 <th>
                   <Trans i18nKey="ai-insider-alerts.support.col-problem">Problem</Trans>
-                </th>
-                <th>
-                  <Trans i18nKey="ai-insider-alerts.support.col-status">Status</Trans>
-                </th>
-                <th className={styles.num}>
-                  <Trans i18nKey="ai-insider-alerts.support.col-errors">Errors</Trans>
                 </th>
                 <th>
                   <Trans i18nKey="ai-insider-alerts.support.col-told">Told</Trans>
@@ -979,39 +1141,13 @@ function ViewerCard({
               </tr>
             </thead>
             <tbody>
-              {record.hits.map((h) => {
-                const badge = problemBadge(h.problem.kind);
-                return (
-                  <tr key={h.problem.id}>
-                    <td>{formatUtc(h.row.firstErr)}</td>
-                    <td>
-                      <div className={local.problemCell}>
-                        <Badge text={badge.text} color={badge.color} tooltip={badge.tooltip} />
-                        <button type="button" className={styles.link} onClick={() => onProblem(h.problem.id)}>
-                          {problemTitle(h.problem)}
-                        </button>
-                      </div>
-                      <span className={styles.sub}>{problemSub(h.problem)}</span>
-                    </td>
-                    <td>
-                      <StatusBadge problem={h.problem} />
-                    </td>
-                    <td className={styles.num}>{h.row.errEvents}</td>
-                    <td>
-                      <MessageChain messages={h.messages} ongoing={h.problem.ongoing} />
-                    </td>
-                  </tr>
-                );
-              })}
               {record.diagnoses.map((d, i) => (
                 <tr key={`diag-${d.at}-${i}`}>
-                  <td>{formatUtc(d.at)}</td>
+                  <td>{formatAt(d.at)}</td>
                   <td>
                     <Trans i18nKey="ai-insider-alerts.support.their-side">Errors only on their side</Trans>
                     <span className={styles.sub}>{d.provider ? `${d.pid} ${d.provider}` : d.pid}</span>
                   </td>
-                  <td>—</td>
-                  <td className={styles.num}>—</td>
                   <td>
                     <MessageChain messages={[d]} />
                   </td>
@@ -1026,6 +1162,47 @@ function ViewerCard({
 }
 
 const getStyles = (theme: GrafanaTheme2) => ({
+  major: css({
+    display: 'grid',
+    gap: theme.spacing(0.5),
+    padding: theme.spacing(1.5),
+    borderRadius: theme.shape.radius.default,
+    border: `1px solid ${theme.colors.error.border}`,
+    background: theme.colors.error.transparent,
+  }),
+  majorTitle: css({
+    display: 'flex',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    color: theme.colors.error.text,
+    fontWeight: theme.typography.fontWeightMedium,
+  }),
+  majorRow: css({
+    display: 'flex',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: theme.spacing(1),
+    padding: theme.spacing(0.5, 1),
+    border: 'none',
+    borderRadius: theme.shape.radius.default,
+    background: 'transparent',
+    color: theme.colors.text.primary,
+    textAlign: 'left',
+    cursor: 'pointer',
+    '&:hover': {
+      background: theme.colors.action.hover,
+    },
+  }),
+  majorSince: css({
+    marginLeft: 'auto',
+    color: theme.colors.text.secondary,
+    fontSize: theme.typography.bodySmall.fontSize,
+  }),
+  majorRowTable: css({
+    td: {
+      background: theme.colors.error.transparent,
+    },
+  }),
   ongoingRow: css({
     td: {
       boxShadow: `inset 3px 0 0 ${theme.colors.error.main}`,

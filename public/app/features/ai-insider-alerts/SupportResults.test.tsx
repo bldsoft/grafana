@@ -85,7 +85,7 @@ describe('SupportResults', () => {
     render(<SupportResults snapshot={snapshot()} />);
 
     await userEvent.click(screen.getByRole('tab', { name: /Viewer lookup/ }));
-    await userEvent.type(screen.getByPlaceholderText('Account number, or device ID / IP of a guest'), 'ZZ-1');
+    await userEvent.type(screen.getByPlaceholderText('Account number, device serial, device ID or IP'), 'ZZ-1');
     expect(screen.getByText('No problems found for ZZ-1')).toBeInTheDocument();
   });
 
@@ -104,7 +104,7 @@ describe('SupportResults', () => {
 
     expect(within(screen.getAllByRole('row')[1]).getByText('Ongoing')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: /Viewer lookup/ }));
-    await userEvent.type(screen.getByPlaceholderText('Account number, or device ID / IP of a guest'), 'aa-549-001');
+    await userEvent.type(screen.getByPlaceholderText('Account number, device serial, device ID or IP'), 'aa-549-001');
     expect(screen.getByText('Affected by an ongoing problem')).toBeInTheDocument();
   });
 });

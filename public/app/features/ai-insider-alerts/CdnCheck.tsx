@@ -13,8 +13,17 @@ import { Badge, useStyles2, useTheme2 } from '@grafana/ui';
 import { analytix } from 'app/features/home/analytixTokens';
 
 import { BucketChart } from './BucketChart';
-import { CDN_BEFORE_SEC, CDN_BUCKET_SEC, CdnCheck, CdnTarget, cdnStatusSql, evaluateCdn, toCdnStatus } from './cdn';
-import { formatCount, formatUtcTime } from './format';
+import {
+  CDN_BEFORE_SEC,
+  CDN_BUCKET_SEC,
+  CdnCheck,
+  CdnTarget,
+  ProblemChartFrame,
+  cdnStatusSql,
+  evaluateCdn,
+  toCdnStatus,
+} from './cdn';
+import { formatClock, formatCount, zoneLabel } from './format';
 import { queryRows } from './query';
 
 /** The ClickHouse datasource of the run, for reads a problem's details make on their own. */
@@ -35,7 +44,8 @@ export function formatShare(share: number): string {
   return `${pct < 10 ? pct.toFixed(1) : Math.round(pct)}%`;
 }
 
-export function CdnConfirmation({ target }: { target?: CdnTarget }) {
+/** `frame`: the axis shared with the problem's analytics chart (the CDN window when missing). */
+export function CdnConfirmation({ target, frame }: { target?: CdnTarget; frame?: ProblemChartFrame }) {
   const datasource = useContext(AlertsDatasourceContext);
   const key = datasource && target ? cacheKey(datasource, target) : undefined;
   const [state, setState] = useState<State>(() => {
@@ -56,7 +66,7 @@ export function CdnConfirmation({ target }: { target?: CdnTarget }) {
     const abort = new AbortController();
     queryRows(datasource, cdnStatusSql(target), { signal: abort.signal, timeoutMs: 35_000 })
       .then((rows) => {
-        const check = evaluateCdn(rows.map(toCdnStatus), target);
+        const check = evaluateCdn(rows.map(toCdnStatus), target, Date.now() / 1000);
         if (cache.size >= CACHE_LIMIT) {
           cache.delete(cache.keys().next().value!);
         }
@@ -78,10 +88,10 @@ export function CdnConfirmation({ target }: { target?: CdnTarget }) {
   if (!datasource || !target) {
     return null;
   }
-  return <CdnBlock target={target} state={state} />;
+  return <CdnBlock target={target} state={state} frame={frame} />;
 }
 
-function CdnBlock({ target, state }: { target: CdnTarget; state: State }) {
+function CdnBlock({ target, state, frame }: { target: CdnTarget; state: State; frame?: ProblemChartFrame }) {
   const styles = useStyles2(getStyles);
   const theme = useTheme2();
   const what = target.streams.length
@@ -120,7 +130,7 @@ function CdnBlock({ target, state }: { target: CdnTarget; state: State }) {
         <span className={styles.faint}>
           {t(
             'ai-insider-alerts.cdn.none',
-            'No CDN logs for {{what}}: the stream goes through another CDN, or the provider is not in the CDN logs.',
+            'No CDN logs for {{what}}: the stream goes through another CDN, the provider is not in the CDN logs, or the players never reached a CDN (DNS, multi-CDN steering).',
             { what, interpolation: { escapeValue: false } }
           )}
         </span>
@@ -137,6 +147,38 @@ function CdnBlock({ target, state }: { target: CdnTarget; state: State }) {
           minutes: CDN_BEFORE_SEC / 60,
         });
 
+  if (check.verdict === 'dropped') {
+    return (
+      <div className={styles.block}>
+        {label}
+        <div className={styles.line}>
+          <Badge
+            text={t('ai-insider-alerts.cdn.dropped-badge', 'Traffic dropped at the CDN')}
+            color="orange"
+            tooltip={t(
+              'ai-insider-alerts.cdn.dropped-tip',
+              'The edge did not answer with errors, but far fewer requests reached it than before. A failure before the CDN leaves no error in its logs: DNS, the multi-CDN steering step, or the network on the way. The player errors are the evidence here.'
+            )}
+          />
+          <span className={styles.faint}>
+            {t(
+              'ai-insider-alerts.cdn.dropped',
+              '{{what}}: {{ratio}} of the usual requests per 5 min reached the CDN during the problem, {{share}} of them failed ({{before}}). Viewers likely did not reach the CDN at all.',
+              {
+                what,
+                ratio: formatShare(check.trafficRatio ?? 0),
+                share: formatShare(share),
+                before,
+                interpolation: { escapeValue: false },
+              }
+            )}
+          </span>
+        </div>
+        <TrafficChart check={check} target={target} frame={frame} />
+      </div>
+    );
+  }
+
   if (check.verdict === 'clean') {
     return (
       <div className={styles.block}>
@@ -147,7 +189,7 @@ function CdnBlock({ target, state }: { target: CdnTarget; state: State }) {
             color="darkgrey"
             tooltip={t(
               'ai-insider-alerts.cdn.clean-tip',
-              'The edge answered this stream as usual while players failed: the cause is likely past the CDN (player, DRM, app) or in the stream content'
+              'The edge answered this stream as usual while players failed: the cause is likely past the CDN (player, DRM, app), in the stream content, or before the CDN for some viewers only (DNS, multi-CDN steering), which the CDN logs cannot see'
             )}
           />
           <span className={styles.faint}>
@@ -219,15 +261,17 @@ function CdnBlock({ target, state }: { target: CdnTarget; state: State }) {
           start: b.bucket,
           value: b.requests ? b.errors / b.requests : 0,
           usual: check.shareBefore,
-          tip: t('ai-insider-alerts.cdn.chart-tip', '{{time}} UTC · {{errors}} of {{requests}} requests failed', {
-            time: formatUtcTime(b.bucket),
+          tip: t('ai-insider-alerts.cdn.chart-tip', '{{time}} {{tz}} · {{errors}} of {{requests}} requests failed', {
+            tz: zoneLabel(),
+            time: formatClock(b.bucket),
             errors: formatCount(b.errors),
             requests: formatCount(b.requests),
           }),
         }))}
         step={CDN_BUCKET_SEC}
-        from={target.from}
-        to={target.to}
+        from={frame?.range.from ?? target.from}
+        to={frame?.range.to ?? target.to}
+        highlight={frame?.highlight ?? { from: target.start, to: target.end }}
         color={theme.colors.error.main}
         unit="share"
         label={t('ai-insider-alerts.cdn.chart-label', 'Share of CDN requests failed per 5 minutes')}
@@ -235,11 +279,40 @@ function CdnBlock({ target, state }: { target: CdnTarget; state: State }) {
       <div className={styles.faint}>
         {t(
           'ai-insider-alerts.cdn.chart-legend',
-          'Bars: share of the CDN requests for the stream that failed at the edge, per 5 min ({{from}}–{{to}} UTC, from {{minutes}} min before the problem). Dashed: the level before.',
-          { from: formatUtcTime(target.from), to: formatUtcTime(target.to), minutes: CDN_BEFORE_SEC / 60 }
+          'Bars: share of the CDN requests for the stream that failed at the edge, per 5 min ({{from}}–{{to}} {{tz}}, from {{minutes}} min before the problem). Shaded: the problem. Dashed: the level before.',
+          {
+            tz: zoneLabel(),
+            from: formatClock(target.from),
+            to: formatClock(target.to),
+            minutes: CDN_BEFORE_SEC / 60,
+          }
         )}
       </div>
     </div>
+  );
+}
+
+/** Requests per 5 minutes, for a drop in traffic: the bars fall where viewers stopped reaching the CDN. */
+function TrafficChart({ check, target, frame }: { check: CdnCheck; target: CdnTarget; frame?: ProblemChartFrame }) {
+  const theme = useTheme2();
+  return (
+    <BucketChart
+      bars={check.buckets.map((b) => ({
+        start: b.bucket,
+        value: b.requests,
+        tip: t('ai-insider-alerts.cdn.traffic-tip', '{{time}} {{tz}} · {{requests}} requests', {
+          time: formatClock(b.bucket),
+          tz: zoneLabel(b.bucket),
+          requests: formatCount(b.requests),
+        }),
+      }))}
+      step={CDN_BUCKET_SEC}
+      from={frame?.range.from ?? target.from}
+      to={frame?.range.to ?? target.to}
+      highlight={frame?.highlight ?? { from: target.start, to: target.end }}
+      color={theme.colors.warning.main}
+      label={t('ai-insider-alerts.cdn.traffic-label', 'CDN requests per 5 minutes')}
+    />
   );
 }
 

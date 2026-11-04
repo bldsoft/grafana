@@ -1,5 +1,14 @@
 import { snapshot } from './fixtures/snapshot';
-import { buildProblems, buildViewerIndex, findViewers, medianRecoveryMinutes, viewerTotals } from './support';
+import {
+  buildProblems,
+  buildViewerAliases,
+  buildViewerIndex,
+  findViewers,
+  isMajor,
+  medianRecoveryMinutes,
+  viewerTotals,
+} from './support';
+import type { ActivityIncident } from './types';
 
 describe('support view model', () => {
   it('lists every confirmed problem, the most recent first, with viewers and who was told', () => {
@@ -42,5 +51,48 @@ describe('support view model', () => {
     const problems = buildProblems(snapshot());
     expect(medianRecoveryMinutes(problems)).toBeGreaterThan(0);
     expect(medianRecoveryMinutes(problems.map((p) => ({ ...p, recovered: false })))).toBeUndefined();
+  });
+
+  it('pins ongoing problems wider than one channel above channel failures', () => {
+    const snap = snapshot();
+    const sport = snap.incidents.find((i) => i.title === 'Sport 1')!;
+    const service: ActivityIncident = {
+      id: 'act-1',
+      kind: 'service_down',
+      pid: '222',
+      provider: 'NimiTV',
+      pids: { '222': 3 },
+      start: sport.start - 3600,
+      detectedAt: sport.start - 3000,
+      lastSeen: sport.start,
+      series: [],
+    };
+    const problems = buildProblems({
+      ...snap,
+      activity: [service],
+      incidents: snap.incidents.map((i) => (i === sport ? { ...i, closedAt: undefined, recovered: undefined } : i)),
+    });
+    expect(problems.map((p) => [p.kind, p.ongoing])).toEqual([
+      ['service_down', true],
+      ['channel', true],
+      ['channel', false],
+    ]);
+    expect(problems.filter(isMajor).map((p) => p.id)).toEqual(['act-1']);
+  });
+
+  it('finds a viewer by the IP, serial or device id of their device', () => {
+    const snap = snapshot();
+    const id = snap.incidents.find((i) => i.title === 'Sport 1')!.id;
+    const rows = snap
+      .affected(id)
+      .map((r) => ({ ...r, ips: '10.1.2.3, 10.1.2.4', serials: 'SN-777', deviceIds: 'dev-9' }));
+    const problems = buildProblems({ ...snap, affected: (x) => (x === id ? rows : snap.affected(x)) });
+    const index = buildViewerIndex({ ...snap, affected: (x) => (x === id ? rows : snap.affected(x)) }, problems);
+    const aliases = buildViewerAliases(index);
+
+    expect(findViewers(index, '10.1.2.4', aliases).exact?.userId).toBe('AA-549-001');
+    expect(findViewers(index, 'sn-777', aliases).exact?.userId).toBe('AA-549-001');
+    expect(findViewers(index, 'DEV-9', aliases).exact?.userId).toBe('AA-549-001');
+    expect(findViewers(index, '10.9.9.9', aliases).total).toBe(0);
   });
 });
