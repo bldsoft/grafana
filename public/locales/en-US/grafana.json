@@ -1238,6 +1238,7 @@
     "unit-errors": "errors",
     "unit-providers": "providers",
     "unit-viewers": "viewers",
+    "version-title": "AI Insider Alerts version",
     "viewer-guest": "Guest",
     "viewer-guest-tip": "Not a subscriber account: guests share one account per provider, so the viewer is told apart by the device (the IP address on web)",
     "viewer-id-device": "device ID",

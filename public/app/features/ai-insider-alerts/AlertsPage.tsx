@@ -62,6 +62,7 @@ import { HOUR_SEC, Overview, loadOverview } from './overview';
 import { runLive, runReplay } from './runner';
 import { ProviderScope, effectiveScope, parseProviderScope } from './scope';
 import { AlertRules, DEFAULT_RULES } from './types';
+import { AI_INSIDER_ALERTS_VERSION } from './version';
 
 const SETTINGS_KEY = 'analytix.aiAlerts.settings.v1';
 /** Datasource and provider filter, shared by both sections. */
@@ -403,7 +404,17 @@ export function AlertsPage() {
   }, [home, section]);
 
   return (
-    <Page navModel={navModel} renderTitle={() => <h1>{navModel.main.text}</h1>}>
+    <Page
+      navModel={navModel}
+      renderTitle={() => (
+        <h1 className={styles.title}>
+          {navModel.main.text}
+          <span className={styles.version} title={t('ai-insider-alerts.version-title', 'AI Insider Alerts version')}>
+            {`v${AI_INSIDER_ALERTS_VERSION}`}
+          </span>
+        </h1>
+      )}
+    >
       <Page.Contents>
         {access.loading ? (
           <div className={styles.center}>
@@ -1292,6 +1303,17 @@ const getStyles = (theme: GrafanaTheme2) => ({
     display: 'flex',
     justifyContent: 'center',
     padding: theme.spacing(8),
+  }),
+  title: css({
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: theme.spacing(1),
+  }),
+  version: css({
+    color: analytix.textMuted,
+    fontSize: theme.typography.bodySmall.fontSize,
+    fontWeight: theme.typography.fontWeightRegular,
+    fontVariantNumeric: 'tabular-nums',
   }),
   page: css({
     display: 'grid',
