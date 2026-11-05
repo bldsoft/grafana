@@ -41,9 +41,9 @@ describe('viewer tables', () => {
     expect(errorKeyText('403/1001')).toBe('403 / 1001');
     expect(errorKeyText('-/-1100')).toBe('-1100');
     const dict = buildErrorDictionary([
-      { platform: 'android', code: '1001', description: 'Source error' },
-      { platform: 'ios', code: '1001', description: 'Playback failed' },
-      { platform: '', code: '403', description: 'Forbidden' },
+      { err_platform: 'android', err_code: '1001', meaning: 'Source error' },
+      { err_platform: 'ios', err_code: '1001', meaning: 'Playback failed' },
+      { err_platform: '', err_code: '403', meaning: 'Forbidden' },
     ]);
     expect(describeError(dict, '403/-1001', 'iOS')).toBe('Playback failed');
     expect(describeError(dict, '403/-', 'Android')).toBe('Forbidden');
@@ -53,10 +53,10 @@ describe('viewer tables', () => {
 
   it("does not borrow another platform's words for a code that means different things", () => {
     const dict = buildErrorDictionary([
-      { platform: 'android', code: '4001', description: 'Decoder initialization failure' },
-      { platform: 'smarttv', code: '4001', description: 'Invalid DASH manifest XML' },
-      { platform: 'ios', code: '12660', description: 'HTTP 403: Forbidden' },
-      { platform: 'tvos', code: '12660', description: 'HTTP 403: Forbidden' },
+      { err_platform: 'android', err_code: '4001', meaning: 'Decoder initialization failure' },
+      { err_platform: 'smarttv', err_code: '4001', meaning: 'Invalid DASH manifest XML' },
+      { err_platform: 'ios', err_code: '12660', meaning: 'HTTP 403: Forbidden' },
+      { err_platform: 'tvos', err_code: '12660', meaning: 'HTTP 403: Forbidden' },
     ]);
     expect(describeError(dict, '-/4001', 'SmartTV')).toBe('Invalid DASH manifest XML');
     expect(describeError(dict, '-/4001', 'Roku')).toBeUndefined();
@@ -69,12 +69,19 @@ describe('viewer tables', () => {
   });
 
   it('reads the ClickHouse dictionary, the table only as a fallback', () => {
-    expect(errorDictionarySql()).toContain('FROM stat.error_dictionary_dict');
+    const sql = errorDictionarySql();
+    expect(sql).toContain('FROM stat.error_dictionary_dict');
+    // An alias equal to a column name is substituted into WHERE (ILLEGAL_AGGREGATION on prod).
+    const aliases = [...sql.matchAll(/\bAS (\w+)/g)].map((m) => m[1]);
+    expect(aliases).toEqual(['err_platform', 'err_code', 'meaning']);
+    for (const column of ['platform', 'error_code', 'description']) {
+      expect(aliases).not.toContain(column);
+    }
     expect(errorDictionarySql('stat.error_dictionary_dst')).toContain('FROM stat.error_dictionary_dst');
   });
 
   it('puts the error meaning on the error cohort', () => {
-    const dict = buildErrorDictionary([{ platform: 'android', code: '1001', description: 'Source error' }]);
+    const dict = buildErrorDictionary([{ err_platform: 'android', err_code: '1001', meaning: 'Source error' }]);
     const error = cohortsOf([viewer(1)], dict).find((c) => c.key === 'error')!;
     expect(error.values[0].value).toBe('1001 — Source error');
   });

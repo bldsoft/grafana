@@ -23,13 +23,15 @@ export const ERROR_DICTIONARY = 'stat.error_dictionary_dict';
 const ERROR_DICTIONARY_TABLE = 'stat.error_dictionary_dst';
 
 export function errorDictionarySql(from: string = ERROR_DICTIONARY): string {
+  // No alias may repeat a column name: ClickHouse would put the aggregate
+  // `any(description)` into `WHERE description != ''` (ILLEGAL_AGGREGATION).
   return `SELECT
-    lower(toString(platform)) AS platform,
-    trim(replace(toString(error_code), '-', '')) AS code,
-    any(toString(description)) AS description
+    lower(toString(platform)) AS err_platform,
+    trim(replace(toString(error_code), '-', '')) AS err_code,
+    any(toString(description)) AS meaning
 FROM ${from}
-WHERE description != ''
-GROUP BY platform, code
+WHERE toString(description) != ''
+GROUP BY err_platform, err_code
 ${SETTINGS}`;
 }
 
@@ -51,13 +53,13 @@ export function normaliseCode(code: string): string {
 export function buildErrorDictionary(rows: Array<Record<string, unknown>>): ErrorDictionary {
   const dict: ErrorDictionary = new Map();
   for (const r of rows) {
-    const code = normaliseCode(str(r.code));
-    const description = str(r.description).trim();
+    const code = normaliseCode(str(r.err_code));
+    const description = str(r.meaning).trim();
     if (!code || !description) {
       continue;
     }
     const byPlatform = dict.get(code) ?? new Map<string, string>();
-    byPlatform.set(str(r.platform).toLowerCase(), description);
+    byPlatform.set(str(r.err_platform).toLowerCase(), description);
     dict.set(code, byPlatform);
   }
   return dict;
