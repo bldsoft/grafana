@@ -3,15 +3,16 @@
 // phone, what happened to them". Pure functions over the engine snapshot.
 
 import { accountKey } from './push/pushPlan';
-import type {
-  ActivityIncident,
-  AffectedUserRow,
-  CustomerSideRow,
-  Decision,
-  Incident,
-  IncidentClass,
-  ProviderIncident,
-  ViewerDetail,
+import {
+  CHANNEL_SEP,
+  type ActivityIncident,
+  type AffectedUserRow,
+  type CustomerSideRow,
+  type Decision,
+  type Incident,
+  type IncidentClass,
+  type ProviderIncident,
+  type ViewerDetail,
 } from './types';
 
 export type ProblemKind = 'channel' | 'unstable' | 'chronic' | 'provider' | 'service_down' | 'outage' | 'no_data';
@@ -245,8 +246,107 @@ export function buildViewerIndex(input: SupportInput, problems: Problem[]): Map<
 
   for (const r of index.values()) {
     r.hits.sort((a, b) => b.row.firstErr - a.row.firstErr);
+    // The latest day first: the verdict speaks of it.
+    r.customer.sort((a, b) => b.lastMinute - a.lastMinute);
   }
   return index;
+}
+
+/** What a viewer table shows of a viewer: any row that knows them. */
+export type ViewerFacts = ViewerDetail &
+  Pick<AffectedUserRow, 'userId' | 'userKind' | 'platform' | 'network' | 'isp' | 'city' | 'topCode'>;
+
+/** A day of errors on channels that worked for everyone else. */
+export interface TheirSide {
+  pid: string;
+  provider: string;
+  /** Channels with errors; 0 when only the message is left of it. */
+  channels: number;
+  minutes: number;
+  until?: number;
+}
+
+/**
+ * One line of the looked-up viewer: a problem they ran into, or errors only
+ * on their side. Both carry the same facts (device, network, IP, error), so
+ * support reads them in one table.
+ */
+export interface LookupRow {
+  key: string;
+  /** First error, or when the message went out if nothing else is left. */
+  at: number;
+  problem?: Problem;
+  theirSide?: TheirSide;
+  /** Undefined only for a message whose day of errors is no longer in the run. */
+  facts?: ViewerFacts;
+  errors?: number;
+  messages: Decision[];
+}
+
+/** Problems and their-side days of one viewer, the latest first, each with what they were told. */
+export function lookupRows(record: ViewerRecord): LookupRow[] {
+  const rows: LookupRow[] = record.hits.map((h) => ({
+    key: `p-${h.problem.id}`,
+    at: h.row.firstErr,
+    problem: h.problem,
+    facts: h.row,
+    errors: h.row.errEvents,
+    messages: h.messages,
+  }));
+  const used = new Set<Decision>();
+  for (const c of record.customer) {
+    // The engine sends the diagnosis a minute after the last error of the day.
+    const messages = record.diagnoses.filter(
+      (d) => !used.has(d) && d.pid === c.pid && d.at >= c.firstMinute && d.at <= c.lastMinute + 60
+    );
+    messages.forEach((d) => used.add(d));
+    rows.push({
+      key: `c-${c.pid}-${c.firstMinute}`,
+      at: c.firstMinute,
+      theirSide: {
+        pid: c.pid,
+        provider: c.provider,
+        channels: c.channels,
+        minutes: c.minutes,
+        until: c.lastMinute + 60,
+      },
+      facts: c,
+      errors: c.errEvents,
+      messages,
+    });
+  }
+  for (const d of record.diagnoses) {
+    if (!used.has(d)) {
+      rows.push({
+        key: `d-${d.pid}-${d.at}`,
+        at: d.at,
+        theirSide: { pid: d.pid, provider: d.provider, channels: 0, minutes: 0 },
+        messages: [d],
+      });
+    }
+  }
+  return rows.sort((a, b) => b.at - a.at);
+}
+
+/** The channel titles of ViewerDetail.channelTitles. */
+export function channelValues(value: string | undefined): string[] {
+  return (value ?? '')
+    .split(CHANNEL_SEP)
+    .map((v) => v.trim())
+    .filter(Boolean);
+}
+
+/** Channels of a wide problem by how many of its viewers had errors on them, most first. */
+export function channelsOf(
+  viewers: Array<Pick<ViewerDetail, 'channelTitles'>>
+): Array<{ title: string; viewers: number }> {
+  const counts = new Map<string, number>();
+  for (const v of viewers) {
+    for (const title of channelValues(v.channelTitles)) {
+      counts.set(title, (counts.get(title) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()].map(([title, n]) => ({ title, viewers: n })).sort((a, b) => b.viewers - a.viewers);
 }
 
 export const MAX_VIEWER_MATCHES = 20;

@@ -10,7 +10,7 @@
 // and toDateTime(<epoch>) is time-zone independent, unlike a date string that
 // ClickHouse would parse in the server's time zone.
 
-import type { AlertRules } from './types';
+import { CHANNEL_SEP, type AlertRules } from './types';
 
 export const TABLE = 'stat.info_v1_7_dst';
 
@@ -161,6 +161,16 @@ function viewerDetail(cond?: string, table = ''): string {
     list('os', 'os_any'),
     list('app_version', 'app_versions_any'),
   ].join(',\n    ');
+}
+
+/**
+ * The channels a viewer had errors on, most errors first: up to three titles
+ * joined by CHANNEL_SEP. The alias is no column name (an alias equal to a
+ * column is substituted into the aggregate: ILLEGAL_AGGREGATION).
+ */
+function channelTitles(table = ''): string {
+  const c = `${table}ch_title`;
+  return `arrayStringConcat(topKIf(3)(${c}, ${c} != ''), '${CHANNEL_SEP}') AS channel_titles`;
 }
 
 /**
@@ -342,9 +352,10 @@ export function customerSideSql(from: number, to: number, pids: string[] | null,
     toUnixTimestamp(min(e.minute)) AS first_minute,
     toUnixTimestamp(max(e.minute)) AS last_minute,
     arrayElement(topK(1)(e.code), 1) AS top_code,
+    ${channelTitles('e.')},
     ${viewerDetail(undefined, 'e.')}
 FROM (
-    SELECT minute, pid, cid, user_id, user_kind, platform, network, isp, city, code,
+    SELECT minute, pid, cid, ch_title, user_id, user_kind, platform, network, isp, city, code,
         account, serial, dev_id, ip, model, os, app_version
     FROM (
         ${baseRows(from, to, pids, `(${IS_ERR})`, true)}
@@ -500,6 +511,8 @@ export function providerUsersSql(windows: ProviderWindow[], pids: string[] | nul
     max(toUnixTimestamp(ts)) AS last_err,
     count() AS err_events,
     arrayElement(topK(1)(code), 1) AS top_code,
+    ${channelTitles()},
+    uniqExact(cid) AS channel_count,
     ${viewerDetail()}
 FROM (
     SELECT *, multiIf(${branches.join(', ')}, -1) AS inc

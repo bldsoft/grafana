@@ -333,4 +333,16 @@ describe('provider scope', () => {
     expect(viewers[2]).toContain("groupUniqArrayIf(3)(e.ip, e.ip != '')");
     expect(badMinutesSql(FROM, TO, null, DEFAULT_RULES)).not.toContain('AS serial');
   });
+
+  it('reads the channels of each viewer for wide problems and their side, not for a channel', () => {
+    const provider = providerUsersSql([{ id: 'prov-1', pid: '222', start: FROM, end: TO }], null);
+    const theirSide = customerSideSql(FROM, TO, null, DEFAULT_RULES);
+    expect(provider).toContain("arrayStringConcat(topKIf(3)(ch_title, ch_title != ''), ' | ') AS channel_titles");
+    expect(provider).toContain('uniqExact(cid) AS channel_count');
+    expect(theirSide).toContain("topKIf(3)(e.ch_title, e.ch_title != '')");
+    expect(theirSide).toContain('SELECT minute, pid, cid, ch_title, user_id');
+    expect(affectedUsersSql([{ id: 'inc-1', pid: '222', cid: '20002549', start: FROM, end: TO }], null)).not.toContain(
+      'channel_titles'
+    );
+  });
 });

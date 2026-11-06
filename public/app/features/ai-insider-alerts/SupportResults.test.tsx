@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { SupportResults } from './SupportResults';
 import { AskInsiderProvider } from './askInsider';
 import { snapshot } from './fixtures/snapshot';
+import type { AffectedUserRow, CustomerSideRow, ProviderIncident } from './types';
 
 jest.mock('app/features/dashboard-scene/ai-panel/GenPanelChat', () => ({
   GenPanelChat: ({ initialPrompt }: { initialPrompt?: string }) => <div role="dialog">{initialPrompt}</div>,
@@ -106,5 +107,102 @@ describe('SupportResults', () => {
     await userEvent.click(screen.getByRole('tab', { name: /Viewer lookup/ }));
     await userEvent.type(screen.getByPlaceholderText('Account number, device serial, device ID or IP'), 'aa-549-001');
     expect(screen.getByText('Affected by an ongoing problem')).toBeInTheDocument();
+  });
+
+  it('shows a viewer whose errors are only on their side in the same table, with IP and error', async () => {
+    const snap = snapshot();
+    const side: CustomerSideRow = {
+      pid: '222',
+      provider: 'NimiTV',
+      userId: 'HU-627-368',
+      platform: 'Android',
+      network: 'Wi-Fi',
+      isp: 'Spectrum',
+      city: 'Smyrna',
+      channels: 4,
+      minutes: 5,
+      errEvents: 9,
+      firstMinute: snap.from + 600,
+      lastMinute: snap.from + 840,
+      topCode: '1002',
+      ips: '35.151.157.73',
+      channelTitles: 'News 24 | Sport 2',
+    };
+    render(
+      <SupportResults
+        snapshot={{
+          ...snap,
+          customer: [side],
+          decisions: [
+            ...snap.decisions,
+            {
+              kind: 'diagnosis',
+              at: side.lastMinute + 60,
+              userId: side.userId,
+              pid: '222',
+              provider: 'NimiTV',
+              cid: '',
+              title: '4 channels',
+              reason: '',
+              platform: 'Android',
+            },
+          ],
+        }}
+      />
+    );
+
+    await userEvent.click(screen.getByRole('tab', { name: /Viewer lookup/ }));
+    await userEvent.type(screen.getByPlaceholderText('Account number, device serial, device ID or IP'), 'HU-627-368');
+    const row = screen.getByText('Errors only on their side').closest('tr')!;
+    expect(within(row).getByText('35.151.157.73')).toBeInTheDocument();
+    expect(within(row).getByText('1002')).toBeInTheDocument();
+    // The kind of the row and the personal message about it.
+    expect(within(row).getAllByText('Their side')).toHaveLength(2);
+    expect(within(row).getByText(/4 channels over 5 min: News 24, Sport 2/)).toBeInTheDocument();
+    // One table: no second one for the messages.
+    expect(screen.getAllByRole('table')).toHaveLength(1);
+  });
+
+  it('names the channels of a provider-wide problem, overall and per viewer', async () => {
+    const snap = snapshot();
+    const incident: ProviderIncident = {
+      id: 'prov-1',
+      pid: '222',
+      provider: 'NimiTV',
+      start: snap.from,
+      detectedAt: snap.from + 1800,
+      lastSurge: snap.from + 1800,
+      surgeBuckets: 2,
+      series: [],
+      peakErrUsers: 40,
+      peakBaselineErr: 10,
+      peakRatio: 4,
+      codes: { '403/1001': 40 },
+      platforms: { Android: 40 },
+    };
+    const viewer = (userId: string, channelTitles: string, channelCount: number): AffectedUserRow => ({
+      ...snap.affected(snap.incidents[0].id)[0],
+      incidentId: 'prov-1',
+      userId,
+      channelTitles,
+      channelCount,
+    });
+    render(
+      <SupportResults
+        snapshot={{
+          ...snap,
+          providers: [incident],
+          providerAffected: (id) =>
+            id === 'prov-1' ? [viewer('BB-1', 'Sport 1 | News 24', 2), viewer('BB-2', 'Sport 1 | Kids | Docs', 5)] : [],
+        }}
+      />
+    );
+
+    expect(screen.getByText('on Sport 1, News 24, Kids +1 more')).toBeInTheDocument();
+    await userEvent.click(screen.getAllByText('NimiTV', { selector: 'strong' })[0]);
+    expect(screen.getByText('Channels: Sport 1 (2), News 24 (1), Kids (1), Docs (1)')).toBeInTheDocument();
+    const row = screen.getByRole('button', { name: 'BB-2' }).closest('tr')!;
+    expect(within(row).getByText('Sport 1, Kids, Docs')).toBeInTheDocument();
+    expect(within(row).getByText('+2 more')).toBeInTheDocument();
   });
 });

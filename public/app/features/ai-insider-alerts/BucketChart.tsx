@@ -237,15 +237,24 @@ export function BucketChart({ bars, step, from, to, color, unit = 'count', label
 }
 
 const getStyles = (theme: GrafanaTheme2) => ({
+  // The svg is drawn at the measured width of this box. Taken out of the flow
+  // and clipped to it, it never holds the box (or a table around it) wider
+  // than the window after a resize, and its bars never lie over, and catch the
+  // clicks of, the controls next to it.
   wrap: css({
+    position: 'relative',
     width: '100%',
     minWidth: 0,
+    height: HEIGHT,
+    overflow: 'hidden',
     background: analytix.surface,
     borderRadius: analytix.radiusControl,
   }),
   svg: css({
+    position: 'absolute',
+    top: 0,
+    left: 0,
     display: 'block',
-    overflow: 'visible',
     fontFamily: theme.typography.fontFamily,
     userSelect: 'none',
   }),

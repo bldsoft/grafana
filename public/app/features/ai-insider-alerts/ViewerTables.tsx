@@ -19,7 +19,7 @@ import { ViewerId, viewerKindText } from './ViewerId';
 import { ErrorDictionary, describeError, errorKeyText, useErrorDictionary } from './errorCodes';
 import { formatCount, formatWhen, zoneLabel } from './format';
 import { SortHeader, SortValue, useTableSort } from './sortableTable';
-import { detailValues, mergeDetail } from './support';
+import { ViewerFacts, channelValues, detailValues, mergeDetail } from './support';
 import type { AffectedUserRow, CustomerSideRow, ViewerDetail } from './types';
 
 const VIEWERS_LIMIT = 100;
@@ -32,7 +32,7 @@ function list(value: string | undefined): string {
 
 /** Columns a viewer table can be filtered by; `of` reads the viewer row out of a table row. */
 export function viewerFilterColumns<T>(
-  of: (row: T) => AffectedUserRow,
+  of: (row: T) => ViewerFacts,
   dict: ErrorDictionary | undefined
 ): Array<FilterColumn<T>> {
   return [
@@ -40,6 +40,11 @@ export function viewerFilterColumns<T>(
       key: 'account',
       label: t('ai-insider-alerts.filter.col-account', 'Account'),
       values: (r) => [of(r).userId, ...detailValues(of(r).accounts)],
+    },
+    {
+      key: 'channel',
+      label: t('ai-insider-alerts.filter.col-channel', 'Channel'),
+      values: (r) => channelValues(of(r).channelTitles),
     },
     { key: 'platform', label: t('ai-insider-alerts.filter.col-platform', 'Platform'), values: (r) => [of(r).platform] },
     {
@@ -96,6 +101,26 @@ function NetworkCell({ row }: { row: { network: string; isp: string; city: strin
   );
 }
 
+/** The channels a viewer had errors on (problems wider than one channel). */
+export function ChannelsCell({ row }: { row: { channelTitles?: string; channelCount?: number } }) {
+  const styles = useStyles2(getResultStyles);
+  const titles = channelValues(row.channelTitles);
+  if (!titles.length) {
+    return <>{EMPTY}</>;
+  }
+  const more = (row.channelCount ?? titles.length) - titles.length;
+  return (
+    <>
+      {titles.join(', ')}
+      {more > 0 && (
+        <span className={styles.sub}>
+          {t('ai-insider-alerts.viewers.channels-more', '+{{count}} more', { count: more })}
+        </span>
+      )}
+    </>
+  );
+}
+
 function IdsCell({ row }: { row: ViewerDetail }) {
   const styles = useStyles2(getResultStyles);
   const local = useStyles2(getStyles);
@@ -141,10 +166,16 @@ export function AffectedViewersTable({
   const styles = useStyles2(getResultStyles);
   const local = useStyles2(getStyles);
   const dict = useErrorDictionary();
-  const columns = useMemo(() => viewerFilterColumns((u: AffectedUserRow) => u, dict), [dict]);
+  // Only a problem wider than one channel has a channel per viewer.
+  const withChannels = viewers.some((u) => u.channelTitles);
+  const columns = useMemo(
+    () => viewerFilterColumns((u: AffectedUserRow) => u, dict).filter((c) => withChannels || c.key !== 'channel'),
+    [dict, withChannels]
+  );
   const { filter, rows: filtered } = useColumnFilter(viewers, columns);
   const { rows, sort } = useTableSort(filtered, {
     viewer: (u) => u.userId,
+    channels: (u) => channelValues(u.channelTitles)[0],
     device: (u) => `${u.platform} ${u.models ?? ''}`,
     os: (u) => u.os,
     app: (u) => u.appVersions,
@@ -176,6 +207,11 @@ export function AffectedViewersTable({
               <SortHeader sort={sort} column="viewer">
                 <Trans i18nKey="ai-insider-alerts.support.col-account">Account</Trans>
               </SortHeader>
+              {withChannels && (
+                <SortHeader sort={sort} column="channels">
+                  <Trans i18nKey="ai-insider-alerts.viewers.col-channels">Channels with errors</Trans>
+                </SortHeader>
+              )}
               <SortHeader sort={sort} column="device">
                 <Trans i18nKey="ai-insider-alerts.viewers.col-device">Platform · model</Trans>
               </SortHeader>
@@ -214,6 +250,11 @@ export function AffectedViewersTable({
                 <td className={cx(styles.mono, local.nowrap)}>
                   <ViewerId viewer={u} linkClassName={styles.link} onClick={() => onViewer(u.userId)} />
                 </td>
+                {withChannels && (
+                  <td>
+                    <ChannelsCell row={u} />
+                  </td>
+                )}
                 <td>
                   <DeviceCell row={u} />
                 </td>
@@ -315,7 +356,7 @@ export function ViewerProfile({
 
 /** The cohorts of a problem: share of its viewers per platform, model, build, OS, network and ISP. */
 export interface Cohort {
-  key: 'platform' | 'model' | 'app' | 'os' | 'network' | 'isp' | 'error';
+  key: 'channel' | 'platform' | 'model' | 'app' | 'os' | 'network' | 'isp' | 'error';
   label: string;
   /** Most viewers first. */
   values: Array<{ value: string; viewers: number }>;
@@ -327,7 +368,13 @@ const COHORT_MIN = 5;
 const COHORT_TOP = 4;
 
 export function cohortsOf(viewers: AffectedUserRow[], dict?: ErrorDictionary): Cohort[] {
-  const dims: Array<{ key: Cohort['key']; label: string; of: (u: AffectedUserRow) => string }> = [
+  const dims: Array<{ key: Cohort['key']; label: string; of: (u: AffectedUserRow) => string | string[] }> = [
+    // A viewer of a wide problem counts on every channel they had errors on.
+    {
+      key: 'channel',
+      label: t('ai-insider-alerts.cohort.channel', 'Channel'),
+      of: (u) => channelValues(u.channelTitles),
+    },
     { key: 'platform', label: t('ai-insider-alerts.cohort.platform', 'Platform'), of: (u) => u.platform },
     {
       key: 'model',
@@ -361,18 +408,27 @@ export function cohortsOf(viewers: AffectedUserRow[], dict?: ErrorDictionary): C
       },
     },
   ];
-  return dims.map((d) => {
-    const counts = new Map<string, number>();
-    for (const u of viewers) {
-      const v = d.of(u) || '—';
-      counts.set(v, (counts.get(v) ?? 0) + 1);
-    }
-    return {
-      key: d.key,
-      label: d.label,
-      values: [...counts.entries()].map(([value, n]) => ({ value, viewers: n })).sort((a, b) => b.viewers - a.viewers),
-    };
-  });
+  // Channel problems have no channel per viewer: the channel is the problem.
+  const withChannels = viewers.some((u) => u.channelTitles);
+  return dims
+    .filter((d) => withChannels || d.key !== 'channel')
+    .map((d) => {
+      const counts = new Map<string, number>();
+      for (const u of viewers) {
+        const of = d.of(u);
+        const values = Array.isArray(of) ? of : [of];
+        for (const v of values.length ? values : ['']) {
+          counts.set(v || '—', (counts.get(v || '—') ?? 0) + 1);
+        }
+      }
+      return {
+        key: d.key,
+        label: d.label,
+        values: [...counts.entries()]
+          .map(([value, n]) => ({ value, viewers: n }))
+          .sort((a, b) => b.viewers - a.viewers),
+      };
+    });
 }
 
 /** The top value of a cohort when nearly every viewer of the problem shares it. */

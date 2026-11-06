@@ -24,7 +24,13 @@ import { CdnConfirmation } from './CdnCheck';
 import { ColumnFilter, FilterColumn, useColumnFilter } from './ColumnFilter';
 import { ErrorCell, ErrorCodeList } from './ErrorText';
 import { ViewerId } from './ViewerId';
-import { AffectedViewersTable, CohortBreakdown, ViewerProfile, viewerFilterColumns } from './ViewerTables';
+import {
+  AffectedViewersTable,
+  ChannelsCell,
+  CohortBreakdown,
+  ViewerProfile,
+  viewerFilterColumns,
+} from './ViewerTables';
 import { AskInsiderButton } from './askInsider';
 import { activityPrompt, channelPrompt, providerPrompt } from './askPrompts';
 import { channelCdnTarget, channelChartFrame, providerCdnTarget, providerChartFrame } from './cdn';
@@ -34,17 +40,21 @@ import { breakdown, formatAt, formatCount, formatMinutes, formatUntil, formatWhe
 import { useTableSort, SortHeader } from './sortableTable';
 import { PROVIDER_BUCKET_SEC } from './sql';
 import {
+  LookupRow,
   MAX_VIEWER_MATCHES,
   Problem,
   ProblemKind,
-  ViewerHit,
+  ViewerFacts,
   ViewerRecord,
   buildProblems,
   buildViewerAliases,
   buildViewerIndex,
+  channelsOf,
+  channelValues,
   detailValues,
   findViewers,
   isMajor,
+  lookupRows,
   medianRecoveryMinutes,
   viewerTotals,
   visibleMessages,
@@ -297,7 +307,14 @@ export function SupportResults({ snapshot }: { snapshot: AlertsSnapshot }) {
 
   return (
     <div className={styles.results}>
-      {majorOngoing.length > 0 && <MajorProblems problems={majorOngoing} to={snapshot.to} onOpen={openProblem} />}
+      {majorOngoing.length > 0 && (
+        <MajorProblems
+          problems={majorOngoing}
+          to={snapshot.to}
+          channels={(p) => (p.source === 'provider' ? channelsOf(snapshot.providerAffected(p.id)) : [])}
+          onOpen={openProblem}
+        />
+      )}
       <div className={styles.tiles}>
         <Tile
           alert={ongoing.length > 0}
@@ -421,7 +438,18 @@ export function SupportResults({ snapshot }: { snapshot: AlertsSnapshot }) {
  * provider, the service or several providers down must not drown among the
  * channel failures in the list below.
  */
-function MajorProblems({ problems, to, onOpen }: { problems: Problem[]; to: number; onOpen: (id: string) => void }) {
+function MajorProblems({
+  problems,
+  to,
+  channels,
+  onOpen,
+}: {
+  problems: Problem[];
+  to: number;
+  /** Channels of a wide problem, most viewers first. */
+  channels: (p: Problem) => Array<{ title: string; viewers: number }>;
+  onOpen: (id: string) => void;
+}) {
   const local = useStyles2(getStyles);
   return (
     <section
@@ -435,11 +463,20 @@ function MajorProblems({ problems, to, onOpen }: { problems: Problem[]; to: numb
       {problems.map((p) => {
         const badge = problemBadge(p.kind);
         const sub = problemSub(p);
+        const top = channels(p);
         return (
           <button key={p.id} type="button" className={local.majorRow} onClick={() => onOpen(p.id)}>
             <Badge text={badge.text} color={badge.color} tooltip={badge.tooltip} />
             <strong>{problemTitle(p)}</strong>
             {sub && <span className={local.faint}>{sub}</span>}
+            {top.length > 0 && (
+              <span className={local.faint}>
+                {t('ai-insider-alerts.support.major-channels', 'on {{channels}}', {
+                  channels: channelSummary(top, 3),
+                  interpolation: { escapeValue: false },
+                })}
+              </span>
+            )}
             <span className={local.majorSince}>
               {t('ai-insider-alerts.support.major-since', 'since {{time}} · {{duration}}', {
                 time: formatAt(p.start),
@@ -725,6 +762,7 @@ function ProblemDetails({
               <Trans i18nKey="ai-insider-alerts.support.detail-where">For the operations team</Trans>
             </div>
             <div>{breakdown(problem.providerIncident.platforms, 3)}</div>
+            <ProviderChannels viewers={viewers} />
             <div className={styles.sub}>
               <ErrorCodeList
                 codes={problem.providerIncident.codes}
@@ -737,6 +775,40 @@ function ProblemDetails({
       </div>
       <CohortBreakdown viewers={viewers} />
       <AffectedViewers viewers={viewers} messages={messages} ongoing={problem.ongoing} onViewer={onViewer} />
+    </div>
+  );
+}
+
+/** `A, B, C +5 more` */
+function channelSummary(channels: Array<{ title: string }>, limit: number): string {
+  const shown = channels.slice(0, limit).map((c) => c.title);
+  return channels.length > limit
+    ? t('ai-insider-alerts.support.channels-and-more', '{{shown}} +{{count}} more', {
+        shown: shown.join(', '),
+        count: channels.length - limit,
+        interpolation: { escapeValue: false },
+      })
+    : shown.join(', ');
+}
+
+/** The channels a provider-wide problem hit, by viewers with errors on them. */
+function ProviderChannels({ viewers }: { viewers: AffectedUserRow[] }) {
+  const styles = useStyles2(getResultStyles);
+  const channels = useMemo(() => channelsOf(viewers), [viewers]);
+  if (!channels.length) {
+    return null;
+  }
+  return (
+    <div className={styles.sub}>
+      {t('ai-insider-alerts.support.provider-channels', 'Channels: {{list}}', {
+        list: channels
+          .slice(0, 5)
+          .map((c) => `${c.title} (${formatCount(c.viewers)})`)
+          .join(', '),
+        interpolation: { escapeValue: false },
+      })}
+      {channels.length > 5 &&
+        ` ${t('ai-insider-alerts.support.provider-channels-more', '+{{count}} more', { count: channels.length - 5 })}`}
     </div>
   );
 }
@@ -988,6 +1060,36 @@ function ViewerVerdicts({
   return <>{verdicts}</>;
 }
 
+/** A row of the lookup table without facts: only the message is left of it. */
+const NO_FACTS: ViewerFacts = { userId: '', platform: '', network: '', isp: '', city: '', topCode: '' };
+
+function theirSideBadge(): { text: string; color: BadgeColor; tooltip: string } {
+  return {
+    text: t('ai-insider-alerts.support.kind-their-side', 'Their side'),
+    color: 'blue',
+    tooltip: t(
+      'ai-insider-alerts.support.kind-their-side-tip',
+      'Errors on channels that worked for everyone else at the same time: likely their network or device'
+    ),
+  };
+}
+
+function lookupTitle(r: LookupRow): string {
+  return r.problem ? problemTitle(r.problem) : t('ai-insider-alerts.support.their-side', 'Errors only on their side');
+}
+
+function lookupKind(r: LookupRow): string {
+  return r.problem ? problemBadge(r.problem.kind).text : theirSideBadge().text;
+}
+
+function lookupSub(r: LookupRow): string {
+  if (r.problem) {
+    return problemSub(r.problem);
+  }
+  const side = r.theirSide!;
+  return side.provider ? `${side.pid} ${side.provider}` : side.pid;
+}
+
 function ViewerCard({
   record,
   from,
@@ -1000,46 +1102,47 @@ function ViewerCard({
   onProblem: (id: string) => void;
 }) {
   const styles = useStyles2(getResultStyles);
-  const local = useStyles2(getStyles);
   const dict = useErrorDictionary();
+  const all = useMemo(() => lookupRows(record), [record]);
   const columns = useMemo(
-    (): Array<FilterColumn<ViewerHit>> => [
+    (): Array<FilterColumn<LookupRow>> => [
       {
         key: 'problem',
         label: t('ai-insider-alerts.filter.col-problem', 'Problem'),
-        values: (h) => [problemTitle(h.problem)],
-        hint: (_, h) => problemSub(h.problem),
+        values: (r) => [lookupTitle(r)],
+        hint: (_, r) => lookupSub(r),
       },
       {
         key: 'kind',
         label: t('ai-insider-alerts.filter.col-kind', 'Kind'),
-        values: (h) => [problemBadge(h.problem.kind).text],
+        values: (r) => [lookupKind(r)],
       },
-      ...viewerFilterColumns((h: ViewerHit) => h.row, dict).filter((c) => c.key !== 'account'),
+      ...viewerFilterColumns((r: LookupRow) => r.facts ?? NO_FACTS, dict).filter((c) => c.key !== 'account'),
     ],
     [dict]
   );
-  const { filter, rows: hits } = useColumnFilter(record.hits, columns);
-  const { rows, sort } = useTableSort(hits, {
-    firstErr: (h) => h.row.firstErr,
-    problem: (h) => problemTitle(h.problem),
-    status: (h) => (h.problem.ongoing ? 0 : h.problem.recovered === false ? 1 : 2),
-    device: (h) => `${h.row.platform} ${h.row.models ?? ''}`,
-    app: (h) => h.row.appVersions,
-    network: (h) => `${h.row.network} ${h.row.isp}`,
-    ip: (h) => h.row.ips,
-    errors: (h) => h.row.errEvents,
-    error: (h) => h.row.topCode,
-    told: (h) => h.messages.map((m) => messageBadge(m.kind).text).join(' ') || undefined,
+  const { filter, rows: filtered } = useColumnFilter(all, columns);
+  const facts = (r: LookupRow) => r.facts ?? NO_FACTS;
+  const { rows, sort } = useTableSort(filtered, {
+    firstErr: (r) => r.at,
+    problem: (r) => lookupTitle(r),
+    status: (r) => (!r.problem ? 3 : r.problem.ongoing ? 0 : r.problem.recovered === false ? 1 : 2),
+    device: (r) => `${facts(r).platform} ${facts(r).models ?? ''}` || undefined,
+    app: (r) => facts(r).appVersions,
+    network: (r) => `${facts(r).network} ${facts(r).isp}`.trim() || undefined,
+    ip: (r) => facts(r).ips,
+    errors: (r) => r.errors,
+    error: (r) => facts(r).topCode || undefined,
+    told: (r) => r.messages.map((m) => messageBadge(m.kind).text).join(' ') || undefined,
   });
 
   return (
     <div className={styles.details}>
       <ViewerProfile userId={record.userId} rows={record.hits.map((h) => h.row)} customer={record.customer} />
       <ViewerVerdicts record={record} account={record.userId} from={from} to={to} />
-      {record.hits.length > 0 && (
+      {all.length > 0 && (
         <>
-          <ColumnFilter filter={filter} rows={record.hits} columns={columns} shown={hits.length} />
+          <ColumnFilter filter={filter} rows={all} columns={columns} shown={filtered.length} />
           <div className={styles.tableWrap}>
             <table className={styles.table}>
               <thead>
@@ -1077,80 +1180,114 @@ function ViewerCard({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((h) => {
-                  const badge = problemBadge(h.problem.kind);
-                  return (
-                    <tr key={h.problem.id}>
-                      <td>{formatAt(h.row.firstErr)}</td>
-                      <td>
-                        <div className={local.problemCell}>
-                          <Badge text={badge.text} color={badge.color} tooltip={badge.tooltip} />
-                          <button type="button" className={styles.link} onClick={() => onProblem(h.problem.id)}>
-                            {problemTitle(h.problem)}
-                          </button>
-                        </div>
-                        <span className={styles.sub}>{problemSub(h.problem)}</span>
-                      </td>
-                      <td>
-                        <StatusBadge problem={h.problem} />
-                      </td>
-                      <td>
-                        {[h.row.platform, detailValues(h.row.models).join(', ')].filter(Boolean).join(' · ') || '—'}
-                        <span className={styles.sub}>{detailValues(h.row.os).join(', ') || '—'}</span>
-                      </td>
-                      <td className={styles.mono}>{detailValues(h.row.appVersions).join(', ') || '—'}</td>
-                      <td>
-                        {h.row.network || '—'}
-                        <span className={styles.sub}>{[h.row.isp, h.row.city].filter(Boolean).join(' · ') || '—'}</span>
-                      </td>
-                      <td className={cx(styles.mono, local.nowrap)}>{detailValues(h.row.ips).join(', ') || '—'}</td>
-                      <td className={styles.num}>{h.row.errEvents}</td>
-                      <td>
-                        <ErrorCell code={h.row.topCode} platform={h.row.platform} dict={dict} />
-                      </td>
-                      <td>
-                        <MessageChain messages={h.messages} ongoing={h.problem.ongoing} />
-                      </td>
-                    </tr>
-                  );
-                })}
+                {rows.map((r) => (
+                  <LookupTableRow key={r.key} row={r} dict={dict} onProblem={onProblem} />
+                ))}
               </tbody>
             </table>
           </div>
         </>
       )}
-      {record.diagnoses.length > 0 && (
-        <div className={styles.tableWrap}>
-          <table className={styles.table}>
-            <thead>
-              <tr>
-                <th>{t('ai-insider-alerts.support.col-when', 'When ({{tz}})', { tz: zoneLabel() })}</th>
-                <th>
-                  <Trans i18nKey="ai-insider-alerts.support.col-problem">Problem</Trans>
-                </th>
-                <th>
-                  <Trans i18nKey="ai-insider-alerts.support.col-told">Told</Trans>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {record.diagnoses.map((d, i) => (
-                <tr key={`diag-${d.at}-${i}`}>
-                  <td>{formatAt(d.at)}</td>
-                  <td>
-                    <Trans i18nKey="ai-insider-alerts.support.their-side">Errors only on their side</Trans>
-                    <span className={styles.sub}>{d.provider ? `${d.pid} ${d.provider}` : d.pid}</span>
-                  </td>
-                  <td>
-                    <MessageChain messages={[d]} />
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
     </div>
+  );
+}
+
+function LookupTableRow({
+  row: r,
+  dict,
+  onProblem,
+}: {
+  row: LookupRow;
+  dict: ReturnType<typeof useErrorDictionary>;
+  onProblem: (id: string) => void;
+}) {
+  const styles = useStyles2(getResultStyles);
+  const local = useStyles2(getStyles);
+  const f = r.facts;
+  const problem = r.problem;
+  const side = r.theirSide;
+  const badge = problem ? problemBadge(problem.kind) : theirSideBadge();
+  const dash = <>—</>;
+  return (
+    <tr>
+      <td>
+        {formatAt(r.at)}
+        {side?.until !== undefined && (
+          <span className={styles.sub}>
+            {t('ai-insider-alerts.support.until', 'until {{time}}', { time: formatUntil(r.at, side.until) })}
+          </span>
+        )}
+      </td>
+      <td>
+        <div className={local.problemCell}>
+          <Badge text={badge.text} color={badge.color} tooltip={badge.tooltip} />
+          {problem ? (
+            <button type="button" className={styles.link} onClick={() => onProblem(problem.id)}>
+              {problemTitle(problem)}
+            </button>
+          ) : (
+            <span>{lookupTitle(r)}</span>
+          )}
+        </div>
+        {problem?.source === 'provider' && f?.channelTitles && (
+          <span className={styles.sub}>
+            <ChannelsCell row={f} />
+          </span>
+        )}
+        {side && side.channels > 0 && (
+          <span className={styles.sub}>
+            {t('ai-insider-alerts.support.their-side-scope', '{{channels}} channels over {{minutes}} min', {
+              channels: side.channels,
+              minutes: side.minutes,
+            })}
+            {f?.channelTitles && <>: {channelValues(f.channelTitles).join(', ')}</>}
+          </span>
+        )}
+        <span className={styles.sub}>{lookupSub(r)}</span>
+      </td>
+      <td>{problem ? <StatusBadge problem={problem} /> : dash}</td>
+      <td>
+        {f ? (
+          <>
+            {[f.platform, detailValues(f.models).join(', ')].filter(Boolean).join(' · ') || '—'}
+            <span className={styles.sub}>{detailValues(f.os).join(', ') || '—'}</span>
+          </>
+        ) : (
+          dash
+        )}
+      </td>
+      <td className={styles.mono}>{(f && detailValues(f.appVersions).join(', ')) || '—'}</td>
+      <td>
+        {f ? (
+          <>
+            {f.network || '—'}
+            <span className={styles.sub}>{[f.isp, f.city].filter(Boolean).join(' · ') || '—'}</span>
+          </>
+        ) : (
+          dash
+        )}
+      </td>
+      <td className={cx(styles.mono, local.nowrap)}>{(f && detailValues(f.ips).join(', ')) || '—'}</td>
+      <td className={styles.num}>{r.errors ?? '—'}</td>
+      <td>{f ? <ErrorCell code={f.topCode} platform={f.platform} dict={dict} /> : dash}</td>
+      <td>
+        {problem ? (
+          <MessageChain messages={r.messages} ongoing={problem.ongoing} />
+        ) : r.messages.length ? (
+          <MessageChain messages={r.messages} />
+        ) : (
+          <span
+            className={local.faint}
+            title={t(
+              'ai-insider-alerts.support.their-side-not-told-tip',
+              'A wider problem was on at the time (their errors were ours then), or they were already told that day'
+            )}
+          >
+            <Trans i18nKey="ai-insider-alerts.support.their-side-not-told">not messaged</Trans>
+          </span>
+        )}
+      </td>
+    </tr>
   );
 }
 

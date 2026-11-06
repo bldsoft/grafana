@@ -85,6 +85,7 @@ export function toViewerDetail(r: Row): ViewerDetail {
     models: str(r.models_any),
     os: str(r.os_any),
     appVersions: str(r.app_versions_any),
+    ...(r.channel_titles ? { channelTitles: str(r.channel_titles) } : {}),
   };
 }
 
@@ -102,6 +103,7 @@ export function toAffectedUser(r: Row, incidentId: string): AffectedUserRow {
     errEvents: num(r.err_events),
     topCode: str(r.top_code),
     watchedBeforeSec: num(r.watched_before),
+    ...(r.channel_count !== undefined ? { channelCount: num(r.channel_count) } : {}),
     ...toViewerDetail(r),
   };
 }

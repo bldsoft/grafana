@@ -4,11 +4,13 @@ import {
   buildViewerAliases,
   buildViewerIndex,
   findViewers,
+  channelsOf,
   isMajor,
+  lookupRows,
   medianRecoveryMinutes,
   viewerTotals,
 } from './support';
-import type { ActivityIncident } from './types';
+import type { ActivityIncident, CustomerSideRow, Decision } from './types';
 
 describe('support view model', () => {
   it('lists every confirmed problem, the most recent first, with viewers and who was told', () => {
@@ -94,5 +96,66 @@ describe('support view model', () => {
     expect(findViewers(index, 'sn-777', aliases).exact?.userId).toBe('AA-549-001');
     expect(findViewers(index, 'DEV-9', aliases).exact?.userId).toBe('AA-549-001');
     expect(findViewers(index, '10.9.9.9', aliases).total).toBe(0);
+  });
+
+  it('puts problems and errors only on their side in one list, each with its message', () => {
+    const snap = snapshot();
+    const day = (first: number, last: number): CustomerSideRow => ({
+      pid: '222',
+      provider: 'NimiTV',
+      userId: 'AA-549-001',
+      platform: 'Android',
+      network: 'Wi-Fi',
+      isp: 'Spectrum',
+      city: 'Smyrna',
+      channels: 4,
+      minutes: 5,
+      errEvents: 9,
+      firstMinute: first,
+      lastMinute: last,
+      topCode: '1002',
+      ips: '35.151.157.73',
+      channelTitles: 'News | Sport 2',
+    });
+    const diagnosis = (at: number): Decision => ({
+      kind: 'diagnosis',
+      at,
+      userId: 'AA-549-001',
+      pid: '222',
+      provider: 'NimiTV',
+      cid: '',
+      title: '4 channels',
+      reason: '',
+      platform: 'Android',
+    });
+    const early = snap.from - 86400;
+    const input = {
+      ...snap,
+      customer: [day(early, early + 240), day(snap.to - 600, snap.to - 300)],
+      // The second message has no day left in the run (an older chunk of live).
+      decisions: [...snap.decisions, diagnosis(early + 300), diagnosis(early - 86400)],
+    };
+    const record = findViewers(buildViewerIndex(input, buildProblems(input)), 'AA-549-001').exact!;
+    const rows = lookupRows(record);
+
+    expect(
+      rows.map((r) => [r.problem?.title ?? 'their side', r.facts?.ips, r.facts?.topCode, r.messages.length])
+    ).toEqual([
+      ['their side', '35.151.157.73', '1002', 0],
+      ['Sport 1', undefined, '403/1001', 3],
+      ['their side', '35.151.157.73', '1002', 1],
+      ['their side', undefined, undefined, 1],
+    ]);
+    expect(record.customer[0].lastMinute).toBe(snap.to - 300);
+  });
+
+  it('counts the channels of a wide problem by its viewers', () => {
+    expect(
+      channelsOf([{ channelTitles: 'A, with comma | B' }, { channelTitles: 'B' }, {}, { channelTitles: 'C | B' }])
+    ).toEqual([
+      { title: 'B', viewers: 3 },
+      { title: 'A, with comma', viewers: 1 },
+      { title: 'C', viewers: 1 },
+    ]);
   });
 });

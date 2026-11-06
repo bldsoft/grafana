@@ -246,7 +246,16 @@ export interface ViewerDetail {
   models?: string;
   os?: string;
   appVersions?: string;
+  /**
+   * Channels the viewer had errors on, most errors first, up to three titles
+   * joined by CHANNEL_SEP (titles may hold commas). Read for problems wider
+   * than one channel and for the viewer's-side rows only.
+   */
+  channelTitles?: string;
 }
+
+/** Separator of the channel titles in ViewerDetail.channelTitles. */
+export const CHANNEL_SEP = ' | ';
 
 /** One viewer hit by one incident (query B). */
 export interface AffectedUserRow extends ViewerDetail {
@@ -264,6 +273,8 @@ export interface AffectedUserRow extends ViewerDetail {
   topCode: string;
   /** Seconds of clean viewing of the channel in the hour before the incident. */
   watchedBeforeSec: number;
+  /** Distinct channels with errors (provider-wide problems only). */
+  channelCount?: number;
 }
 
 /** A viewer failing on channels that are healthy for everyone else (query C). */
