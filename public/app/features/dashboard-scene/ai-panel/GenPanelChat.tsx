@@ -430,7 +430,7 @@ export function GenPanelChat({ onClose, initialPrompt, initialDatasource }: Prop
   // reset so the (now empty) server state is re-fetched immediately.
   const [suggestionsEpoch, setSuggestionsEpoch] = useState(0);
   // Data domains of the user's organization for the header "Data" menu
-  // (streaming / app behavior / finance); null = unknown, streaming only.
+  // (streaming / app behavior / CDN logs); null = unknown, streaming only.
   const { value: dataDomains } = useAsync(() => (AI_PANEL_DEMO_MODE ? Promise.resolve(null) : fetchCapabilities()), []);
   const { value: fetchedSuggestions } = useAsync(
     () => (AI_PANEL_DEMO_MODE ? Promise.resolve<SuggestedPrompt[]>([]) : fetchSuggestions()),

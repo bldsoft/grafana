@@ -117,9 +117,12 @@ export async function checkAssistantHealth(): Promise<{ ok: boolean }> {
   }
 }
 
-/** One data domain of the user's organization, as the chat's "Data" menu shows it. */
+/**
+ * One data domain of the user's organization, as the chat's "Data" menu shows it.
+ * Domains the UI does not list (e.g. the backend's disabled finance stub) are skipped.
+ */
 export interface DataDomain {
-  id: 'streaming' | 'behavior' | 'finance' | 'cdn_logs';
+  id: 'streaming' | 'behavior' | 'cdn_logs';
   /** on = can be asked about; off = not connected for the org; misconfigured =
    *  assigned but unreachable right now; unavailable = not offered to anyone yet. */
   status: 'on' | 'off' | 'misconfigured' | 'unavailable';
@@ -127,7 +130,7 @@ export interface DataDomain {
   properties: Array<{ id: string; name: string }>;
 }
 
-const DOMAIN_IDS: Array<DataDomain['id']> = ['streaming', 'behavior', 'finance', 'cdn_logs'];
+const DOMAIN_IDS: Array<DataDomain['id']> = ['streaming', 'behavior', 'cdn_logs'];
 const DOMAIN_STATUSES: Array<DataDomain['status']> = ['on', 'off', 'misconfigured', 'unavailable'];
 
 /**

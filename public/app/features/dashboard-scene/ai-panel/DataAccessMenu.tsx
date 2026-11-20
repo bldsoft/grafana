@@ -14,9 +14,8 @@ interface Props {
 
 type DomainState = Pick<DataDomain, 'status' | 'properties'>;
 
-// A service older than the cdn_logs domain does not list it, and the fallback
-// below lists no finance: both are shown locked as coming, not as "ask an
-// administrator".
+// A service older than the cdn_logs domain does not list it: it is shown locked
+// as coming, not as "ask an administrator".
 const PLANNED: DomainState = { status: 'unavailable', properties: [] };
 
 interface DomainView {
@@ -33,14 +32,14 @@ const FALLBACK: DataDomain[] = [{ id: 'streaming', status: 'on', properties: [] 
 /** The state of one domain as the Data menu and the guide show it. */
 export function domainState(domains: DataDomain[] | null, id: DataDomain['id']): DomainState | undefined {
   const list = domains && domains.length > 0 ? domains : FALLBACK;
-  return list.find((d) => d.id === id) ?? (id === 'cdn_logs' || id === 'finance' ? PLANNED : undefined);
+  return list.find((d) => d.id === id) ?? (id === 'cdn_logs' ? PLANNED : undefined);
 }
 
 /**
  * The header "Data" menu: which data domains the user's organization can ask
  * about and what each of them covers. Availability
  * comes from the service (it reads the org's attributes), so the menu and the
- * agent always agree; finance is shown locked for everyone until it exists.
+ * agent always agree.
  */
 export function DataAccessMenu({ domains }: Props) {
   const styles = useStyles2(getStyles);
@@ -61,12 +60,6 @@ export function DataAccessMenu({ domains }: Props) {
       icon: 'apps',
       title: t('dashboard.ai-panel.data-behavior-title', 'App behavior'),
       detail: t('dashboard.ai-panel.data-behavior-detail', 'screens, modules, buttons, navigation, funnels, installs'),
-    },
-    {
-      id: 'finance',
-      icon: 'dollar-alt',
-      title: t('dashboard.ai-panel.data-finance-title', 'Finance'),
-      detail: t('dashboard.ai-panel.data-finance-detail', 'revenue, payments, ARPU'),
     },
     {
       id: 'cdn_logs',

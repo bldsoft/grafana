@@ -165,15 +165,9 @@ export function CapabilityGuide({ onTry, canRun, domains }: Props) {
     },
   ];
 
-  const finance = {
-    id: 'finance' as const,
-    icon: 'dollar-alt' as const,
-    title: t('dashboard.ai-panel.guide-finance-title', 'Finance'),
-  };
-
   const isOn = (id: DataDomain['id']) => domainState(domains, id)?.status === 'on';
   const connected = domainSections.filter((section) => isOn(section.id));
-  const locked = [...domainSections, finance].filter((section) => !isOn(section.id));
+  const locked = domainSections.filter((section) => !isOn(section.id));
 
   const sourcesLabel = (id: DataDomain['id']): string | undefined => {
     const names = domainState(domains, id)?.properties.map((p) => p.name) ?? [];
