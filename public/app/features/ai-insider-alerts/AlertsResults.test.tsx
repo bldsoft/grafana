@@ -68,8 +68,15 @@ describe('AlertsResults', () => {
     expect(screen.getByText(/Bars: playback starts per 5 min/)).toBeInTheDocument();
   });
 
-  it('filters the message log by kind', async () => {
+  it('hides the Messages tab by default', () => {
     render(<AlertsResults snapshot={snapshot()} />);
+
+    expect(screen.queryByRole('tab', { name: /Messages/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: /Incidents/ })).toBeInTheDocument();
+  });
+
+  it('filters the message log by kind', async () => {
+    render(<AlertsResults snapshot={snapshot()} showMessages />);
 
     await userEvent.click(screen.getByRole('tab', { name: /Messages/ }));
     await userEvent.click(screen.getByRole('radio', { name: 'Outage' }));
@@ -101,7 +108,7 @@ describe('AlertsResults', () => {
         json: async () => ({ status: 'on', ok: 1, failed: 0, results: [{ ok: true }] }),
       });
       global.fetch = fetchMock;
-      render(<AlertsResults snapshot={snapshot()} />);
+      render(<AlertsResults snapshot={snapshot()} showMessages />);
 
       await userEvent.click(screen.getByRole('tab', { name: /Messages/ }));
       await userEvent.click(screen.getByRole('radio', { name: 'Channel down' }));

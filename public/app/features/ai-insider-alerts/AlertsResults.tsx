@@ -197,7 +197,21 @@ function downloadCsv(decisions: Decision[]) {
   URL.revokeObjectURL(url);
 }
 
-export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot; actions?: ReactNode }) {
+/**
+ * The Messages tab (message log, Export CSV, test pushes) is hidden on the page for now;
+ * its code stays and tests turn it on with `showMessages`.
+ */
+const MESSAGES_TAB_VISIBLE = false;
+
+export function AlertsResults({
+  snapshot,
+  actions,
+  showMessages = MESSAGES_TAB_VISIBLE,
+}: {
+  snapshot: AlertsSnapshot;
+  actions?: ReactNode;
+  showMessages?: boolean;
+}) {
   const styles = useStyles2(getStyles);
   const [tab, setTab] = useState<TabId>('incidents');
   const [expanded, setExpanded] = useState<string | undefined>();
@@ -317,12 +331,14 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
             active={tab === 'service'}
             onChangeTab={() => setTab('service')}
           />
-          <Tab
-            label={t('ai-insider-alerts.tab-messages', 'Messages')}
-            counter={snapshot.decisions.length}
-            active={tab === 'messages'}
-            onChangeTab={() => setTab('messages')}
-          />
+          {showMessages && (
+            <Tab
+              label={t('ai-insider-alerts.tab-messages', 'Messages')}
+              counter={snapshot.decisions.length}
+              active={tab === 'messages'}
+              onChangeTab={() => setTab('messages')}
+            />
+          )}
           <Tab
             label={t('ai-insider-alerts.tab-ops', 'Ops report')}
             counter={snapshot.channels.length}
@@ -349,7 +365,7 @@ export function AlertsResults({ snapshot, actions }: { snapshot: AlertsSnapshot;
         {tab === 'incidents' && (
           <IncidentsTab snapshot={snapshot} expanded={expanded} onToggle={setExpanded} onSelect={selectIncident} />
         )}
-        {tab === 'messages' && <MessagesTab decisions={snapshot.decisions} onSelect={selectIncident} />}
+        {showMessages && tab === 'messages' && <MessagesTab decisions={snapshot.decisions} onSelect={selectIncident} />}
         {tab === 'providers' && <ProvidersTab snapshot={snapshot} expanded={expanded} onToggle={setExpanded} />}
         {tab === 'service' && <ServiceTab incidents={snapshot.activity} expanded={expanded} onToggle={setExpanded} />}
         {tab === 'ops' && <OpsTab rows={snapshot.channels} />}
@@ -739,7 +755,7 @@ function IncidentDetails({
       </table>
       {users.length > USERS_LIMIT && (
         <div className={styles.sub}>
-          {t('ai-insider-alerts.more-viewers', '…and {{count}} more viewers (see Messages, or export CSV)', {
+          {t('ai-insider-alerts.more-viewers', '…and {{count}} more viewers (all of them are in Export run)', {
             count: users.length - USERS_LIMIT,
           })}
         </div>
